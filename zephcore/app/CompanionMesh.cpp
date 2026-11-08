@@ -2436,6 +2436,11 @@ bool CompanionMesh::handleCmdAddUpdateContact(const uint8_t *data, size_t len)
 		/* Marking a Meshtastic node a favourite asks it, once, for its NodeInfo. */
 		bool mt_asks = mt_known && mtFavouriteAsks(*existing, c.flags, mt_node);
 #endif
+		/* The stored advert timestamp is the replay guard of adverts: the app
+		 * may raise it, never lower it. */
+		if (existing && existing->last_advert_timestamp > c.last_advert_timestamp) {
+			c.last_advert_timestamp = existing->last_advert_timestamp;
+		}
 
 		if (existing) {
 			// Update existing
