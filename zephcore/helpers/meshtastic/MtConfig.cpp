@@ -166,8 +166,6 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 			snprintf(reply, cap, "> %s", nameOf(kRelays, p.relay));
 		} else if (strcmp(name, "relay.opaque") == 0) {
 			snprintf(reply, cap, "> %s", nameOf(kBools, p.relay_opaque));
-		} else if (strcmp(name, "position") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kBools, p.position));
 		} else if (strcmp(name, "nodeinfo") == 0) {
 			snprintf(reply, cap, "> %u", (unsigned)p.nodeinfo_s);
 		} else if (strcmp(name, "telemetry") == 0) {
@@ -192,9 +190,6 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 		else { choices(kRelays, reply, cap); }
 	} else if (strcmp(name, "relay.opaque") == 0) {
 		if (valueOf(kBools, val, b)) { changed = p.relay_opaque != b; p.relay_opaque = b; snprintf(reply, cap, "OK"); }
-		else { choices(kBools, reply, cap); }
-	} else if (strcmp(name, "position") == 0) {
-		if (valueOf(kBools, val, b)) { changed = p.position != b; p.position = b; snprintf(reply, cap, "OK"); }
 		else { choices(kBools, reply, cap); }
 	} else if (strcmp(name, "hops") == 0) {
 		if (parseUint(val, 7, u)) { changed = p.hops != u; p.hops = (uint8_t)u; snprintf(reply, cap, "OK"); }

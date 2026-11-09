@@ -38,6 +38,10 @@ uint32_t rebroadcastDelayMs(uint32_t slot_ms, uint32_t r);
  * 2 x cw (RadioInterface::getTxDelayMsecWeighted, router branch), r < 2 * cw. */
 uint32_t earlyDelayMs(uint32_t slot_ms, uint32_t r);
 
+/* Slots to draw r from: 2 x cw for a router (early), 2^cw for a client. */
+uint32_t relayWindow(int8_t snr_x4, bool early);
+uint32_t relayDelayMs(uint32_t slot_ms, bool early, uint32_t r);
+
 class Sink {
 public:
 	virtual ~Sink() {}

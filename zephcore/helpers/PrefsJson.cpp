@@ -247,7 +247,6 @@ protected:
 		def("hops", _p->mt.hops);
 		def("relay", _p->mt.relay);
 		def("opaque", _p->mt.relay_opaque);
-		def("pos", _p->mt.position);
 		def("ni_s", _p->mt.nodeinfo_s);
 		def("tel_s", _p->mt.telemetry_s);
 		def("ch", _p->mt.channel, sizeof(_p->mt.channel));

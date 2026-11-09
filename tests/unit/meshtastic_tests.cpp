@@ -950,7 +950,7 @@ TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, r
     bool ch = false;
     CHECK(mtCmd(p, "get mt.enable") == "> on" && mtCmd(p, "get mt.role") == "> client");
     CHECK(mtCmd(p, "get mt.relay") == "> all" && mtCmd(p, "get mt.relay.opaque") == "> on");
-    CHECK(mtCmd(p, "get mt.channel") == "> LongFast (default key)");
+    CHECK(mtCmd(p, "get mt.channel") == "> SFNarrow (default key)");
     CHECK(mtCmd(p, "get dutycycle") == "<not mine>" && mtCmd(p, "set freq 869") == "<not mine>");
     CHECK(mtCmd(p, "get mt.nope").find("Error") == 0);
 
@@ -991,14 +991,14 @@ TEST(mt_config_sanitize, "UNIT-MT-035", "Out of range stored settings are put ba
     RepeaterPrefs p;
     setDefaults(p, 3);
     CHECK(p.enable == 1 && p.hops == 3 && p.relay == RELAY_ALL && p.nodeinfo_s == 43200);
-    p.enable = 9; p.role = 77; p.hops = 99; p.relay = 9; p.relay_opaque = 3; p.position = 5;
+    p.enable = 9; p.role = 77; p.hops = 99; p.relay = 9; p.relay_opaque = 3;
     p.psk_len = 7; p.nodeinfo_s = 5; p.telemetry_s = 99999999;
     std::memset(p.channel, 0x01, sizeof(p.channel));  // control characters
     sanitize(p);
     CHECK(p.enable == 1 && p.role == ROLE_CLIENT && p.hops == 7 && p.relay == RELAY_ALL);
-    CHECK(p.relay_opaque == 1 && p.position == 1 && p.psk_len == 1 && p.psk[0] == 1);
+    CHECK(p.relay_opaque == 1 && p.psk_len == 1 && p.psk[0] == 1);
     CHECK(p.nodeinfo_s == 600 && p.telemetry_s == 86400);
-    CHECK(std::string(p.channel) == "LongFast");
+    CHECK(std::string(p.channel) == "SFNarrow");
     CHECK(roleSendsEarly(ROLE_ROUTER) && !roleSendsEarly(ROLE_ROUTER_LATE));
     CHECK(!roleYieldsToEcho(ROLE_ROUTER) && !roleYieldsToEcho(ROLE_ROUTER_LATE));
     CHECK(roleYieldsToEcho(ROLE_CLIENT) && roleYieldsToEcho(ROLE_REPEATER));
@@ -1011,6 +1011,12 @@ TEST(mt_router_delay, "UNIT-MT-036", "A router waits at most 2 x cw slots, befor
         uint8_t cw = rebroadcastCw((int8_t)snr);
         CHECK(earlyDelayMs(slot, 2u * cw - 1) < rebroadcastDelayMs(slot, 0));  // 2*cw <= 16 slots
     }
+    // One window and one delay for both roles: a router draws from 2 x cw slots, a client from 2^cw.
+    for (int snr = -80; snr <= 40; snr += 4) {
+        uint8_t cw = rebroadcastCw((int8_t)snr);
+        CHECK(relayWindow((int8_t)snr, true) == 2u * cw && relayWindow((int8_t)snr, false) == (1u << cw));
+    }
+    CHECK(relayDelayMs(slot, true, 3) == earlyDelayMs(slot, 3) && relayDelayMs(slot, false, 3) == rebroadcastDelayMs(slot, 3));
     Bridge b = makeNode(0xA1A1A1A1u, "alpha", 1);
     b.setRole(ROLE_ROUTER);
     uint8_t frame[kMaxFrame];

@@ -118,7 +118,7 @@ struct MtDefaultChannel {
 };
 
 static const MtDefaultChannel kMtDefaults[] = {
-	{"MT:SFNarrow", 1}, {"MT:Test", 2}, {"MT:Bots", 2}, {"MT:Catalunya", 1}, {"MT:Barcelona", 1},
+	{"MT:" MT_DEFAULT_CHANNEL, 1}, {"MT:Test", 2}, {"MT:Bots", 2}, {"MT:Catalunya", 1}, {"MT:Barcelona", 1},
 };
 static const char *const kMcHashtagDefaults[] = {"#test", "#bot"};
 

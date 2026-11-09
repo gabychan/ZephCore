@@ -27,6 +27,9 @@ enum Relay : uint8_t {
 	RELAY_ALL = 2,        /* the above, and the rest unless another node repeated it first */
 };
 
+/* The channel both roles start on: Meshtastic's default key under this name. */
+#define MT_DEFAULT_CHANNEL "SFNarrow"
+
 static constexpr size_t kChannelNameMax = 11;
 static constexpr size_t kPskMax = 16;
 
@@ -37,7 +40,6 @@ struct RepeaterPrefs {
 	uint8_t hops;          /* hop_limit of the frames we originate, 0-7 */
 	uint8_t relay;
 	uint8_t relay_opaque;  /* also repeat channels we hold no key for */
-	uint8_t position;      /* send our fixed position */
 	uint8_t psk_len;       /* 1: the default key, whose byte is psk[0] */
 	uint8_t psk[kPskMax];
 	uint32_t nodeinfo_s;
@@ -81,7 +83,6 @@ inline void sanitize(RepeaterPrefs &p)
 	p.hops = p.hops > 7 ? 7 : p.hops;
 	p.relay = p.relay > RELAY_ALL ? RELAY_ALL : p.relay;
 	p.relay_opaque = p.relay_opaque > 1 ? 1 : p.relay_opaque;
-	p.position = p.position > 1 ? 1 : p.position;
 	if (p.psk_len != 1 && p.psk_len != kPskMax) {
 		p.psk_len = 1;
 		p.psk[0] = 1;
@@ -90,7 +91,7 @@ inline void sanitize(RepeaterPrefs &p)
 	p.telemetry_s = clampInterval(p.telemetry_s, 60, 86400);
 	p.channel[kChannelNameMax] = '\0';
 	if (!validName(p.channel)) {
-		const char kDefault[] = "LongFast";
+		const char kDefault[] = MT_DEFAULT_CHANNEL;
 
 		for (size_t i = 0; i < sizeof(kDefault); i++) {
 			p.channel[i] = kDefault[i];
