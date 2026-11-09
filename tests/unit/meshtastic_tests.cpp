@@ -5,6 +5,7 @@
 #include <helpers/ContactChange.h>
 #include <helpers/meshtastic/MtBridge.h>
 #include <helpers/meshtastic/MtPolicy.h>
+#include <helpers/meshtastic/MtDiscriminate.h>
 #include <mesh/ContentionTracker.h>
 #include <mesh/Packet.h>
 
@@ -849,4 +850,86 @@ TEST(contact_change, "UNIT-MT-029", "Only a new record or a changed name, type o
     CHECK(contactChangedSubstantively(lo, c));
     ContactSnapshot nm = before; std::strcpy(nm.name, "Beta (MT)");
     CHECK(contactChangedSubstantively(nm, c));
+}
+
+TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive an echo; the rest yields to it") {
+    CHECK(relayClassOf(PORT_TEXT) == RelayClass::Always);
+    CHECK(relayClassOf(PORT_ROUTING) == RelayClass::Always);
+    CHECK(relayClassOf(PORT_NODEINFO) == RelayClass::Always);
+    CHECK(relayClassOf(PORT_TRACEROUTE) == RelayClass::Always);
+    CHECK(relayClassOf(PORT_POSITION) == RelayClass::CancelOnEcho);
+    CHECK(relayClassOf(67) == RelayClass::CancelOnEcho);  // telemetry
+    CHECK(relayClassOf(0) == RelayClass::CancelOnEcho);
+
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 1), r = makeNode(0xD4D4D4D4u, "delta", 2);
+    r.setRelay(true);
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len = 0;
+    RelayClass cls = RelayClass::CancelOnEcho;
+    Capture cap;
+    size_t n = a.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame));
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_HANDLED);
+    CHECK(relay_len == n && cls == RelayClass::Always);
+    Position pos = {};
+    pos.has_lat = pos.has_lon = true;
+    pos.lat_i = 414000000;
+    pos.lon_i = 21700000;
+    n = a.buildPosition(3, pos, frame, sizeof(frame));
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_HANDLED);
+    CHECK(relay_len == n && cls == RelayClass::CancelOnEcho);
+}
+
+TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore") {
+    Bridge a(refAes);
+    a.setSelf(0xA1A1A1A1u, "alpha", "ZN", 1);
+    uint8_t psk[16];
+    for (int i = 0; i < 16; i++) psk[i] = (uint8_t)(0x40 + i);
+    CHECK(a.setChannel(1, "private", psk, 16));
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t n = a.buildText(1, kBroadcast, "secreto", 7, frame, sizeof(frame));
+    // Force a payload that cannot pass for MeshCore: 16-byte blocks never end at 7.
+    while (looksLikeMeshCore(frame, n, 0)) { frame[0] ^= 0x40; }
+
+    Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);  // holds LongFast only
+    Capture cap;
+    size_t relay_len = 0;
+    RelayClass cls = RelayClass::Always;
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
+    r.setRelay(true);
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
+    r.setRelayOpaque(true);
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_OPAQUE);
+    Header h, hr;
+    CHECK(parseHeader(frame, n, h) && relay_len == n && parseHeader(relay, relay_len, hr));
+    CHECK(hr.hopLimit() == h.hopLimit() - 1 && hr.relay == 0xD4 && hr.id == h.id && hr.from == h.from);
+    CHECK(cls == RelayClass::CancelOnEcho && cap.texts.empty());
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_DUPLICATE && relay_len == 0);
+}
+
+TEST(mt_discriminate, "UNIT-MT-032", "A well formed MeshCore frame is never taken for Meshtastic") {
+    // GRP_TXT flood: header 0x15, no path, channel hash + MAC + one block.
+    uint8_t mc[1 + 1 + 3 + 16] = {0x15, 0x00, 0xAA, 0xBB, 0xCC};
+    CHECK(looksLikeMeshCore(mc, sizeof(mc), 0xA1A1A1A1u));
+    CHECK(!looksLikeMeshCore(mc, sizeof(mc) - 1, 0));       // not whole blocks
+    uint8_t v2[sizeof(mc)];
+    std::memcpy(v2, mc, sizeof(mc));
+    v2[0] |= 0x80;                                         // payload version 2
+    CHECK(!looksLikeMeshCore(v2, sizeof(v2), 0));
+    std::memcpy(v2, mc, sizeof(mc));
+    v2[1] = 0xC0;                                          // reserved path mode
+    CHECK(!looksLikeMeshCore(v2, sizeof(v2), 0));
+    v2[1] = 63;                                            // path runs past the frame
+    CHECK(!looksLikeMeshCore(v2, sizeof(v2), 0));
+    CHECK(!looksLikeMeshCore(mc, 1, 0));
+    // Our own node number in the Meshtastic to/from fields vetoes it.
+    uint8_t own[sizeof(mc)];
+    std::memcpy(own, mc, sizeof(mc));
+    own[0] = 0x15; own[1] = 0x00; own[2] = 0; own[3] = 0;
+    uint32_t self = 0x00000015u;
+    CHECK(!looksLikeMeshCore(own, sizeof(own), self) && looksLikeMeshCore(own, sizeof(own), 0));
+    // Transport flood carries two 16-bit codes before the path length.
+    uint8_t tr[1 + 4 + 1 + 3 + 16] = {0x14, 1, 2, 3, 4, 0, 0xAA, 0xBB, 0xCC};
+    tr[0] = (uint8_t)((PAYLOAD_TYPE_GRP_TXT << 2) | ROUTE_TYPE_TRANSPORT_FLOOD);
+    CHECK(looksLikeMeshCore(tr, sizeof(tr), 0));
+    CHECK(!looksLikeMeshCore(tr, 5, 0));
 }

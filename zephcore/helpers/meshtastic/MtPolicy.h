@@ -8,6 +8,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "MtWire.h"
 
 namespace mt {
 
@@ -55,6 +56,26 @@ inline bool favouriteAsksNodeInfo(bool was_favourite, bool is_favourite, bool ha
 				  bool has_key)
 {
 	return !was_favourite && is_favourite && !(has_name && has_key);
+}
+
+/* What a repeater does with a frame it heard repeated by another node while
+ * its own copy waits: Always sends it anyway, CancelOnEcho drops it. */
+enum class RelayClass : uint8_t { Always, CancelOnEcho };
+
+/* Traffic a mesh cannot do without is never dropped on an echo: text and
+ * direct messages, their ACKs, NodeInfo and traceroute. portnum 0 is a frame
+ * we could not open (another network's channel). */
+inline RelayClass relayClassOf(uint32_t portnum)
+{
+	switch (portnum) {
+	case PORT_TEXT:
+	case PORT_ROUTING:
+	case PORT_NODEINFO:
+	case PORT_TRACEROUTE:
+		return RelayClass::Always;
+	default:
+		return RelayClass::CancelOnEcho;
+	}
 }
 
 } /* namespace mt */

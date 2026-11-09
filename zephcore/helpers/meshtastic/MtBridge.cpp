@@ -4,6 +4,7 @@
  */
 
 #include "MtBridge.h"
+#include "MtDiscriminate.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -157,11 +158,14 @@ uint32_t rebroadcastDelayMs(uint32_t slot_ms, uint32_t r)
 }
 
 RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink &sink,
-			     uint8_t *relay_out, size_t *relay_len)
+			     uint8_t *relay_out, size_t *relay_len, RelayClass *relay_class)
 {
 	Header h;
 
 	*relay_len = 0;
+	if (relay_class) {
+		*relay_class = RelayClass::CancelOnEcho;
+	}
 	/* A header plus at least the two bytes of the shortest Data (portnum). */
 	if (_self == 0 || len < kHeaderLen + 2 || len > kMaxFrame || !parseHeader(raw, len, h) ||
 	    h.from == 0) {
@@ -199,7 +203,19 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		}
 	}
 	if (!match) {
-		return RX_NOT_MESHTASTIC;
+		if (!_relay || !_relay_opaque || looksLikeMeshCore(raw, len, _self)) {
+			return RX_NOT_MESHTASTIC;
+		}
+		if (h.from == _self || seen(h.from, h.id)) {
+			return RX_DUPLICATE;
+		}
+		remember(h.from, h.id);
+		if (fillRelay(h, raw, len, relay_out, relay_len) && relay_class &&
+		    h.channel == 0 && h.to != kBroadcast) {
+			/* Channel 0 to one node is a PKI direct message or its ACK. */
+			*relay_class = RelayClass::Always;
+		}
+		return RX_OPAQUE;
 	}
 
 	if (h.from == _self || seen(h.from, h.id)) {
@@ -218,14 +234,23 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		deliverData(h, d, match->id, snr_x4, sink);
 	}
 
-	/* Repeat a flood once: next_hop 0, hops left, and not a frame for us alone. */
-	if (_relay && h.next_hop == 0 && h.hopLimit() > 0 && h.to != _self) {
-		memcpy(relay_out, raw, len);
-		relay_out[12] = (uint8_t)((h.flags & ~0x07) | (h.hopLimit() - 1));
-		relay_out[15] = (uint8_t)_self;
-		*relay_len = len;
+	if (fillRelay(h, raw, len, relay_out, relay_len) && relay_class) {
+		*relay_class = relayClassOf(d.portnum);
 	}
 	return RX_HANDLED;
+}
+
+bool Bridge::fillRelay(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,
+		       size_t *relay_len) const
+{
+	if (!_relay || h.next_hop != 0 || h.hopLimit() == 0 || h.to == _self) {
+		return false;
+	}
+	memcpy(relay_out, raw, len);
+	relay_out[12] = (uint8_t)((h.flags & ~0x07) | (h.hopLimit() - 1));
+	relay_out[15] = (uint8_t)_self;
+	*relay_len = len;
+	return true;
 }
 
 bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,

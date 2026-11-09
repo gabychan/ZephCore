@@ -9,6 +9,7 @@
 #pragma once
 
 #include "MtPki.h"
+#include "MtPolicy.h"
 #include "MtWire.h"
 
 namespace mt {
@@ -74,6 +75,7 @@ enum RxResult {
 	RX_NOT_MESHTASTIC,  /* leave the frame to MeshCore */
 	RX_HANDLED,         /* decrypted on one of our channels */
 	RX_DUPLICATE,       /* seen before; nothing to deliver */
+	RX_OPAQUE,          /* Meshtastic on a channel we hold no key for; only relayed */
 };
 
 class Bridge {
@@ -98,13 +100,17 @@ public:
 	bool hasPki() const { return _pki != nullptr; }
 
 	void setRelay(bool on) { _relay = on; }
+	/* Also repeat frames no channel of ours opens (needs setRelay). */
+	void setRelayOpaque(bool on) { _relay_opaque = on; }
 	/* hop_limit and hop_start of the frames we originate, 0 to 7. */
 	void setHopLimit(uint8_t hops) { _hops = hops > 7 ? 7 : hops; }
 
 	/* relay_out (kMaxFrame bytes) receives the frame to repeat; *relay_len is
-	 * its length, 0 when nothing is to be repeated. */
+	 * its length, 0 when nothing is to be repeated. *relay_class, when given,
+	 * says how that repeat is treated once another node repeats it first. */
 	RxResult handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink &sink,
-			     uint8_t *relay_out, size_t *relay_len);
+			     uint8_t *relay_out, size_t *relay_len,
+			     RelayClass *relay_class = nullptr);
 
 	/* Frame builders: bytes written to out, 0 on failure (unknown channel,
 	 * text too long for kMaxTxFrame, cap too small). to is a node number or
@@ -143,6 +149,7 @@ private:
 	uint32_t _id_prefix = 0;
 	uint32_t _id_counter = 0;
 	bool _relay = false;
+	bool _relay_opaque = false;
 	uint8_t _hops = 3;  /* Meshtastic's own default */
 	User _user = {};
 	const PkiCrypto *_pki = nullptr;
@@ -152,6 +159,9 @@ private:
 	bool seen(uint32_t from, uint32_t id) const;
 	void remember(uint32_t from, uint32_t id);
 	uint32_t nextId();
+	/* Floods repeat once: next_hop 0, hops left, not for us alone. */
+	bool fillRelay(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,
+		       size_t *relay_len) const;
 	/* ch carries the frame on a channel; pki_key (32 bytes) instead seals it for
 	 * one node and sets channel 0. */
 	size_t buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,

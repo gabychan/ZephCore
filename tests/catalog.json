@@ -743,6 +743,21 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-030",
+      "name": "Text, ACK, NodeInfo and traceroute survive an echo; the rest yields to it",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-031",
+      "name": "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-032",
+      "name": "A well formed MeshCore frame is never taken for Meshtastic",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

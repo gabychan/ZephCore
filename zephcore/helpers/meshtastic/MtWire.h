@@ -22,6 +22,7 @@ enum : uint32_t {
 	PORT_POSITION = 3,
 	PORT_NODEINFO = 4,
 	PORT_ROUTING = 5,
+	PORT_TRACEROUTE = 70,
 };
 
 struct Header {
