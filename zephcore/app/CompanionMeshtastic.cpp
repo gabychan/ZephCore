@@ -65,27 +65,7 @@ static bool mtContactBase(const char *contact, char *out, size_t cap)
 	return false;
 }
 
-/* AES-256 block and SHA-256 for the PKI code, through PSA like the rest of the crypto. */
-static void mtAes256Block(const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
-{
-	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
-	psa_key_id_t id;
-	size_t n = 0;
-
-	psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
-	psa_set_key_bits(&attr, 256);
-	psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT);
-	psa_set_key_algorithm(&attr, PSA_ALG_ECB_NO_PADDING);
-	if (psa_import_key(&attr, key, 32, &id) != PSA_SUCCESS) {
-		memset(out, 0, 16);
-		return;
-	}
-	if (psa_cipher_encrypt(id, PSA_ALG_ECB_NO_PADDING, in, 16, out, 16, &n) != PSA_SUCCESS) {
-		memset(out, 0, 16);
-	}
-	psa_destroy_key(id);
-}
-
+/* SHA-256 for the PKI code, through PSA like the rest of the crypto. */
 static void mtSha256(const uint8_t *msg, size_t len, uint8_t out[32])
 {
 	mesh::Utils::sha256(out, 32, msg, (int)len);
@@ -99,7 +79,7 @@ static uint32_t mtRandom32()
 	return r;
 }
 
-static const mt::PkiCrypto kMtPki = {mtAes256Block, mtSha256, mtRandom32};
+static const mt::PkiCrypto kMtPki = {MtRelayPort::aesBlock256, mtSha256, mtRandom32};
 
 bool CompanionMesh::mtIsChannelName(const char *name)
 {
@@ -178,6 +158,7 @@ void CompanionMesh::mtSetup()
 void CompanionMesh::mtPrefsChanged()
 {
 	if (_mt_ready) {
+		MtRelayPort::renameSelf(_mt, prefs.node_name);
 		_mtport.apply(prefs.mt);
 		_mtport.arm((uint32_t)_ms->getMillis(), prefs.mt);
 	}
@@ -291,6 +272,17 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 		fresh.sync_since = node;
 		fresh.last_advert_timestamp = now;
 		fresh.lastmod = now;
+		if (!shouldAutoAddContactType(fresh.type)) {
+			if (name && name[0]) {
+				mtContactName(fresh.name, sizeof(fresh.name), name);
+			}
+			if (has_pos) {
+				fresh.gps_lat = lat_i / 10;
+				fresh.gps_lon = lon_i / 10;
+			}
+			onDiscoveredContact(fresh, true, 0, nullptr);
+			return;
+		}
 		if (!addContact(fresh)) {
 			LOG_WRN("mt: contacts full, node %08x not added", (unsigned)node);
 			return;
@@ -330,8 +322,10 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 		return false;
 	}
 
-	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(prefs.mt),
-					 prefs.sf, prefs.bw);
+	MtRelayPort::Policy policy = MtRelayPort::policyFor(prefs.mt);
+
+	policy.yields = false; /* a companion never cancels a repeat on an echo */
+	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, policy, prefs.sf, prefs.bw);
 
 	if (r == mt::RX_NOT_MESHTASTIC) {
 		return false;

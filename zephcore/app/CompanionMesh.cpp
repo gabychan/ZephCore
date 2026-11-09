@@ -2154,6 +2154,9 @@ bool CompanionMesh::handleCmdSetAdvertName(const uint8_t *data, size_t len)
 #endif
 		/* v-contact name tracks the node name — update the app's copy. */
 		vcontactPushAdvert();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		mtPrefsChanged();
+#endif
 	}
 	writeOKFrame();
 	return true;

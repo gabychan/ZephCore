@@ -668,11 +668,15 @@ ZephyrDataStore::MtKeyResult ZephyrDataStore::putMtKey(uint32_t node, const uint
 	if (mtkeys_scan(path, node, have, &count)) {
 		return memcmp(have, key, 32) == 0 ? MTKEY_SAME : MTKEY_CONFLICT;
 	}
-	if (count >= max_keys && !rewriteMtKeys(keep, ctx, &count)) {
-		return MTKEY_FAILED;
-	}
 	if (count >= max_keys) {
-		return MTKEY_FAILED;
+		/* Full of keys in use: nothing to drop until removeMtKey() frees one. */
+		if (_mtkeys_all_in_use || !rewriteMtKeys(keep, ctx, &count)) {
+			return MTKEY_FAILED;
+		}
+		_mtkeys_all_in_use = count >= max_keys;
+		if (_mtkeys_all_in_use) {
+			return MTKEY_FAILED;
+		}
 	}
 	uint8_t rec[MTKEY_REC_SZ];
 	struct fs_file_t file;
@@ -699,6 +703,7 @@ bool ZephyrDataStore::removeMtKey(uint32_t node)
 	if (!mtkeys_scan(mtKeysFile(), node, have, &count)) {
 		return true;
 	}
+	_mtkeys_all_in_use = false;
 	return rewriteMtKeys([](uint32_t n, void *arg) { return n != *static_cast<uint32_t *>(arg); },
 			     &node, &kept);
 }
@@ -777,6 +782,19 @@ void ZephyrDataStore::saveChannels(DataStoreHost *host)
 }
 
 /* ── Blobs ─────────────────────────────────────────────────────────── */
+
+uint8_t ZephyrDataStore::loadMtDefaultsRev()
+{
+	uint8_t rev = 0;
+	size_t n = 0;
+
+	return (zephcore_fs_read_file(mtRevFile(), &rev, 1, &n) && n == 1) ? rev : 0;
+}
+
+bool ZephyrDataStore::saveMtDefaultsRev(uint8_t rev)
+{
+	return zephcore_fs_atomic_replace(mtRevFile(), &rev, 1, "saveMtDefaultsRev");
+}
 
 uint8_t ZephyrDataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[])
 {

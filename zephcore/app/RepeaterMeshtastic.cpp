@@ -78,6 +78,8 @@ void RepeaterMesh::mtApplyPrefs()
 	if (!_mt_ready) {
 		MtRelayPort::initSelf(_mt, self_id, _prefs.node_name, *getRNG());
 		_mt_ready = true;
+	} else {
+		MtRelayPort::renameSelf(_mt, _prefs.node_name);
 	}
 	_mtport.apply(p);
 	_mt.clearChannels();

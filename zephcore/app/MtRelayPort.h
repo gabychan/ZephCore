@@ -35,9 +35,14 @@ public:
 
 	/* The bridge's AES-128 block function. */
 	static void aesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
+	/* The same with an AES-256 key, for the PKI code. */
+	static void aesBlock256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]);
 	/* Our node number, names and packet id seed. */
 	static void initSelf(mt::Bridge &bridge, const mesh::LocalIdentity &id, const char *name,
 			     mesh::RNG &rng);
+
+	/* The node was renamed. */
+	static void renameSelf(mt::Bridge &bridge, const char *name);
 
 	static Policy policyFor(const mt::RepeaterPrefs &p);
 

@@ -95,6 +95,8 @@ public:
 	 * the packet id sequence. */
 	void setSelf(uint32_t node, const char *long_name, const char *short_name, uint32_t seed);
 	uint32_t self() const { return _self; }
+	/* The names in our NodeInfo; the node number and the rest stay. */
+	void setNames(const char *long_name, const char *short_name);
 	/* Our role in the NodeInfo we send (Config.DeviceConfig.Role). */
 	void setRole(uint8_t role) { _user.role = role; }
 

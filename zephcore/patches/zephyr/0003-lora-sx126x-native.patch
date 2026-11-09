@@ -719,7 +719,7 @@ Regenerate with:
 appended to this preamble.
 
 diff --git a/drivers/lora/native/sx126x/sx126x.c b/drivers/lora/native/sx126x/sx126x.c
-index f68bf5088..cb205f959 100644
+index f68bf5088..5ca939166 100644
 --- a/drivers/lora/native/sx126x/sx126x.c
 +++ b/drivers/lora/native/sx126x/sx126x.c
 @@ -6,15 +6,54 @@
@@ -2366,7 +2366,7 @@ index f68bf5088..cb205f959 100644
  	if (ret < 0) {
  		goto out_sleep;
  	}
-@@ -1607,53 +2497,1147 @@ out_unlock:
+@@ -1607,53 +2497,1151 @@ out_unlock:
  	return ret;
  }
  
@@ -2616,6 +2616,10 @@ index f68bf5088..cb205f959 100644
 -	atomic_set(&data->state, SX126X_STATE_IDLE);
 -	data->config_valid = false;
 +	k_mutex_lock(&data->lock, K_FOREVER);
++	/* Under duty cycle the chip sleeps with BUSY high; the HAL would wait for it. */
++	if (sx126x_hal_is_busy(dev)) {
++		sx126x_hal_wakeup(dev);
++	}
 +	ret = sx126x_hal_write_regs(dev, SX126X_REG_LORA_SYNC_WORD_MSB, buf, 2);
 +	k_mutex_unlock(&data->lock);
 +	return ret;
@@ -3552,7 +3556,7 @@ index f68bf5088..cb205f959 100644
  
  	/* Initialize HAL */
  	ret = sx126x_hal_init(dev);
-@@ -1715,6 +3699,8 @@ static int sx126x_init(const struct device *dev)
+@@ -1715,6 +3703,8 @@ static int sx126x_init(const struct device *dev)
  						      {0}),			\
  		.rx_enable = GPIO_DT_SPEC_INST_GET_OR(inst, rx_enable_gpios,	\
  						      {0}),			\
@@ -3561,7 +3565,7 @@ index f68bf5088..cb205f959 100644
  		.dio2_tx_enable = DT_INST_PROP(inst, dio2_tx_enable),		\
  		.dio3_tcxo_enable = DT_INST_NODE_HAS_PROP(inst, dio3_tcxo_voltage), \
  		.dio3_tcxo_voltage = DT_INST_PROP_OR(inst, dio3_tcxo_voltage, 0), \
-@@ -1769,6 +3755,8 @@ DT_INST_FOREACH_STATUS_OKAY_VARGS(SX126X_INIT, true)
+@@ -1769,6 +3759,8 @@ DT_INST_FOREACH_STATUS_OKAY_VARGS(SX126X_INIT, true)
  						      {0}),			\
  		.rx_enable = GPIO_DT_SPEC_INST_GET_OR(inst, rx_enable_gpios,	\
  						      {0}),			\

@@ -36,6 +36,12 @@ void Bridge::setSelf(uint32_t node, const char *long_name, const char *short_nam
 	_user.hw_model = kHwPrivate;
 }
 
+void Bridge::setNames(const char *long_name, const char *short_name)
+{
+	snprintf(_user.long_name, sizeof(_user.long_name), "%s", long_name);
+	snprintf(_user.short_name, sizeof(_user.short_name), "%s", short_name);
+}
+
 void Bridge::setPki(const PkiCrypto *crypto, const uint8_t seed[32])
 {
 	_pki = crypto;

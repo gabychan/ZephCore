@@ -80,6 +80,7 @@ public:
 	explicit ZcCommonJson(NodePrefs *p) : _p(p) {}
 };
 
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 /* mt{}: the Meshtastic side of both roles. */
 class MtJson : public ConfigSerializer {
 	NodePrefs *_p;
@@ -102,6 +103,7 @@ protected:
 public:
 	explicit MtJson(NodePrefs *p) : _p(p) {}
 };
+#endif
 
 /* ── Companion: upstream examples/companion_radio/NodePrefs.h ──────── */
 
@@ -182,7 +184,9 @@ class CompanionJson : public ConfigSerializer {
 	CompJson _comp;
 	WifiJson _wifi;
 	ZcCompanionJson _zc;
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 	MtJson _mt;
+#endif
 
 protected:
 	void structure() override
@@ -196,12 +200,17 @@ protected:
 		def("comp", _comp);
 		def("wifi", _wifi);
 		def("zc", _zc);
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 		def("mt", _mt);
+#endif
 	}
 
 public:
 	explicit CompanionJson(NodePrefs *p)
-		: _p(p), _radio(p), _gps(p), _comp(p), _wifi(p), _zc(p), _mt(p)
+		: _p(p), _radio(p), _gps(p), _comp(p), _wifi(p), _zc(p)
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+		, _mt(p)
+#endif
 	{
 		/* upstream: repeat.disable; ours: client_repeat (1 = forward) */
 		_repeat.disable = p->client_repeat ? 0 : 1;
@@ -283,7 +292,9 @@ class ServerJson : public ConfigSerializer {
 	RoomJson _room;
 	PowerJson _power;
 	ZcServerJson _zc;
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 	MtJson _mt;
+#endif
 
 protected:
 	void structure() override
@@ -302,12 +313,18 @@ protected:
 		def("room", _room);
 		def("power", _power);
 		def("zc", _zc);
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 		def("mt", _mt);
+#endif
 	}
 
 public:
 	explicit ServerJson(NodePrefs *p)
-		: _p(p), _radio(p), _gps(p), _repeat(p), _room(p), _power(p), _zc(p), _mt(p) {}
+		: _p(p), _radio(p), _gps(p), _repeat(p), _room(p), _power(p), _zc(p)
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+		, _mt(p)
+#endif
+	{}
 
 	bool save(Stream &s) { return saveSerial(s); }
 	bool load(Stream &s) { return loadSerial(s); }

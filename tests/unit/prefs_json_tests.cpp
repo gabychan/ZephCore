@@ -241,6 +241,6 @@ TEST(pjson_server_mt, "UNIT-PJSON-010", "The repeater's Meshtastic settings surv
     MemStream old("{name:\"R\",lat:0,lon:0,radio:{freq:869.6180,bw:62.5000,sf:8,cr:5,tx:20}}");
     NodePrefs d = defaults();
     CHECK(serverPrefsFromJson(d, old));
-    CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT && d.mt.relay == mt::RELAY_ALL);
+    CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT && d.mt.relay == mt::RELAY_ESSENTIAL);
     CHECK(std::string(d.mt.channel) == "SFNarrow" && d.mt.psk_len == 1 && d.mt.psk[0] == 1);
 }

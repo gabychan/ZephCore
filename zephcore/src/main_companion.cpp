@@ -1055,16 +1055,12 @@ int main(void)
 	/* The first boot on a firmware with a new defaults revision adds the default
 	 * channels that are missing; later boots leave the list as the user has it. */
 	{
-		static const uint8_t kKey[] = "zt_ch_rev";
-		uint8_t rev = 0;
-
-		if (data_store.getBlobByKey(kKey, sizeof(kKey) - 1, &rev) == 0 ||
-		    rev != CompanionMesh::MT_DEFAULTS_REV) {
+		if (data_store.loadMtDefaultsRev() != CompanionMesh::MT_DEFAULTS_REV) {
 			companion_mesh.mtAddDefaultChannels();
 			data_store.saveChannels(&companion_mesh);
-			rev = CompanionMesh::MT_DEFAULTS_REV;
-			data_store.putBlobByKey(kKey, sizeof(kKey) - 1, &rev, 1);
-			LOG_INF("Added missing default channels (revision %u)", rev);
+			data_store.saveMtDefaultsRev(CompanionMesh::MT_DEFAULTS_REV);
+			LOG_INF("Added missing default channels (revision %u)",
+				CompanionMesh::MT_DEFAULTS_REV);
 		}
 	}
 #endif

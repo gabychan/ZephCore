@@ -12,13 +12,51 @@
 #include <stdio.h>
 #include <mesh/ContentionTracker.h>
 #include <mesh/Utils.h>
+#include <psa/crypto.h>
+#include <string.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(zephcore_mt, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 
+/* The counter blocks of a frame share one key: it is imported once and kept until the next key. */
+static void aesEcb(const uint8_t *key, size_t key_len, const uint8_t in[16], uint8_t out[16])
+{
+	static uint8_t cached[32];
+	static size_t cached_len;
+	static psa_key_id_t cached_id;
+	size_t n = 0;
+
+	if (cached_len != key_len || memcmp(cached, key, key_len) != 0) {
+		psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+
+		if (cached_len) {
+			psa_destroy_key(cached_id);
+			cached_len = 0;
+		}
+		psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
+		psa_set_key_bits(&attr, key_len * 8);
+		psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT);
+		psa_set_key_algorithm(&attr, PSA_ALG_ECB_NO_PADDING);
+		if (psa_import_key(&attr, key, key_len, &cached_id) != PSA_SUCCESS) {
+			memset(out, 0, 16);
+			return;
+		}
+		memcpy(cached, key, key_len);
+		cached_len = key_len;
+	}
+	if (psa_cipher_encrypt(cached_id, PSA_ALG_ECB_NO_PADDING, in, 16, out, 16, &n) != PSA_SUCCESS) {
+		memset(out, 0, 16);
+	}
+}
+
 void MtRelayPort::aesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
 {
-	mesh::Utils::encrypt(key, out, in, 16);
+	aesEcb(key, 16, in, out);
+}
+
+void MtRelayPort::aesBlock256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
+{
+	aesEcb(key, 32, in, out);
 }
 
 void MtRelayPort::initSelf(mt::Bridge &bridge, const mesh::LocalIdentity &id, const char *name,
@@ -30,6 +68,14 @@ void MtRelayPort::initSelf(mt::Bridge &bridge, const mesh::LocalIdentity &id, co
 	rng.random((uint8_t *)&seed, sizeof(seed));
 	mt::shortName(name, short_name);
 	bridge.setSelf(mt::nodeFromPublicKey(id.pub_key), name, short_name, seed);
+}
+
+void MtRelayPort::renameSelf(mt::Bridge &bridge, const char *name)
+{
+	char short_name[5];
+
+	mt::shortName(name, short_name);
+	bridge.setNames(name, short_name);
 }
 
 static constexpr uint32_t kFirstNodeInfoMs = 30000;
