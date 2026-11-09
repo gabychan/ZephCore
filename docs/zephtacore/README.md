@@ -120,12 +120,13 @@ derived from it matches.
 ## Repeater
 
 The repeater role builds with the same `CONFIG_ZEPHTACORE_MESHTASTIC` (`boards/common/repeater.conf;boards/common/zephtacore.conf`).
-It holds one channel, the primary (default `LongFast`), because Meshtastic sends NodeInfo, position and telemetry on it.
+It holds one channel, the primary (default `SFNarrow`, the companion's own first channel, named once in `MT_DEFAULT_CHANNEL`), because Meshtastic sends NodeInfo, position and telemetry on it.
 Settings live under `mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI_commands.md`).
 
 | Piece | Where |
 | --- | --- |
-| Repeater glue (RX hook, relay queue, NodeInfo, `mt.` commands) | `zephcore/app/RepeaterMeshtastic.cpp` |
+| Repeater glue (RX hook, NodeInfo, position, telemetry, `mt.` commands) | `zephcore/app/RepeaterMeshtastic.cpp` |
+| What companion and repeater share: hearing a frame, repeating it with the role's timing, giving way to an echo, our own frames, AES, self identity | `zephcore/app/MtRelayPort.h/.cpp` |
 | Settings, command parser, defaults | `zephcore/helpers/meshtastic/MtConfig.h/.cpp` |
 | What gives way to an echo | `mt::relayClassOf` in `MtPolicy.h` |
 | MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h` |
@@ -147,10 +148,10 @@ floods on) and sets `relay_node`. A frame first heard while it named another nod
 fallback, and the originator sending a frame again (`hop_start == hop_limit`, nobody ACKed) is repeated again, once per retry.
 A repeat heard from another repeater is not dropped if that repeater named this node.
 
-Our NodeInfo, and our fixed position and device metrics when enabled, go out on the primary channel only.
+Our NodeInfo, our position and our device metrics (when enabled) go out on the primary channel only. The position is the MeshCore one (`set lat` / `set lon`), sent after each NodeInfo while `advert.loc` is not `none`. Name, identity, radio parameters and `repeat` stay MeshCore's; `mt.relay` is Meshtastic's own switch, independent of `repeat`.
 
-Size: the repeater grows by 12.2 KB of flash and 1.2 KB of RAM (`wio_tracker_l1`, 289392 vs 277168 B and 85148 vs 83932 B);
-the companion by 0.8 KB of flash and 0.3 KB of RAM (settings in `NodePrefs`, the dedup table's relayed flag).
+Size: the repeater grows by 12.2 KB of flash and 1.2 KB of RAM (`wio_tracker_l1`, 289344 vs 277168 B and 85148 vs 83932 B);
+the companion by 1.3 KB of flash and 0.4 KB of RAM (settings in `NodePrefs`, the dedup table's relayed flag, the shared port).
 Not run on air.
 
 ## Verification

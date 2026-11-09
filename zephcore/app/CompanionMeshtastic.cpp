@@ -65,11 +65,6 @@ static bool mtContactBase(const char *contact, char *out, size_t cap)
 	return false;
 }
 
-void CompanionMesh::mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
-{
-	mesh::Utils::encrypt(key, out, in, 16);
-}
-
 /* AES-256 block and SHA-256 for the PKI code, through PSA like the rest of the crypto. */
 static void mtAes256Block(const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
 {
@@ -164,12 +159,7 @@ void CompanionMesh::mtAddDefaultChannels()
 
 void CompanionMesh::mtSetup()
 {
-	char short_name[5];
-	uint32_t seed = 0;
-
-	getRNG()->random((uint8_t *)&seed, sizeof(seed));
-	mt::shortName(prefs.node_name, short_name);
-	_mt.setSelf(mt::nodeFromPublicKey(self_id.pub_key), prefs.node_name, short_name, seed);
+	MtRelayPort::initSelf(_mt, self_id, prefs.node_name, *getRNG());
 	_mt.setRelay(IS_ENABLED(CONFIG_ZEPHTACORE_MT_RELAY));
 	_mt.setHopLimit(CONFIG_ZEPHTACORE_MT_HOP_LIMIT);
 
@@ -314,13 +304,6 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 	_advert_prev.known = false;
 }
 
-void CompanionMesh::mtQueue(const uint8_t *frame, size_t len, uint32_t delay_ms)
-{
-	if (!sendForeign(frame, (int)len, 1, delay_ms)) {
-		LOG_WRN("mt: frame not queued (len=%u)", (unsigned)len);
-	}
-}
-
 /* ── RX ───────────────────────────────────────────────────────────────── */
 
 bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
@@ -335,31 +318,18 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 		return false;
 	}
 
-	uint8_t relay[mt::kMaxFrame];
-	size_t relay_len = 0;
-	mt::RxResult r = _mt.handleFrame(raw, (size_t)len, (int8_t)(snr * 4.0f), _mt_sink, relay,
-					 &relay_len);
+	/* The companion repeats flood frames with a client's timing and never drops a repeat
+	 * because another node sent it first. */
+	const MtRelayPort::Policy policy = {true, false, false};
+	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, policy, prefs.sf, prefs.bw);
 
 	if (r == mt::RX_NOT_MESHTASTIC) {
 		return false;
 	}
 	mt::Header h;
 
-	if (r == mt::RX_DUPLICATE) {
-		/* Another node repeated a frame we hold: move ours out of its way, never drop it. */
-		foreignDupeHeard(raw, len);
-		if (mt::parseHeader(raw, (size_t)len, h) && h.from == _mt.self()) {
-			mtEchoHeard(h.id, h.relay, snr, rssi);
-		}
-	}
-	if (relay_len > 0 && relay_len <= mt::kMaxTxFrame) {
-		const uint32_t slot = mt::slotTimeMs(prefs.sf, prefs.bw);
-		const uint8_t cw = mt::rebroadcastCw((int8_t)(snr * 4.0f));
-
-		if (!relayForeign(relay, relay_len,
-				  mt::rebroadcastDelayMs(slot, (uint32_t)getRNG()->nextInt(0, 1 << cw)))) {
-			LOG_WRN("mt: relay not queued (len=%u)", (unsigned)relay_len);
-		}
+	if (r == mt::RX_DUPLICATE && mt::parseHeader(raw, (size_t)len, h) && h.from == _mt.self()) {
+		mtEchoHeard(h.id, h.relay, snr, rssi);
 	}
 	return true;
 }
@@ -610,7 +580,7 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 		mtNoteText(h.id, prefs.node_name);
 		s.len = (uint8_t)(len < sizeof(s.text) ? len : sizeof(s.text));
 		memcpy(s.text, text, s.len);
-		mtQueue(frame, n, 0);
+		_mtport.send(frame, n);
 		sent = true;
 	}
 	return true;
@@ -692,7 +662,7 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 		/* The packet id is what the node's ACK answers: the app's ack code. */
 		addPendingAck(h.id, mtContactIndex(contact));
 		ack = h.id;
-		mtQueue(frame, n, 0);
+		_mtport.send(frame, n);
 		sent = true;
 	}
 	return true;
@@ -755,7 +725,7 @@ void CompanionMesh::mtSendAck(uint32_t to, uint32_t request_id)
 	size_t n = _mt.buildAck(to, request_id, key, frame, sizeof(frame));
 
 	if (n > 0) {
-		mtQueue(frame, n, 0);
+		_mtport.send(frame, n);
 	}
 }
 
@@ -768,7 +738,7 @@ void CompanionMesh::mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool wan
 						    sizeof(frame));
 
 	if (n > 0) {
-		mtQueue(frame, n, 0);
+		_mtport.send(frame, n);
 	}
 }
 
@@ -827,7 +797,7 @@ void CompanionMesh::mtNodeInfoTick()
 	size_t n = ch < 0 ? 0 : _mt.buildNodeInfo((uint8_t)ch, frame, sizeof(frame));
 
 	if (n > 0) {
-		mtQueue(frame, n, 0);
+		_mtport.send(frame, n);
 	}
 }
 

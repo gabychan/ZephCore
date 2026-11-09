@@ -13,7 +13,6 @@
 #include <helpers/meshtastic/MtConfig.h>
 #include <helpers/meshtastic/MtDiscriminate.h>
 #include <helpers/battery_curve.h>
-#include <mesh/Utils.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -27,22 +26,13 @@ static constexpr uint8_t kPrimaryChannel = 0;
 /* Unix time of 2023-11-14: an earlier clock was never set. */
 static constexpr uint32_t kClockSetAfter = 1700000000u;
 
-void RepeaterMesh::mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
-{
-	mesh::Utils::encrypt(key, out, in, 16);
-}
-
 /* Pushes our settings into the bridge; also the first start. */
 void RepeaterMesh::mtApplyPrefs()
 {
 	const mt::RepeaterPrefs &p = _prefs.mt;
-	char short_name[5];
-	uint32_t seed = 0;
 
 	if (!_mt_ready) {
-		getRNG()->random((uint8_t *)&seed, sizeof(seed));
-		mt::shortName(_prefs.node_name, short_name);
-		_mt.setSelf(mt::nodeFromPublicKey(self_id.pub_key), _prefs.node_name, short_name, seed);
+		MtRelayPort::initSelf(_mt, self_id, _prefs.node_name, *getRNG());
 		_mt_ready = true;
 	}
 	_mt.setRole(p.role);
@@ -55,44 +45,6 @@ void RepeaterMesh::mtApplyPrefs()
 	_mt_next_telemetry = (p.enable && p.telemetry_s) ? futureMillis(kFirstTelemetryMs) : 0;
 }
 
-bool RepeaterMesh::mtYields(uint32_t hash) const
-{
-	for (uint32_t h : _mt_yield) {
-		if (h == hash) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/* Queues the repeat of a heard frame with the delay of our role. A frame that
- * gives way to an echo is remembered by hash. */
-void RepeaterMesh::mtQueueRelay(const uint8_t *relay, size_t len, int8_t snr_x4, mt::RelayClass cls)
-{
-	const mt::RepeaterPrefs &p = _prefs.mt;
-	const uint32_t slot = mt::slotTimeMs(_prefs.sf, _prefs.bw);
-	const uint8_t cw = mt::rebroadcastCw(snr_x4);
-	uint32_t delay;
-
-	if (len > mt::kMaxTxFrame) {
-		return;
-	}
-	if (mt::roleSendsEarly(p.role)) {
-		delay = mt::earlyDelayMs(slot, (uint32_t)getRNG()->nextInt(0, 2 * cw));
-	} else {
-		delay = mt::rebroadcastDelayMs(slot, (uint32_t)getRNG()->nextInt(0, 1 << cw));
-	}
-	if (!relayForeign(relay, len, delay)) {
-		LOG_WRN("mt: relay not queued (len=%u)", (unsigned)len);
-		return;
-	}
-	_mt_stats.relayed++;
-	if (cls == mt::RelayClass::CancelOnEcho && mt::roleYieldsToEcho(p.role)) {
-		_mt_yield[_mt_yield_next] = mesh::ContentionTracker::computeForeignHash32(relay, (int)len);
-		_mt_yield_next = (uint8_t)((_mt_yield_next + 1) % MT_YIELD_KEEP);
-	}
-}
-
 bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
 	(void)rssi;
@@ -103,47 +55,14 @@ bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float 
 		if (mt::looksLikeMeshCore(raw, (size_t)len, mt::nodeFromPublicKey(self_id.pub_key))) {
 			return false;
 		}
-		_mt_stats.dropped++;
+		_mt_dropped++;
 		return true;
 	}
+	const MtRelayPort::Policy policy = {p.relay == mt::RELAY_ALL, mt::roleYieldsToEcho(p.role),
+					    mt::roleSendsEarly(p.role)};
 
-	uint8_t relay[mt::kMaxFrame];
-	size_t relay_len = 0;
-	mt::RelayClass cls;
-	const int8_t snr_x4 = (int8_t)(snr * 4.0f);
-	mt::RxResult r = _mt.handleFrame(raw, (size_t)len, snr_x4, _mt_sink, relay, &relay_len, &cls);
-
-	if (r == mt::RX_NOT_MESHTASTIC) {
-		return false;
-	}
-	_mt_stats.heard++;
-	if (r == mt::RX_OPAQUE) {
-		_mt_stats.opaque++;
-	}
-	if (r == mt::RX_DUPLICATE && relay_len == 0) {
-		/* Heard again and nothing to repeat. From a repeater, while we hold the frame: a
-		 * frame that yields is dropped unless that repeater named us next hop, the others
-		 * move out of its way. The originator sending it again leaves our copy alone. */
-		mt::Header h;
-		uint32_t hash = mesh::ContentionTracker::computeForeignHash32(raw, len);
-
-		if (!mt::parseHeader(raw, (size_t)len, h) ||
-		    (h.hopStart() > 0 && h.hopStart() == h.hopLimit())) {
-			return true;
-		}
-		const bool asked = h.next_hop != 0 && h.next_hop == (uint8_t)_mt.self();
-
-		if (!asked && mtYields(hash) && cancelForeignRelay(hash)) {
-			_mt_stats.yielded++;
-		} else {
-			foreignDupeHeard(raw, len);
-		}
-		return true;
-	}
-	if (relay_len > 0 && (p.relay == mt::RELAY_ALL || cls == mt::RelayClass::Always)) {
-		mtQueueRelay(relay, relay_len, snr_x4, cls);
-	}
-	return true;
+	return _mtport.onFrame(raw, len, snr, _mt_sink, policy, _prefs.sf, _prefs.bw) !=
+	       mt::RX_NOT_MESHTASTIC;
 }
 
 /* Our NodeInfo on the primary channel, as Meshtastic's own default does, and our
@@ -160,10 +79,11 @@ void RepeaterMesh::mtNodeInfoTick()
 	uint8_t frame[mt::kMaxTxFrame];
 	size_t n = _mt.buildNodeInfo(kPrimaryChannel, frame, sizeof(frame));
 
-	if (n > 0 && !sendForeign(frame, (int)n, 1, 0)) {
-		LOG_WRN("mt: NodeInfo not queued");
+	if (n > 0) {
+		_mtport.send(frame, n);
 	}
-	if (!p.position || (_prefs.node_lat == 0 && _prefs.node_lon == 0)) {
+	/* The position MeshCore adverts carry: the same coordinates, under the same policy. */
+	if (_prefs.advert_loc_policy == ADVERT_LOC_NONE || (_prefs.node_lat == 0 && _prefs.node_lon == 0)) {
 		return;
 	}
 	mt::Position pos = {};
@@ -174,8 +94,8 @@ void RepeaterMesh::mtNodeInfoTick()
 	pos.lon_i = (int32_t)(_prefs.node_lon * 1e7);
 	pos.time = now_s > kClockSetAfter ? now_s : 0;
 	n = _mt.buildPosition(kPrimaryChannel, pos, frame, sizeof(frame));
-	if (n > 0 && !sendForeign(frame, (int)n, 1, 0)) {
-		LOG_WRN("mt: position not queued");
+	if (n > 0) {
+		_mtport.send(frame, n);
 	}
 }
 
@@ -218,8 +138,8 @@ void RepeaterMesh::mtTelemetryTick()
 	uint8_t frame[mt::kMaxTxFrame];
 	size_t n = _mt.buildTelemetry(kPrimaryChannel, m, frame, sizeof(frame));
 
-	if (n > 0 && !sendForeign(frame, (int)n, 1, 0)) {
-		LOG_WRN("mt: telemetry not queued");
+	if (n > 0) {
+		_mtport.send(frame, n);
 	}
 }
 
@@ -227,10 +147,11 @@ void RepeaterMesh::mtTelemetryTick()
 bool RepeaterMesh::mtHandleCommand(char *command, char *reply)
 {
 	if (strcmp(command, "get mt.stats") == 0) {
+		const MtRelayPort::Stats &st = _mtport.stats();
+
 		snprintf(reply, 160, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u",
-			 (unsigned)_mt_stats.heard, (unsigned)_mt_stats.relayed,
-			 (unsigned)_mt_stats.opaque, (unsigned)_mt_stats.yielded,
-			 (unsigned)_mt_stats.dropped);
+			 (unsigned)st.heard, (unsigned)st.relayed, (unsigned)st.opaque,
+			 (unsigned)st.yielded, (unsigned)_mt_dropped);
 		return true;
 	}
 	mt::CmdResult r = mt::handleCommand(_prefs.mt, command, reply, 160);

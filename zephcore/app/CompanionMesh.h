@@ -17,6 +17,7 @@
 
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 #include <helpers/meshtastic/MtBridge.h>
+#include "MtRelayPort.h"
 #include <helpers/meshtastic/MtPolicy.h>
 #endif
 
@@ -322,7 +323,8 @@ private:
 		uint8_t key[PUB_KEY_SIZE];
 	};
 	static constexpr int MT_KEY_CACHE = 16;
-	mt::Bridge _mt{mtAesBlock};
+	mt::Bridge _mt{MtRelayPort::aesBlock};
+	MtRelayPort _mtport{*this, _mt};
 	MtSink _mt_sink{*this};
 	MtKey _mt_keys[MT_KEY_CACHE] = {};
 	uint8_t _mt_key_next = 0;
@@ -364,7 +366,6 @@ private:
 	bool mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE]);
 	bool mtNodeOf(const ContactInfo &contact, uint32_t &node);
 	void mtUpsertContact(uint32_t node, const char *name, bool has_pos, int32_t lat_i, int32_t lon_i);
-	void mtQueue(const uint8_t *frame, size_t len, uint32_t delay_ms);
 	int mtFirstChannel() const;
 	void mtNodeInfoTick();
 	void mtNoteText(uint32_t id, const char *name);
@@ -393,7 +394,6 @@ public:
 	static constexpr uint32_t MT_ACK_TIMEOUT_MS = 20000;
 	/* Adds the channels of the Spanish SFNarrow community that are not in the list. */
 	void mtAddDefaultChannels();
-	static void mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
 private:
 #endif
 	ZephyrDataStore *_store;

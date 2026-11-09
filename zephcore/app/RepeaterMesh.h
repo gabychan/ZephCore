@@ -26,6 +26,7 @@
 #include <helpers/RateLimiter.h>
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 #include <helpers/meshtastic/MtBridge.h>
+#include "MtRelayPort.h"
 #endif
 
 struct RepeaterStats {
@@ -118,16 +119,10 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
     void onNodeInfo(uint32_t, const mt::User&) override {}
     void onPosition(uint32_t, const mt::Position&) override {}
   };
-  struct MtStats {
-    uint32_t heard, relayed, opaque, yielded, cancelled, dropped;
-  };
-  static constexpr int MT_YIELD_KEEP = 8;
-  static void mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
-  mt::Bridge _mt{mtAesBlock};
+  mt::Bridge _mt{MtRelayPort::aesBlock};
+  MtRelayPort _mtport{*this, _mt};
   MtSink _mt_sink;
-  MtStats _mt_stats = {};
-  uint32_t _mt_yield[MT_YIELD_KEEP] = {};  // hashes of queued relays that give way to an echo
-  uint8_t _mt_yield_next = 0;
+  uint32_t _mt_dropped = 0;                // non-MeshCore frames dropped while mt.enable is off
   uint32_t _mt_next_nodeinfo = 0;          // millis; 0 = none planned
   uint32_t _mt_next_telemetry = 0;         // millis; 0 = none planned
   uint32_t _mt_tele_at = 0, _mt_tele_tx = 0, _mt_tele_rx = 0;  // millis and air times at the last telemetry
@@ -136,8 +131,6 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   void mtNodeInfoTick();
   void mtTelemetryTick();
   bool mtHandleCommand(char* command, char* reply);
-  void mtQueueRelay(const uint8_t* relay, size_t len, int8_t snr_x4, mt::RelayClass cls);
-  bool mtYields(uint32_t hash) const;
 #endif
   bool region_load_active;
   unsigned long dirty_contacts_expiry;

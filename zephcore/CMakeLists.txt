@@ -544,6 +544,7 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
       message(STATUS "Zephtacore: Meshtastic repeater")
       target_sources(app PRIVATE
         app/RepeaterMeshtastic.cpp
+        app/MtRelayPort.cpp
         helpers/meshtastic/MtWire.cpp
         helpers/meshtastic/MtBridge.cpp
         helpers/meshtastic/MtPki.cpp
@@ -665,6 +666,7 @@ else()
     message(STATUS "Zephtacore: Meshtastic bridge")
     target_sources(app PRIVATE
       app/CompanionMeshtastic.cpp
+      app/MtRelayPort.cpp
       helpers/meshtastic/MtWire.cpp
       helpers/meshtastic/MtBridge.cpp
       helpers/meshtastic/MtPki.cpp
