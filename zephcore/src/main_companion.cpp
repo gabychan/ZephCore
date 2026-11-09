@@ -1047,12 +1047,27 @@ int main(void)
 			0xc9, 0xe5, 0xed, 0xba, 0xa1, 0x15, 0xcd, 0x72
 		};
 		companion_mesh.addChannel("Public", public_psk, 16);
-#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-		companion_mesh.mtAddDefaultChannels();
-#endif
 		data_store.saveChannels(&companion_mesh);
 		LOG_INF("Added default Public channel");
 	}
+
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	/* The first boot on a firmware with a new defaults revision adds the default
+	 * channels that are missing; later boots leave the list as the user has it. */
+	{
+		static const uint8_t kKey[] = "zt_ch_rev";
+		uint8_t rev = 0;
+
+		if (data_store.getBlobByKey(kKey, sizeof(kKey) - 1, &rev) == 0 ||
+		    rev != CompanionMesh::MT_DEFAULTS_REV) {
+			companion_mesh.mtAddDefaultChannels();
+			data_store.saveChannels(&companion_mesh);
+			rev = CompanionMesh::MT_DEFAULTS_REV;
+			data_store.putBlobByKey(kKey, sizeof(kKey) - 1, &rev, 1);
+			LOG_INF("Added missing default channels (revision %u)", rev);
+		}
+	}
+#endif
 
 	/* First boot generates the identity (ZephyrRNG::generateFirstBootIdentity). */
 	mesh::LocalIdentity self_identity;

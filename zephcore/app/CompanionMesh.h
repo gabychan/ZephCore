@@ -333,6 +333,7 @@ private:
 	uint8_t _mt_sent_next = 0;
 
 	static bool mtIsChannelName(const char *name);
+	bool mtHasChannelNamed(const char *name);
 	void mtSyncChannels();
 	void mtSetup();
 	bool mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE]);
@@ -346,7 +347,9 @@ private:
 	void mtEchoHeard(uint32_t id, float snr, float rssi);
 	bool mtSendDirectText(const ContactInfo &contact, const char *text, size_t len, bool &sent);
 public:
-	/* First boot: the channels of the Spanish SFNarrow community. */
+	/* Bump when the default channel list changes; the next boot adds what is missing. */
+	static constexpr uint8_t MT_DEFAULTS_REV = 1;
+	/* Adds the channels of the Spanish SFNarrow community that are not in the list. */
 	void mtAddDefaultChannels();
 	static void mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
 private:

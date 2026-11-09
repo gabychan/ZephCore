@@ -73,6 +73,18 @@ static const MtDefaultChannel kMtDefaults[] = {
 };
 static const char *const kMcHashtagDefaults[] = {"#test", "#bot"};
 
+bool CompanionMesh::mtHasChannelNamed(const char *name)
+{
+	ChannelDetails ch;
+
+	for (int i = 0; getChannel(i, ch); i++) {
+		if (strcmp(ch.name, name) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void CompanionMesh::mtAddDefaultChannels()
 {
 	/* The default Meshtastic key (PSK "AQ=="). */
@@ -81,6 +93,9 @@ void CompanionMesh::mtAddDefaultChannels()
 	uint8_t key[16];
 
 	for (const auto &c : kMtDefaults) {
+		if (mtHasChannelNamed(c.name)) {
+			continue;
+		}
 		memcpy(key, kDefaultKey, sizeof(key));
 		key[15] = (uint8_t)(key[15] + c.psk_index - 1);
 		addChannel(c.name, key, sizeof(key));
@@ -88,6 +103,10 @@ void CompanionMesh::mtAddDefaultChannels()
 	/* A MeshCore hashtag channel's secret is the first 16 bytes of SHA256 of its name. */
 	for (const char *name : kMcHashtagDefaults) {
 		uint8_t digest[32];
+
+		if (mtHasChannelNamed(name)) {
+			continue;
+		}
 
 		mesh::Utils::sha256(digest, sizeof(digest), (const uint8_t *)name, (int)strlen(name));
 		addChannel(name, digest, 16);

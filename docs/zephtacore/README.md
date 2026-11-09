@@ -39,7 +39,8 @@ The LR2021 side detectors (other SFs) use the same word as the main detector.
 
 With `CONFIG_ZEPHTACORE_MESHTASTIC` a fresh device starts on meshtacore's `custom_sfnarrow_default` preset:
 869.618 MHz, BW 62.5 kHz, SF 7, CR 4/6, 22 dBm (CR 4/5 without the feature; the rest is ZephCore's own default).
-On first boot, only when there are no channels, it creates the channels of meshtacore's community matrix:
+On the first boot of a firmware with a new defaults revision (`CompanionMesh::MT_DEFAULTS_REV`, kept in the
+data store under `zt_ch_rev`) it adds the channels of meshtacore's community matrix that are missing, by name:
 
 | Channel | Key |
 | --- | --- |
@@ -49,8 +50,8 @@ On first boot, only when there are no channels, it creates the channels of mesht
 | `#test`, `#bot` | MeshCore hashtag channels (first 16 bytes of SHA256 of the name) |
 
 meshtacore's `MC:Public`, `MC:#test` and `MC:#bot` are bridged names there; here those are native MeshCore
-channels. Deleted channels do not come back: the seed only runs with an empty channel list. An already
-provisioned device keeps its radio settings and channels.
+channels. A channel you delete does not come back on later boots or on a reflash of the same revision; it comes back
+only when a firmware raises the revision. Existing channels and radio settings are never changed.
 
 ## Use
 
