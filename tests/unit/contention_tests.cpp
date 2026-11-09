@@ -46,3 +46,11 @@ TEST(contention_decay, "UNIT-CONTENTION-004", "Warmup eviction and decay indepen
     for (unsigned i = 0; i < 25; ++i) e.trackRetransmit(i, 100);
     CHECK(e.extractDupeCount(0) == -1 && e.extractDupeCount(1) == 0);
 }
+
+TEST(contention_defer_never_earlier, "UNIT-CONTENTION-005", "A dupe defers a pending packet from its own slot, never earlier") {
+    using mesh::ContentionTracker;
+    CHECK(ContentionTracker::deferredSchedule(1500, 300, 80) == 1580);  // later slot keeps its place
+    CHECK(ContentionTracker::deferredSchedule(250, 300, 80) == 380);    // slot already due: from now
+    CHECK(ContentionTracker::deferredSchedule(300, 300, 80) == 380);
+    CHECK(ContentionTracker::deferredSchedule(0x00000010u, 0xFFFFFFF0u, 80) == 0x00000060u);  // wrap
+}

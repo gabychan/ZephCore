@@ -41,6 +41,13 @@ public:
 
 	void addReactiveExtension(uint32_t hash32, uint16_t added_ms);
 
+	/* New TX time of a pending packet deferred by delay_ms: counted from its
+	 * current slot (or now, if that has passed), so it never moves earlier. */
+	static uint32_t deferredSchedule(uint32_t scheduled, uint32_t now, uint16_t delay_ms)
+	{
+		return ((int32_t)(scheduled - now) > 0 ? scheduled : now) + delay_ms;
+	}
+
 	/* Finalize expired entries into EMA. */
 	void tick(uint32_t now_ms);
 

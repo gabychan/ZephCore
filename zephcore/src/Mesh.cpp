@@ -27,8 +27,8 @@ uint32_t Mesh::msUntilNextMaintenance() {
 }
 
 // A duplicate of a flood we are about to retransmit was heard: defer our copy
-// by one backoff_multiplier x airtime window (per dupe, from NOW), within the
-// per-packet reactive headroom.
+// by one backoff_multiplier x airtime window per dupe, from its own slot, within
+// the per-packet reactive headroom.
 void Mesh::extendPendingRetransmit(uint32_t hash32) {
   uint32_t now = (uint32_t)_ms->getMillis();
   int total = _mgr->getOutboundTotal();
@@ -38,9 +38,10 @@ void Mesh::extendPendingRetransmit(uint32_t hash32) {
       uint32_t airtime = _radio->getEstAirtimeFor(pkt->getRawLength());
       uint16_t delay = _contention.getReactiveHeadroom(hash32, airtime);
       if (delay == 0) break;
-      _mgr->rescheduleOutbound(i, now + delay);
+      uint32_t at = ContentionTracker::deferredSchedule(_mgr->getOutboundSchedule(i), now, delay);
+      _mgr->rescheduleOutbound(i, at);
       _contention.addReactiveExtension(hash32, delay);
-      notifyTxQueued(delay);
+      notifyTxQueued(at - now);
       break;
     }
   }

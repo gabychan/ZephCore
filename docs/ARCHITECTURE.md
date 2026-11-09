@@ -294,7 +294,7 @@ The flood retransmit jitter window is `5·airtime·factor` clamped by **two ceil
 
 **Per-Dupe Reactive Backoff**
 
-When a duplicate of a pending outbound packet is heard, TX is rescheduled to `now + backoff_multiplier * airtime`. Each dupe triggers a full delay (not diminishing). Cumulative reactive extension is capped at `min(2000ms, 12·airtime)` per packet; after the cap, CAD handles remaining channel activity. `backoff_multiplier` is configurable via `set backoff.multiplier X` (range 0.0–2.0).
+When a duplicate of a pending outbound packet is heard, TX is pushed back by `backoff_multiplier * airtime` from its current slot (from now if that slot has passed), so a dupe never brings a packet forward. Each dupe triggers a full delay (not diminishing). Cumulative reactive extension is capped at `min(2000ms, 12·airtime)` per packet; after the cap, CAD handles remaining channel activity. `backoff_multiplier` is configurable via `set backoff.multiplier X` (range 0.0–2.0).
 
 **Initial-Flood Jitter (companion-only)**
 

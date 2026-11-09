@@ -78,6 +78,11 @@
       "source": "tests/unit/contention_tests.cpp"
     },
     {
+      "id": "UNIT-CONTENTION-005",
+      "name": "A dupe defers a pending packet from its own slot, never earlier",
+      "source": "tests/unit/contention_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-001",
       "name": "Immediate wake delayed dispatch and exactly-once completion",
       "source": "tests/unit/dispatcher_tests.cpp"
