@@ -34,6 +34,10 @@ uint8_t rebroadcastCw(int8_t snr_x4);
  * 2 x 8 slots left to routers, then slot r of the window, r < 2^cw. */
 uint32_t rebroadcastDelayMs(uint32_t slot_ms, uint32_t r);
 
+/* Rebroadcast delay of a router, which goes before every client: slot r of
+ * 2 x cw (RadioInterface::getTxDelayMsecWeighted, router branch), r < 2 * cw. */
+uint32_t earlyDelayMs(uint32_t slot_ms, uint32_t r);
+
 class Sink {
 public:
 	virtual ~Sink() {}
@@ -86,6 +90,8 @@ public:
 	 * the packet id sequence. */
 	void setSelf(uint32_t node, const char *long_name, const char *short_name, uint32_t seed);
 	uint32_t self() const { return _self; }
+	/* Our role in the NodeInfo we send (Config.DeviceConfig.Role). */
+	void setRole(uint8_t role) { _user.role = role; }
 
 	/* channel_id is the caller's own handle (the companion channel index).
 	 * False when the table is full or the PSK length is not 1 or 16. */

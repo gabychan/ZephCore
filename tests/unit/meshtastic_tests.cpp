@@ -1001,3 +1001,22 @@ TEST(mt_config_sanitize, "UNIT-MT-035", "Out of range stored settings are put ba
     CHECK(!roleYieldsToEcho(ROLE_ROUTER) && !roleYieldsToEcho(ROLE_ROUTER_LATE));
     CHECK(roleYieldsToEcho(ROLE_CLIENT) && roleYieldsToEcho(ROLE_REPEATER));
 }
+
+TEST(mt_router_delay, "UNIT-MT-036", "A router waits at most 2 x cw slots, before the first slot a client may use") {
+    const uint32_t slot = slotTimeMs(11, 250.0f);
+    CHECK(earlyDelayMs(slot, 0) == 0);
+    for (int snr = -80; snr <= 40; snr += 4) {
+        uint8_t cw = rebroadcastCw((int8_t)snr);
+        CHECK(earlyDelayMs(slot, 2u * cw - 1) < rebroadcastDelayMs(slot, 0));  // 2*cw <= 16 slots
+    }
+    Bridge b = makeNode(0xA1A1A1A1u, "alpha", 1);
+    b.setRole(ROLE_ROUTER);
+    uint8_t frame[kMaxFrame];
+    size_t n = b.buildNodeInfo(3, frame, sizeof(frame));
+    Bridge c = makeNode(0xB2B2B2B2u, "beta", 2);
+    Capture cap;
+    uint8_t relay[kMaxFrame];
+    size_t relay_len = 0;
+    CHECK(c.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.users.size() == 1);
+    CHECK(cap.users[0].second.role == ROLE_ROUTER);
+}

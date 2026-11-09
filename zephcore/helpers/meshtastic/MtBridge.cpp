@@ -157,6 +157,11 @@ uint32_t rebroadcastDelayMs(uint32_t slot_ms, uint32_t r)
 	return (2U * kCwMax + r) * slot_ms;
 }
 
+uint32_t earlyDelayMs(uint32_t slot_ms, uint32_t r)
+{
+	return r * slot_ms;
+}
+
 RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink &sink,
 			     uint8_t *relay_out, size_t *relay_len, RelayClass *relay_class)
 {

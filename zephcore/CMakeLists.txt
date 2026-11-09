@@ -540,6 +540,16 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
       src/main_repeater.cpp
       app/RepeaterMesh.cpp
     )
+    if(CONFIG_ZEPHTACORE_MESHTASTIC)
+      message(STATUS "Zephtacore: Meshtastic repeater")
+      target_sources(app PRIVATE
+        app/RepeaterMeshtastic.cpp
+        helpers/meshtastic/MtWire.cpp
+        helpers/meshtastic/MtBridge.cpp
+        helpers/meshtastic/MtPki.cpp
+        helpers/meshtastic/MtConfig.cpp
+      )
+    endif()
   else()
     message(STATUS "ZephCore Role: ROOM SERVER")
     target_sources(app PRIVATE

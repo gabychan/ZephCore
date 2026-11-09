@@ -1083,6 +1083,9 @@ void RepeaterMesh::begin(RepeaterDataStore* store) {
     }
   }
 
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  mtApplyPrefs();
+#endif
   updateAdvertTimer();
   updateFloodAdvertTimer();
 
@@ -1408,6 +1411,10 @@ void RepeaterMesh::handleCommand(uint32_t sender_timestamp, char* command, char*
       sendNodeDiscoverReq();
       strcpy(reply, "OK - Discover sent");
     }
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  } else if (mtHandleCommand(command, reply)) {
+    // Zephtacore: "get/set mt." answered by the Meshtastic side.
+#endif
   } else {
     _cli.handleCommand(sender_timestamp, command, reply);
   }
@@ -1461,6 +1468,9 @@ void RepeaterMesh::loop() {
   }
 #endif
 
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  mtNodeInfoTick();
+#endif
   timeSyncTick();
 
   uint32_t now = k_uptime_get();
@@ -1578,6 +1588,12 @@ uint32_t RepeaterMesh::msUntilNextMaintenance() {
   if (_uplink_next_status_at) {
     next = mesh::maintenanceSooner(next,
                  mesh::maintenanceUntil(now, _uplink_next_status_at));
+  }
+#endif
+
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  if (_mt_next_nodeinfo) {
+    next = mesh::maintenanceSooner(next, mesh::maintenanceUntil(now, _mt_next_nodeinfo));
   }
 #endif
 

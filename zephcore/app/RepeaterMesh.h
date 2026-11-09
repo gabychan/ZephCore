@@ -24,6 +24,9 @@
 #include <helpers/RoutingPolicy.h>
 #include <helpers/TransportKeyStore.h>
 #include <helpers/RateLimiter.h>
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+#include <helpers/meshtastic/MtBridge.h>
+#endif
 
 struct RepeaterStats {
   uint16_t batt_milli_volts;
@@ -108,6 +111,31 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   RateLimiter login_fail_limiter;  // ZEPHCORE: wrong-password attempts (MeshCore#2556)
   uint32_t pending_discover_tag;
   unsigned long pending_discover_until;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  // Zephtacore: the Meshtastic side of the repeater (RepeaterMeshtastic.cpp).
+  struct MtSink : mt::Sink {
+    void onText(uint8_t, uint32_t, uint32_t, uint32_t, uint32_t, const char*, size_t, int8_t, uint8_t) override {}
+    void onNodeInfo(uint32_t, const mt::User&) override {}
+    void onPosition(uint32_t, const mt::Position&) override {}
+  };
+  struct MtStats {
+    uint32_t heard, relayed, opaque, yielded, cancelled, dropped;
+  };
+  static constexpr int MT_YIELD_KEEP = 8;
+  static void mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
+  mt::Bridge _mt{mtAesBlock};
+  MtSink _mt_sink;
+  MtStats _mt_stats = {};
+  uint32_t _mt_yield[MT_YIELD_KEEP] = {};  // hashes of queued relays that give way to an echo
+  uint8_t _mt_yield_next = 0;
+  uint32_t _mt_next_nodeinfo = 0;          // millis; 0 = none planned
+  bool _mt_ready = false;
+  void mtApplyPrefs();
+  void mtNodeInfoTick();
+  bool mtHandleCommand(char* command, char* reply);
+  void mtQueueRelay(const uint8_t* relay, size_t len, int8_t snr_x4, mt::RelayClass cls);
+  bool mtYields(uint32_t hash) const;
+#endif
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
@@ -312,4 +340,7 @@ public:
   // uplink status, time sync) into the base maintenance deadline, so the event
   // loop arms one wake for loop() and maintenanceLoop().
   uint32_t msUntilNextMaintenance() override;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  bool onRecvForeign(const uint8_t raw[], int len, float snr, float rssi) override;
+#endif
 };

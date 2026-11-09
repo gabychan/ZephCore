@@ -46,6 +46,8 @@ protected:
   void foreignDupeHeard(const uint8_t* raw, int len);
   // Queues a foreign frame to repeat after delay_ms, tracked so its dupes are counted.
   bool relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms);
+  // Drops the queued foreign frame with this hash, when it has not gone out yet.
+  bool cancelForeignRelay(uint32_t hash32);
   uint32_t computeAdaptiveFloodDelay(const Packet* packet);
   uint32_t computeAdaptiveDirectDelay(const Packet* packet);
   // Track heard floods we don't forward, so the EMA warms on non-relaying nodes.

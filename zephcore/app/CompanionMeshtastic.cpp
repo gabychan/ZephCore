@@ -19,6 +19,7 @@
 
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 
+#include <helpers/meshtastic/MtConfig.h>
 #include <mesh/Utils.h>
 #include <string.h>
 #include <stdio.h>
@@ -110,31 +111,6 @@ bool CompanionMesh::mtIsChannelName(const char *name)
 	return strncmp(name, kMtPrefix, kMtPrefixLen) == 0 && name[kMtPrefixLen] != '\0';
 }
 
-/* Our Meshtastic node number: the last four bytes of the MeshCore public key. */
-static uint32_t mtSelfNode(const mesh::LocalIdentity &id)
-{
-	const uint8_t *k = id.pub_key;
-
-	return ((uint32_t)k[PUB_KEY_SIZE - 4] << 24) | ((uint32_t)k[PUB_KEY_SIZE - 3] << 16) |
-	       ((uint32_t)k[PUB_KEY_SIZE - 2] << 8) | (uint32_t)k[PUB_KEY_SIZE - 1];
-}
-
-/* Four letters or digits of the node name, upper case. */
-static void mtShortName(const char *name, char out[5])
-{
-	int n = 0;
-
-	for (const char *c = name; *c && n < 4; c++) {
-		if ((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9')) {
-			out[n++] = (*c >= 'a' && *c <= 'z') ? (char)(*c - 'a' + 'A') : *c;
-		}
-	}
-	if (n == 0) {
-		out[n++] = 'Z';
-	}
-	out[n] = '\0';
-}
-
 /* Meshtastic's default key has PSK index 1; index n adds n-1 to its last byte. */
 struct MtDefaultChannel {
 	const char *name;
@@ -192,8 +168,8 @@ void CompanionMesh::mtSetup()
 	uint32_t seed = 0;
 
 	getRNG()->random((uint8_t *)&seed, sizeof(seed));
-	mtShortName(prefs.node_name, short_name);
-	_mt.setSelf(mtSelfNode(self_id), prefs.node_name, short_name, seed);
+	mt::shortName(prefs.node_name, short_name);
+	_mt.setSelf(mt::nodeFromPublicKey(self_id.pub_key), prefs.node_name, short_name, seed);
 	_mt.setRelay(IS_ENABLED(CONFIG_ZEPHTACORE_MT_RELAY));
 	_mt.setHopLimit(CONFIG_ZEPHTACORE_MT_HOP_LIMIT);
 

@@ -1389,7 +1389,7 @@ menu "Zephtacore (Meshtastic bridge)"
 
 config ZEPHTACORE_MESHTASTIC
 	bool "Hear and speak Meshtastic on the same radio"
-	depends on ZEPHCORE_ROLE_COMPANION
+	depends on ZEPHCORE_ROLE_COMPANION || ZEPHCORE_ROLE_REPEATER
 	default n
 	help
 	  Receives MeshCore and Meshtastic with one SX126x (hybrid sync word
@@ -1398,6 +1398,9 @@ config ZEPHTACORE_MESHTASTIC
 	  channel (name and 16 byte PSK): text sent on one goes out as a
 	  Meshtastic frame, and text, node names and positions heard on it
 	  reach the app as channel messages and contacts.
+
+	  The repeater role also repeats Meshtastic floods, with its own
+	  settings under "mt." in the CLI.
 
 	  Needs a radio family that can write the sync word register
 	  (SX126x). On other families the build still links, but the second

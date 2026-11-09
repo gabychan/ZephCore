@@ -778,6 +778,11 @@
       "source": "tests/unit/prefs_json_tests.cpp"
     },
     {
+      "id": "UNIT-MT-036",
+      "name": "A router waits at most 2 x cw slots, before the first slot a client may use",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

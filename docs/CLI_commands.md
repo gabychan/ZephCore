@@ -234,6 +234,25 @@ As upstream, the one setting is `gps` (`0`/`1`), listed only on a board with a G
 
 ---
 
+## Meshtastic (Zephtacore repeater, `CONFIG_ZEPHTACORE_MESHTASTIC`)
+
+The repeater also repeats Meshtastic floods on the radio it shares with MeshCore. Every command works from the serial console and as a remote admin command, and persists in `prefs.json` (`mt{}`).
+
+| Command | Description |
+|---------|-------------|
+| `get mt.enable` / `set mt.enable on\|off` | Meshtastic side on or off (default on). Off: no frame is repeated as Meshtastic and the NodeInfo stops; a frame that is not shaped like MeshCore is dropped instead of reaching the MeshCore parser. |
+| `get mt.role` / `set mt.role client\|router\|router_late\|repeater` | Role announced in our NodeInfo and its timing (default `client`). `router` repeats in the first slots, before any client, and never gives way to an echo. `router_late` waits like a client and never gives way. `client` and `repeater` give way to an echo for frames that are not essential. |
+| `get mt.relay` / `set mt.relay off\|essential\|all` | What is repeated (default `all`). `essential`: text, direct messages, their ACKs, NodeInfo and traceroute. `all`: those, which are always sent even if another node repeated them first, plus the rest (position, telemetry, other ports), which are dropped if another node repeats them while ours waits. |
+| `get mt.relay.opaque` / `set mt.relay.opaque on\|off` | Also repeat frames of channels this node holds no key for (default on). Direct messages between nodes count as essential. |
+| `get mt.channel` / `set mt.channel <name> [default\|<base64 key>]` | The primary channel the NodeInfo goes out on (default `LongFast`, default key). Name up to 11 characters; the key is 1 or 16 bytes in base64; the name alone keeps the key. The key is never printed. |
+| `get mt.hops` / `set mt.hops <0-7>` | `hop_limit` of the frames this node originates (default `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`). |
+| `get mt.nodeinfo` / `set mt.nodeinfo <seconds>` | Seconds between our NodeInfo broadcasts, `0` never, otherwise 600 to 604800 (default 43200). The first goes out 30 s after boot or after a change. |
+| `get mt.telemetry` / `set mt.telemetry <seconds>` | `0` never, otherwise 60 to 86400 (default 0). |
+| `set mt.position on\|off` | Fixed position in the Meshtastic frames (default off). |
+| `get mt.stats` | `heard` Meshtastic frames, `relayed` repeats queued, `opaque` frames of unknown channels, `yielded` repeats dropped because another node sent them first, `dropped` non-MeshCore frames discarded while `mt.enable` is off. |
+
+---
+
 ## Repeater Uplink (ZephCore only; ESP32 + `CONFIG_ZEPHCORE_REPEATER_UPLINK`)
 
 These commands configure observer-style WiFi+MQTT packet reporting from repeater role.

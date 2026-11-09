@@ -117,6 +117,33 @@ A Meshtastic node's contact key is the Ed25519 public key of a keypair seeded fr
 The node number is kept in the contact's `sync_since` field, and a contact counts as Meshtastic only if the key
 derived from it matches.
 
+## Repeater
+
+The repeater role builds with the same `CONFIG_ZEPHTACORE_MESHTASTIC` (`boards/common/repeater.conf;boards/common/zephtacore.conf`).
+It holds one channel, the primary (default `LongFast`), because Meshtastic sends NodeInfo, position and telemetry on it.
+Settings live under `mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI_commands.md`).
+
+| Piece | Where |
+| --- | --- |
+| Repeater glue (RX hook, relay queue, NodeInfo, `mt.` commands) | `zephcore/app/RepeaterMeshtastic.cpp` |
+| Settings, command parser, defaults | `zephcore/helpers/meshtastic/MtConfig.h/.cpp` |
+| What gives way to an echo | `mt::relayClassOf` in `MtPolicy.h` |
+| MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h` |
+| Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard`, `cancelForeignRelay` |
+
+The receiver is hybrid and does not report the sync word a frame came in on. A frame that none of our channels opens is told
+from MeshCore by its shape: it must parse as MeshCore, its payload must be whole 16-byte AES blocks after the fixed part,
+and its Meshtastic `to`/`from` must not be our node number (the check meshtacore uses). A real MeshCore frame always passes;
+about one Meshtastic frame in fifty does by chance and is handled as MeshCore, as it was before this feature.
+
+Timing follows Meshtastic's `getTxDelayMsecWeighted`: `client` and `repeater` wait 16 slots plus a random slot in a window set
+by the SNR; `router` waits a random slot of the first 2 x cw, before any client. Text, direct messages, ACKs, NodeInfo and
+traceroute are never dropped when another node repeats them first; the rest is (Meshtastic's client behaviour), unless the
+role is `router` or `router_late`.
+
+Size: the repeater grows by 10.9 KB of flash and 0.9 KB of RAM (`wio_tracker_l1`, 288080 vs 277168 B and 84828 vs 83932 B);
+the companion by 0.4 KB of flash and 64 B of RAM for the settings in `NodePrefs`. Not run on air.
+
 ## Verification
 
 | Check | Result |

@@ -71,6 +71,19 @@ bool Mesh::relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms) {
   return sendForeign(frame, (int)len, 1, delay_ms);
 }
 
+bool Mesh::cancelForeignRelay(uint32_t hash32) {
+  int total = _mgr->getOutboundTotal();
+  for (int i = 0; i < total; i++) {
+    Packet* pkt = _mgr->getOutboundByIdx(i);
+    if (pkt && pkt->isForeign() && ContentionTracker::computePacketHash32(pkt) == hash32) {
+      Packet* gone = _mgr->removeOutboundByIdx(i);
+      if (gone) _mgr->free(gone);
+      return true;
+    }
+  }
+  return false;
+}
+
 // Adaptive flood jitter: 5 x airtime x EMA factor, capped at 6 airtimes and
 // 2000 ms absolute; +20 ms floor so downstream nodes are back in RX first.
 uint32_t Mesh::computeAdaptiveFloodDelay(const Packet* packet) {

@@ -115,6 +115,29 @@ inline void setDefaults(RepeaterPrefs &p, uint8_t hops)
 	sanitize(p);
 }
 
+/* Our Meshtastic node number: the last four bytes of the MeshCore public key. */
+inline uint32_t nodeFromPublicKey(const uint8_t pub[32])
+{
+	return ((uint32_t)pub[28] << 24) | ((uint32_t)pub[29] << 16) | ((uint32_t)pub[30] << 8) |
+	       (uint32_t)pub[31];
+}
+
+/* Four letters or digits of the node name, upper case. */
+inline void shortName(const char *name, char out[5])
+{
+	int n = 0;
+
+	for (const char *c = name; *c && n < 4; c++) {
+		if ((*c >= 'a' && *c <= 'z') || (*c >= 'A' && *c <= 'Z') || (*c >= '0' && *c <= '9')) {
+			out[n++] = (*c >= 'a' && *c <= 'z') ? (char)(*c - 'a' + 'A') : *c;
+		}
+	}
+	if (n == 0) {
+		out[n++] = 'Z';
+	}
+	out[n] = '\0';
+}
+
 /* A router sends early and never yields to an echo; so does a late router,
  * but with the client's delay. */
 inline bool roleSendsEarly(uint8_t role) { return role == ROLE_ROUTER; }
