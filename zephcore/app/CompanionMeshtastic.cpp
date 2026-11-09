@@ -274,6 +274,9 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 		if (!c) {
 			return;
 		}
+		markContactsDirty();
+	} else {
+		snapshotAdvertPrev(c);
 	}
 	if (name && name[0]) {
 		mtContactName(c->name, sizeof(c->name), name);
@@ -285,6 +288,7 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 	c->last_advert_timestamp = now;
 	c->lastmod = now;
 	onDiscoveredContact(*c, is_new, 0, nullptr);
+	_advert_prev.known = false;
 }
 
 void CompanionMesh::mtQueue(const uint8_t *frame, size_t len, uint32_t delay_ms)

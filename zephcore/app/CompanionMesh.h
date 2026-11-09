@@ -452,6 +452,7 @@ private:
 		int32_t gps_lat, gps_lon;
 		char name[sizeof(ContactInfo::name)];
 	} _advert_prev;
+	void snapshotAdvertPrev(const ContactInfo *c);
 
 	/* Forward-only: our clock stamps outgoing DMs, and peers keep per-sender
 	 * replay high-water marks. */

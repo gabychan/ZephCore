@@ -696,8 +696,13 @@ bool CompanionMesh::putBlobByKey(const uint8_t key[], int key_len, const uint8_t
 void CompanionMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32_t timestamp,
 				 const uint8_t *app_data, size_t app_data_len)
 {
-	const ContactInfo *c = lookupContactByPubKey(id.pub_key, PUB_KEY_SIZE);
+	snapshotAdvertPrev(lookupContactByPubKey(id.pub_key, PUB_KEY_SIZE));
+	BaseChatMesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
+	_advert_prev.known = false;
+}
 
+void CompanionMesh::snapshotAdvertPrev(const ContactInfo *c)
+{
 	_advert_prev.known = c && c->type != ADV_TYPE_NONE;
 	if (_advert_prev.known) {
 		_advert_prev.type = c->type;
@@ -705,8 +710,6 @@ void CompanionMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id,
 		_advert_prev.gps_lon = c->gps_lon;
 		memcpy(_advert_prev.name, c->name, sizeof(_advert_prev.name));
 	}
-	BaseChatMesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
-	_advert_prev.known = false;
 }
 
 /* BaseChatMesh virtual implementations */
@@ -2284,6 +2287,15 @@ bool CompanionMesh::handleCmdAddUpdateContact(const uint8_t *data, size_t len)
 		}
 		c.sync_since = 0;
 		c.shared_secret_valid = false;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		uint32_t mt_node;
+
+		/* The app does not carry sync_since: keep the node number of a
+		 * Meshtastic contact or an edit would turn it into a MeshCore one. */
+		if (existing && mtNodeOf(*existing, mt_node)) {
+			c.sync_since = mt_node;
+		}
+#endif
 
 		if (existing) {
 			// Update existing
