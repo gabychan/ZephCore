@@ -23,11 +23,18 @@ node's public key or ours.
 - AES-CCM is built on the PSA AES-256 block (CCM is not enabled in PSA), with the block function and SHA256
   injected so `MtPki` is pure code, tested on the host against a packet from Meshtastic's own test suite.
 - A NodeInfo request (`want_response`) goes out once, when the app marks a Meshtastic contact as favourite and the
-  contact has no name or no key. No automatic requests, no command.
+  contact has no name or no key. No periodic requests, no command.
+- NodeInfo sent on our own account (answering a `want_response`, answering a `PKI_UNKNOWN_PUBKEY` NAK, asking for
+  the key of a node whose PKI message we could not open) is limited to once per node per hour by an 8-entry
+  table in RAM, so a stranger cannot make us transmit more than the frames it sends itself.
+- Our PKI direct messages ask for an ACK. The packet id is the ack code the app waits for; an ACK counts only from
+  the node the message went to. No retransmission.
 
 ## Consequences
 
 - A direct message to a node whose key is unknown fails with an error to the app instead of going out unreadable.
+- A PKI message from a node whose key we lack is lost, but it triggers a request that normally gets the key.
 - A node that regenerates its key is not followed until its contact is removed in the app.
 - No ACK proof, no `PKI_UNKNOWN_PUBKEY` reply, no admin messages; our ACKs for incoming messages are sent as PKI.
-- Cost, wio_tracker_l1 companion with Zephtacore: flash +3.2 KB, RAM +64 B.
+- An ACK can be forged by a node that sees the packet id, as with Meshtastic without ACK proof.
+- Cost, wio_tracker_l1 companion with Zephtacore: flash +3.9 KB, RAM +192 B.

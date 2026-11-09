@@ -490,6 +490,43 @@ void CompanionMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
 	}
 }
 
+void CompanionMesh::MtSink::onAck(uint32_t from, uint32_t request_id, uint32_t error_reason)
+{
+	if (error_reason == mt::ROUTING_PKI_UNKNOWN_PUBKEY) {
+		/* The node does not hold our key: send it ours. */
+		m.mtSendNodeInfoLimited(from, mt::kNoChannel, false);
+		return;
+	}
+	if (error_reason != 0) {
+		LOG_INF("mt: node %08x refused packet %08x (%u)", (unsigned)from,
+			(unsigned)request_id, (unsigned)error_reason);
+		return;
+	}
+	/* An ACK counts only from the node the message went to. */
+	for (const auto &e : m._ack_table) {
+		ContactInfo ci;
+		uint32_t node;
+
+		if (e.active && e.expected_ack == request_id && e.contact_idx >= 0 &&
+		    m.getContactByIdx((uint32_t)e.contact_idx, ci) && m.mtNodeOf(ci, node) &&
+		    node == from) {
+			m.processAck((const uint8_t *)&request_id);
+			return;
+		}
+	}
+}
+
+void CompanionMesh::MtSink::onNodeInfoRequest(uint8_t channel_id, uint32_t from)
+{
+	m.mtSendNodeInfoLimited(from, channel_id, false);
+}
+
+void CompanionMesh::MtSink::onUnknownKey(uint32_t from)
+{
+	/* Our NodeInfo carries our key; asking for theirs gets us theirs. */
+	m.mtSendNodeInfoLimited(from, mt::kNoChannel, true);
+}
+
 bool CompanionMesh::MtSink::peerKey(uint32_t node, uint8_t key[32])
 {
 	return m._store && m._store->getMtKey(node, key);
@@ -687,7 +724,7 @@ void CompanionMesh::mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rss
 }
 
 bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *text, size_t len,
-				     bool &sent)
+				     bool &sent, uint32_t &ack)
 {
 	uint32_t node;
 	uint8_t key[32];
@@ -696,6 +733,7 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 		return false;
 	}
 	sent = false;
+	ack = 0;
 	if (!_mt_ready) {
 		mtSetup();
 	}
@@ -704,13 +742,29 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 		return true;
 	}
 	uint8_t frame[mt::kMaxTxFrame];
-	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame));
+	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame), 0, true);
+	mt::Header h;
 
-	if (n > 0) {
+	if (n > 0 && mt::parseHeader(frame, n, h)) {
+		/* The packet id is what the node's ACK answers: the app's ack code. */
+		addPendingAck(h.id, mtContactIndex(contact));
+		ack = h.id;
 		mtQueue(frame, n, 0);
 		sent = true;
 	}
 	return true;
+}
+
+int CompanionMesh::mtContactIndex(const ContactInfo &contact)
+{
+	ContactInfo ci;
+
+	for (int i = 0; i < getNumContacts(); i++) {
+		if (getContactByIdx((uint32_t)i, ci) && ci.id.matches(contact.id)) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 /* A contact keeps its key while some contact holds its node number. */
@@ -762,25 +816,37 @@ void CompanionMesh::mtSendAck(uint32_t to, uint32_t request_id)
 	}
 }
 
-void CompanionMesh::mtRequestNodeInfo(uint32_t node)
+void CompanionMesh::mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool want_response)
 {
-	int ch = mtFirstChannel();
+	int ch = channel_id == mt::kNoChannel || !_mt.hasChannel(channel_id) ? mtFirstChannel()
+									   : (int)channel_id;
 	uint8_t frame[mt::kMaxTxFrame];
-	size_t n = ch < 0 ? 0 : _mt.buildNodeInfoRequest((uint8_t)ch, node, frame, sizeof(frame));
+	size_t n = ch < 0 ? 0 : _mt.buildNodeInfoTo((uint8_t)ch, node, want_response, frame,
+						    sizeof(frame));
 
 	if (n > 0) {
 		mtQueue(frame, n, 0);
 	}
 }
 
-/* Still the name it was created with, or no key kept. */
-bool CompanionMesh::mtNeedsNodeInfo(const ContactInfo &contact, uint32_t node)
+static constexpr uint32_t kMtNodeInfoIntervalMs = 3600UL * 1000UL;
+
+void CompanionMesh::mtSendNodeInfoLimited(uint32_t node, uint8_t channel_id, bool want_response)
+{
+	if (_mt_info_limit.allow(node, (uint32_t)_ms->getMillis(), kMtNodeInfoIntervalMs)) {
+		mtSendNodeInfoTo(node, channel_id, want_response);
+	}
+}
+
+/* Marking a contact favourite asks its node for what is missing: name or key. */
+bool CompanionMesh::mtFavouriteAsks(const ContactInfo &existing, uint8_t new_flags, uint32_t node)
 {
 	char base[32];
 	uint8_t key[32];
+	bool has_name = mtContactBase(existing.name, base, sizeof(base)) && base[0] != '!';
+	bool has_key = _store && _store->getMtKey(node, key);
 
-	return !mtContactBase(contact.name, base, sizeof(base)) || base[0] == '!' ||
-	       !_store || !_store->getMtKey(node, key);
+	return mt::favouriteAsksNodeInfo(existing.isFav(), (new_flags & 0x01) != 0, has_name, has_key);
 }
 
 /* An app-removed contact takes its key with it, so a node that changed key can be learned again. */

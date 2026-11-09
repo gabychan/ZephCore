@@ -214,18 +214,8 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 			sink.onText(match->id, h.from, h.to, h.id, d.reply_id,
 				    (const char *)d.payload, d.payload_len, snr_x4, hops);
 		}
-	} else if (d.portnum == PORT_NODEINFO) {
-		User u;
-
-		if (decodeUser(d.payload, d.payload_len, u)) {
-			sink.onNodeInfo(h.from, u);
-		}
-	} else if (d.portnum == PORT_POSITION) {
-		Position p;
-
-		if (decodePosition(d.payload, d.payload_len, p) && p.has_lat && p.has_lon) {
-			sink.onPosition(h.from, p);
-		}
+	} else {
+		deliverData(h, d, match->id, snr_x4, sink);
 	}
 
 	/* Repeat a flood once: next_hop 0, hops left, and not a frame for us alone. */
@@ -243,7 +233,11 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 {
 	uint8_t peer[32], key[32];
 
-	if (!sink.peerKey(h.from, peer) || !pkiSharedKey(*_pki, _pki_priv, peer, key)) {
+	if (!sink.peerKey(h.from, peer)) {
+		sink.onUnknownKey(h.from);
+		return false;
+	}
+	if (!pkiSharedKey(*_pki, _pki_priv, peer, key)) {
 		return false;
 	}
 	int n = pkiOpen(*_pki, key, h.from, h.id, raw + kHeaderLen, plen, buf, plen);
@@ -253,18 +247,31 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 
 void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink)
 {
-	uint8_t hops = h.hopStart() > h.hopLimit() ? (uint8_t)(h.hopStart() - h.hopLimit()) : 0;
-
 	if (d.portnum == PORT_TEXT) {
+		uint8_t hops = h.hopStart() > h.hopLimit() ? (uint8_t)(h.hopStart() - h.hopLimit()) : 0;
+
 		if (d.payload_len > 0) {
 			sink.onDirectText(h.from, h.id, d.reply_id, h.wantAck(),
 					  (const char *)d.payload, d.payload_len, snr_x4, hops);
 		}
-	} else if (d.portnum == PORT_NODEINFO) {
+		return;
+	}
+	deliverData(h, d, kNoChannel, snr_x4, sink);
+}
+
+/* What a decrypted Data carries besides text: NodeInfo, Position, ACKs. */
+void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int8_t snr_x4,
+			 Sink &sink)
+{
+	(void)snr_x4;
+	if (d.portnum == PORT_NODEINFO) {
 		User u;
 
 		if (decodeUser(d.payload, d.payload_len, u)) {
 			sink.onNodeInfo(h.from, u);
+			if (d.want_response && h.to == _self) {
+				sink.onNodeInfoRequest(channel_id, h.from);
+			}
 		}
 	} else if (d.portnum == PORT_POSITION) {
 		Position p;
@@ -272,12 +279,18 @@ void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sin
 		if (decodePosition(d.payload, d.payload_len, p) && p.has_lat && p.has_lon) {
 			sink.onPosition(h.from, p);
 		}
+	} else if (d.portnum == PORT_ROUTING && h.to == _self && d.request_id != 0) {
+		uint32_t reason;
+
+		if (decodeRouting(d.payload, d.payload_len, reason)) {
+			sink.onAck(h.from, d.request_id, reason);
+		}
 	}
 }
 
 size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
 			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
-			  uint32_t reply_id, uint32_t request_id, bool want_response)
+			  uint32_t reply_id, uint32_t request_id, bool want_response, bool want_ack)
 {
 	if (_self == 0 || cap < kHeaderLen) {
 		return 0;
@@ -306,7 +319,7 @@ size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to
 	h.to = to;
 	h.from = _self;
 	h.id = nextId();
-	h.flags = (uint8_t)(_hops | (_hops << 5));
+	h.flags = (uint8_t)(_hops | (_hops << 5) | (want_ack ? 0x08 : 0));
 	h.channel = pki_key ? 0 : ch->hash;
 	h.next_hop = 0;
 	h.relay = (uint8_t)_self;
@@ -350,7 +363,8 @@ size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)
 	return n ? buildFrame(ch, nullptr, kBroadcast, PORT_NODEINFO, pb, n, out, cap) : 0;
 }
 
-size_t Bridge::buildNodeInfoRequest(uint8_t channel_id, uint32_t to, uint8_t *out, size_t cap)
+size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_response, uint8_t *out,
+			       size_t cap)
 {
 	const Channel *ch = find(channel_id);
 	uint8_t pb[96];
@@ -360,18 +374,19 @@ size_t Bridge::buildNodeInfoRequest(uint8_t channel_id, uint32_t to, uint8_t *ou
 	}
 	size_t n = encodeUser(_user, pb, sizeof(pb));
 
-	return n ? buildFrame(ch, nullptr, to, PORT_NODEINFO, pb, n, out, cap, 0, 0, true) : 0;
+	return n ? buildFrame(ch, nullptr, to, PORT_NODEINFO, pb, n, out, cap, 0, 0, want_response) : 0;
 }
 
 size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const char *text,
-			       size_t len, uint8_t *out, size_t cap, uint32_t reply_id)
+			       size_t len, uint8_t *out, size_t cap, uint32_t reply_id, bool want_ack)
 {
 	uint8_t key[32];
 
 	if (!_pki || len == 0 || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
 		return 0;
 	}
-	return buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap, reply_id);
+	return buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap, reply_id,
+			  0, false, want_ack);
 }
 
 size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,

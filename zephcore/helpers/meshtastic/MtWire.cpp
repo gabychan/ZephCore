@@ -356,6 +356,29 @@ size_t encodeData(const Data &d, uint8_t *out, size_t cap)
 	return w.ok ? (size_t)(w.p - out) : 0;
 }
 
+bool decodeRouting(const uint8_t *buf, size_t len, uint32_t &error_reason)
+{
+	Reader r{buf, buf + len};
+	bool err = false;
+	bool have = false;
+	uint32_t num, wt;
+
+	while (r.field(num, wt, err)) {
+		uint64_t v;
+
+		if (num == 3 && wt == WT_VARINT) {
+			if (!r.varint(v)) {
+				return false;
+			}
+			error_reason = (uint32_t)v;
+			have = true;
+		} else if (!r.skip(wt)) {
+			return false;
+		}
+	}
+	return !err && have;
+}
+
 bool decodePosition(const uint8_t *buf, size_t len, Position &p)
 {
 	Reader r{buf, buf + len};

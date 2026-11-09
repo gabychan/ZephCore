@@ -17,6 +17,7 @@ static constexpr int kMaxChannels = 8;
 static constexpr int kDedupSize = 64;
 /* Largest frame we queue: MeshCore's payload limit (MAX_PACKET_PAYLOAD). */
 static constexpr size_t kMaxTxFrame = 184;
+static constexpr uint8_t kNoChannel = 0xFF;
 
 /* Meshtastic's contention slot on sub-GHz LoRa (RadioInterface::computeSlotTimeMsec):
  * a 2-symbol CAD plus half a symbol, plus 7.6 ms of propagation, TX/RX
@@ -48,6 +49,19 @@ public:
 		(void)from; (void)id; (void)reply_id; (void)want_ack;
 		(void)text; (void)len; (void)snr_x4; (void)hops;
 	}
+	/* An ACK (error_reason 0) or NAK for a packet of ours, from a node. */
+	virtual void onAck(uint32_t from, uint32_t request_id, uint32_t error_reason)
+	{
+		(void)from; (void)request_id; (void)error_reason;
+	}
+	/* A node sent us its NodeInfo asking for ours. channel_id is the channel it
+	 * came on, kNoChannel when it came as PKI. */
+	virtual void onNodeInfoRequest(uint8_t channel_id, uint32_t from)
+	{
+		(void)channel_id; (void)from;
+	}
+	/* A PKI message for us from a node whose key we do not hold. */
+	virtual void onUnknownKey(uint32_t from) { (void)from; }
 	/* X25519 public key of a node, false when unknown. */
 	virtual bool peerKey(uint32_t node, uint8_t key[32])
 	{
@@ -99,11 +113,12 @@ public:
 			 uint8_t *out, size_t cap, uint32_t reply_id = 0);
 	size_t buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap);
 	size_t buildPosition(uint8_t channel_id, const Position &pos, uint8_t *out, size_t cap);
-	/* Our NodeInfo to one node, asking for theirs (want_response). */
-	size_t buildNodeInfoRequest(uint8_t channel_id, uint32_t to, uint8_t *out, size_t cap);
+	/* Our NodeInfo to one node, asking for theirs when want_response. */
+	size_t buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_response, uint8_t *out,
+			       size_t cap);
 	/* PKI frames to a node whose public key is peer_pub. 0 without PKI or on a weak key. */
 	size_t buildDirectText(uint32_t to, const uint8_t peer_pub[32], const char *text, size_t len,
-			       uint8_t *out, size_t cap, uint32_t reply_id = 0);
+			       uint8_t *out, size_t cap, uint32_t reply_id = 0, bool want_ack = false);
 	size_t buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,
 			size_t cap);
 
@@ -141,7 +156,10 @@ private:
 	 * one node and sets channel 0. */
 	size_t buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
 			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
-			  uint32_t reply_id = 0, uint32_t request_id = 0, bool want_response = false);
+			  uint32_t reply_id = 0, uint32_t request_id = 0, bool want_response = false,
+			  bool want_ack = false);
+	void deliverData(const Header &h, const Data &d, uint8_t channel_id, int8_t snr_x4,
+			 Sink &sink);
 	bool openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,
 		     Data &d);
 	void deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink);

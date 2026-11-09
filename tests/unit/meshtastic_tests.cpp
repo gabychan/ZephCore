@@ -2,7 +2,9 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <helpers/ContactChange.h>
 #include <helpers/meshtastic/MtBridge.h>
+#include <helpers/meshtastic/MtPolicy.h>
 #include <mesh/ContentionTracker.h>
 #include <mesh/Packet.h>
 
@@ -136,6 +138,13 @@ struct Capture : Sink {
     void onDirectText(uint32_t from, uint32_t id, uint32_t reply, bool want_ack, const char* t, size_t n, int8_t, uint8_t) override {
         directs.push_back({from, id, reply, want_ack, std::string(t, n)});
     }
+    struct Ack { uint32_t from, id, reason; };
+    std::vector<Ack> acks;
+    std::vector<std::pair<uint8_t, uint32_t>> info_requests;  // (channel, from)
+    std::vector<uint32_t> unknown_keys;
+    void onAck(uint32_t from, uint32_t id, uint32_t reason) override { acks.push_back({from, id, reason}); }
+    void onNodeInfoRequest(uint8_t ch, uint32_t from) override { info_requests.push_back({ch, from}); }
+    void onUnknownKey(uint32_t from) override { unknown_keys.push_back(from); }
     bool peerKey(uint32_t node, uint8_t key[32]) override {
         for (auto& k : keys) if (k.first == node) { std::memcpy(key, k.second.data(), 32); return true; }
         return false;
@@ -681,11 +690,163 @@ TEST(mt_pki_not_for_broadcast, "UNIT-MT-021", "Only unicast text on channel 0 is
     n = a.buildText(3, 0xB2B2B2B2u, "unicast por canal", 17, frame, sizeof(frame));
     CHECK(b.handleFrame(frame, n, 0, cb, relay, &relay_len) == RX_HANDLED && cb.texts.size() == 2 && cb.directs.empty());
     // A NodeInfo request is unicast on the channel and asks for an answer.
-    n = a.buildNodeInfoRequest(3, 0xB2B2B2B2u, frame, sizeof(frame));
+    n = a.buildNodeInfoTo(3, 0xB2B2B2B2u, true, frame, sizeof(frame));
     Header h;
     CHECK(n > kHeaderLen && parseHeader(frame, n, h) && h.to == 0xB2B2B2B2u && h.channel == 0x08);
     ctrCrypt(refAes, kDefaultKey, h.from, h.id, frame + kHeaderLen, n - kHeaderLen);
     Data d;
     CHECK(decodeData(frame + kHeaderLen, n - kHeaderLen, d) && d.portnum == PORT_NODEINFO && d.want_response);
-    CHECK(a.buildNodeInfoRequest(9, 0xB2B2B2B2u, frame, sizeof(frame)) == 0);  // unknown channel
+    CHECK(a.buildNodeInfoTo(9, 0xB2B2B2B2u, true, frame, sizeof(frame)) == 0);  // unknown channel
+}
+
+namespace {
+
+// Two PKI nodes that know each other's key, and a Capture per side.
+struct PkiPair {
+    uint8_t pa[32], qa[32], pb[32], qb[32];
+    Bridge a, b;
+    Capture ca, cb;
+    PkiPair() : a(makePkiNode(0xA1A1A1A1u, "alpha", 1, 7)), b(makePkiNode(0xB2B2B2B2u, "beta", 2, 9)) {
+        ownKey(7, pa, qa);
+        ownKey(9, pb, qb);
+        ca.keys.push_back({0xB2B2B2B2u, std::vector<uint8_t>(qb, qb + 32)});
+        cb.keys.push_back({0xA1A1A1A1u, std::vector<uint8_t>(qa, qa + 32)});
+    }
+};
+
+}  // namespace
+
+TEST(mt_routing_decode, "UNIT-MT-022", "Routing error reason: 0 is an ACK, others a NAK, none is not routing") {
+    uint32_t reason = 99;
+    const uint8_t ack[] = {0x18, 0x00};
+    CHECK(decodeRouting(ack, sizeof(ack), reason) && reason == 0);
+    const uint8_t nak[] = {0x18, 35};
+    CHECK(decodeRouting(nak, sizeof(nak), reason) && reason == ROUTING_PKI_UNKNOWN_PUBKEY);
+    const uint8_t other[] = {0x08, 0x01};  // another field, no error_reason
+    CHECK(!decodeRouting(other, sizeof(other), reason));
+    CHECK(!decodeRouting(ack, 1, reason));
+}
+
+TEST(mt_acks, "UNIT-MT-023", "An ACK or NAK for us reaches the sink, by PKI or on a channel; not one for others") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    // PKI ACK.
+    size_t n = t.b.buildAck(0xA1A1A1A1u, 0x1234u, t.qa, frame, sizeof(frame));
+    CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.acks.size() == 1 && t.ca.acks[0].from == 0xB2B2B2B2u && t.ca.acks[0].id == 0x1234u && t.ca.acks[0].reason == 0);
+    // The same packet on a channel (Meshtastic acks on the channel when one is shared):
+    // hand-built Routing Data from b to a on the default channel.
+    uint8_t routing[] = {0x18, 35};  // PKI_UNKNOWN_PUBKEY
+    Data d = {};
+    d.portnum = PORT_ROUTING; d.payload = routing; d.payload_len = sizeof(routing); d.request_id = 0x5678u;
+    uint8_t pb[32];
+    size_t dn = encodeData(d, pb, sizeof(pb));
+    Header h = {0xA1A1A1A1u, 0xB2B2B2B2u, 0x77u, 0x63, 0x08, 0, 0};
+    writeHeader(h, frame);
+    std::memcpy(frame + kHeaderLen, pb, dn);
+    ctrCrypt(refAes, kDefaultKey, h.from, h.id, frame + kHeaderLen, dn);
+    CHECK(t.a.handleFrame(frame, kHeaderLen + dn, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.acks.size() == 2 && t.ca.acks[1].id == 0x5678u && t.ca.acks[1].reason == ROUTING_PKI_UNKNOWN_PUBKEY);
+    // An ACK addressed to another node is not ours.
+    h.to = 0xC3C3C3C3u; h.id = 0x78u;
+    writeHeader(h, frame);
+    std::memcpy(frame + kHeaderLen, pb, dn);
+    ctrCrypt(refAes, kDefaultKey, h.from, h.id, frame + kHeaderLen, dn);
+    CHECK(t.a.handleFrame(frame, kHeaderLen + dn, 0, t.ca, relay, &relay_len) == RX_HANDLED && t.ca.acks.size() == 2);
+}
+
+TEST(mt_want_ack, "UNIT-MT-024", "A PKI direct text can ask for an ACK, and the receiver sees it") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "con ack", 7, frame, sizeof(frame), 0, true);
+    Header h;
+    CHECK(n > 0 && parseHeader(frame, n, h) && h.wantAck());
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.cb.directs.size() == 1 && t.cb.directs[0].want_ack && t.cb.directs[0].id == h.id);
+    n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "sin ack", 7, frame, sizeof(frame));
+    CHECK(parseHeader(frame, n, h) && !h.wantAck());
+}
+
+TEST(mt_nodeinfo_request, "UNIT-MT-025", "A unicast NodeInfo asking for ours reaches the sink; a broadcast one does not") {
+    Bridge a = makePkiNode(0xA1A1A1A1u, "alpha", 1, 7), b = makeNode(0xB2B2B2B2u, "beta", 2);
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    Capture cap;
+    size_t n = a.buildNodeInfoTo(3, 0xB2B2B2B2u, true, frame, sizeof(frame));
+    CHECK(b.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED);
+    CHECK(cap.users.size() == 1 && cap.info_requests.size() == 1 && cap.info_requests[0].first == 3 &&
+          cap.info_requests[0].second == 0xA1A1A1A1u);
+    n = a.buildNodeInfoTo(3, 0xB2B2B2B2u, false, frame, sizeof(frame));
+    CHECK(b.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.info_requests.size() == 1);
+    n = a.buildNodeInfoTo(3, kBroadcast, true, frame, sizeof(frame));
+    CHECK(b.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.info_requests.size() == 1);
+    n = a.buildNodeInfoTo(3, 0xC3C3C3C3u, true, frame, sizeof(frame));  // for another node
+    CHECK(b.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.info_requests.size() == 1);
+}
+
+TEST(mt_unknown_key, "UNIT-MT-026", "A PKI frame for us from a node with no key calls the sink once; known keys do not") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, frame, sizeof(frame));
+    Capture strangers;  // knows nobody
+    CHECK(t.b.handleFrame(frame, n, 0, strangers, relay, &relay_len) == RX_NOT_MESHTASTIC);
+    CHECK(strangers.unknown_keys.size() == 1 && strangers.unknown_keys[0] == 0xA1A1A1A1u && strangers.directs.empty());
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_HANDLED && t.cb.unknown_keys.empty());
+    // Not for us: no call.
+    Bridge c = makePkiNode(0xC3C3C3C3u, "gamma", 3, 11);
+    Capture cc;
+    CHECK(c.handleFrame(frame, n, 0, cc, relay, &relay_len) == RX_NOT_MESHTASTIC && cc.unknown_keys.empty());
+}
+
+TEST(mt_node_rate_limit, "UNIT-MT-027", "A node is let through once per interval, wrap-safe, with a bounded table") {
+    NodeRateLimit l;
+    CHECK(l.allow(1, 1000, 500));
+    CHECK(!l.allow(1, 1400, 500));
+    CHECK(l.allow(2, 1400, 500));        // another node is independent
+    CHECK(l.allow(1, 1500, 500));        // interval elapsed
+    CHECK(!l.allow(1, 1999, 500));
+    // The clock wrapping around 2^32 does not open or close the window by mistake.
+    NodeRateLimit w;
+    CHECK(w.allow(7, 0xFFFFFF00u, 1000));
+    CHECK(!w.allow(7, 0x00000010u, 1000));
+    CHECK(w.allow(7, 0x00000500u, 1000));
+    // More nodes than slots: the oldest is forgotten, so it is let through again.
+    NodeRateLimit f;
+    for (uint32_t i = 0; i < (uint32_t)NodeRateLimit::kSlots; i++) CHECK(f.allow(100 + i, 10 + i, 100000));
+    CHECK(f.allow(999, 50, 100000));     // evicts node 100, the oldest
+    CHECK(f.allow(100, 60, 100000));     // forgotten
+    CHECK(!f.allow(999, 70, 100000));    // still held
+}
+
+TEST(mt_favourite_asks, "UNIT-MT-028", "Marking a favourite asks only on the change, and only when a name or key is missing") {
+    CHECK(favouriteAsksNodeInfo(false, true, false, false));
+    CHECK(favouriteAsksNodeInfo(false, true, true, false));
+    CHECK(favouriteAsksNodeInfo(false, true, false, true));
+    CHECK(!favouriteAsksNodeInfo(false, true, true, true));
+    CHECK(!favouriteAsksNodeInfo(true, true, false, false));   // already a favourite
+    CHECK(!favouriteAsksNodeInfo(false, false, false, false)); // not marked
+    CHECK(!favouriteAsksNodeInfo(true, false, false, false));  // unmarked
+}
+
+TEST(contact_change, "UNIT-MT-029", "Only a new record or a changed name, type or position is worth writing") {
+    ContactInfo c = {};
+    c.type = 1; c.gps_lat = 10; c.gps_lon = 20;
+    std::strcpy(c.name, "Alpha (MT)");
+    ContactSnapshot before = {true, 1, 10, 20, {}};
+    std::strcpy(before.name, "Alpha (MT)");
+    CHECK(!contactChangedSubstantively(before, c));                     // a bare re-advert
+    ContactSnapshot unknown = before;
+    unknown.known = false;
+    CHECK(contactChangedSubstantively(unknown, c));                     // not stored before
+    ContactSnapshot t = before; t.type = 2;
+    CHECK(contactChangedSubstantively(t, c));
+    ContactSnapshot la = before; la.gps_lat = 11;
+    CHECK(contactChangedSubstantively(la, c));
+    ContactSnapshot lo = before; lo.gps_lon = 21;
+    CHECK(contactChangedSubstantively(lo, c));
+    ContactSnapshot nm = before; std::strcpy(nm.name, "Beta (MT)");
+    CHECK(contactChangedSubstantively(nm, c));
 }

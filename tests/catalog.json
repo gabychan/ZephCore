@@ -703,6 +703,46 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-022",
+      "name": "Routing error reason: 0 is an ACK, others a NAK, none is not routing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-023",
+      "name": "An ACK or NAK for us reaches the sink, by PKI or on a channel; not one for others",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-024",
+      "name": "A PKI direct text can ask for an ACK, and the receiver sees it",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-025",
+      "name": "A unicast NodeInfo asking for ours reaches the sink; a broadcast one does not",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-026",
+      "name": "A PKI frame for us from a node with no key calls the sink once; known keys do not",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-027",
+      "name": "A node is let through once per interval, wrap-safe, with a bounded table",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-028",
+      "name": "Marking a favourite asks only on the change, and only when a name or key is missing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-029",
+      "name": "Only a new record or a changed name, type or position is worth writing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

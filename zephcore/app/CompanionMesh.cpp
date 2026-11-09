@@ -722,14 +722,7 @@ void CompanionMesh::onDiscoveredContact(ContactInfo &contact, bool is_new, uint8
 	 * nothing to write. Otherwise an addition or a changed name, type or position
 	 * flushes on the short deadline, a bare re-advert on the long one. */
 	if (!is_new) {
-		bool substantive = !_advert_prev.known ||
-				   _advert_prev.type != contact.type ||
-				   _advert_prev.gps_lat != contact.gps_lat ||
-				   _advert_prev.gps_lon != contact.gps_lon ||
-				   strncmp(_advert_prev.name, contact.name,
-					   sizeof(_advert_prev.name)) != 0;
-
-		markContactsDirty(substantive);
+		markContactsDirty(contactChangedSubstantively(_advert_prev, contact));
 	}
 
 	// Update advert path table
@@ -1941,11 +1934,12 @@ bool CompanionMesh::handleCmdSendTxtMsg(const uint8_t *data, size_t len)
 		ContactInfo *contact = lookupContactByPubKey(pub_key_prefix, 6);
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 		bool mt_sent = false;
+		uint32_t mt_ack = 0;
 
 		if (contact && txt_type == TXT_TYPE_PLAIN &&
-		    mtSendDirectText(*contact, text, text_len, mt_sent)) {
+		    mtSendDirectText(*contact, text, text_len, mt_sent, mt_ack)) {
 			if (mt_sent) {
-				sendPacketSent(MSG_SEND_SENT_FLOOD, 0, 3000);
+				sendPacketSent(MSG_SEND_SENT_FLOOD, mt_ack, MT_ACK_TIMEOUT_MS);
 			} else {
 				writeErrFrame(ERR_BAD_STATE);
 			}
@@ -2297,8 +2291,7 @@ bool CompanionMesh::handleCmdAddUpdateContact(const uint8_t *data, size_t len)
 			c.sync_since = mt_node;
 		}
 		/* Marking a Meshtastic node a favourite asks it, once, for its NodeInfo. */
-		bool mt_asks = mt_known && !existing->isFav() && (c.flags & 0x01) &&
-			       mtNeedsNodeInfo(*existing, mt_node);
+		bool mt_asks = mt_known && mtFavouriteAsks(*existing, c.flags, mt_node);
 #endif
 
 		if (existing) {
@@ -2308,7 +2301,7 @@ bool CompanionMesh::handleCmdAddUpdateContact(const uint8_t *data, size_t len)
 			writeOKFrame();
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 			if (mt_asks) {
-				mtRequestNodeInfo(mt_node);
+				mtSendNodeInfoTo(mt_node, mt::kNoChannel, true);
 			}
 #endif
 		} else if (addContact(c)) {

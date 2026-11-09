@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <helpers/ContactChange.h>
 #include <helpers/BaseChatMesh.h>
 #include <helpers/BaseSerialInterface.h>
 #include <helpers/MeshTimeSync.h>
@@ -16,6 +17,7 @@
 
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 #include <helpers/meshtastic/MtBridge.h>
+#include <helpers/meshtastic/MtPolicy.h>
 #endif
 
 /* Push notification codes */
@@ -311,6 +313,9 @@ private:
 		void onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
 				  const char *text, size_t len, int8_t snr_x4, uint8_t hops) override;
 		bool peerKey(uint32_t node, uint8_t key[32]) override;
+		void onAck(uint32_t from, uint32_t request_id, uint32_t error_reason) override;
+		void onNodeInfoRequest(uint8_t channel_id, uint32_t from) override;
+		void onUnknownKey(uint32_t from) override;
 	};
 	struct MtKey {
 		uint32_t node;
@@ -323,6 +328,9 @@ private:
 	uint8_t _mt_key_next = 0;
 	bool _mt_ready = false;
 	uint32_t _mt_nodeinfo_next_s = 0;
+	/* NodeInfo we send to a node on our own account (answering its request,
+	 * asking for a key we lack): once per node per interval. */
+	mt::NodeRateLimit _mt_info_limit;
 	/* Text sent on an MT: channel, kept so that hearing a node repeat the frame
 	 * can be shown to the app as a MeshCore repeat of the same message. */
 	struct MtSent {
@@ -366,17 +374,24 @@ private:
 	/* App commands; false when the channel or contact is not a Meshtastic one. */
 	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent);
 	void mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rssi);
-	bool mtSendDirectText(const ContactInfo &contact, const char *text, size_t len, bool &sent);
+	bool mtSendDirectText(const ContactInfo &contact, const char *text, size_t len, bool &sent,
+			      uint32_t &ack);
 	void mtStoreKey(uint32_t node, const uint8_t key[32]);
 	bool mtKeyInUse(uint32_t node);
 	void mtSendAck(uint32_t to, uint32_t request_id);
-	/* Our NodeInfo to a node, asking for its own: its name and its public key. */
-	void mtRequestNodeInfo(uint32_t node);
-	bool mtNeedsNodeInfo(const ContactInfo &contact, uint32_t node);
+	/* Our NodeInfo to a node on a channel (kNoChannel: the first one), asking for
+	 * its own (name and public key) when want_response. */
+	void mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool want_response);
+	/* Same, once per node per hour, for NodeInfo we send unasked. */
+	void mtSendNodeInfoLimited(uint32_t node, uint8_t channel_id, bool want_response);
+	bool mtFavouriteAsks(const ContactInfo &existing, uint8_t new_flags, uint32_t node);
+	int mtContactIndex(const ContactInfo &contact);
 	void mtForgetContact(const ContactInfo &contact);
 public:
 	/* Bump when the default channel list changes; the next boot adds what is missing. */
 	static constexpr uint8_t MT_DEFAULTS_REV = 1;
+	/* How long the app waits for the ACK of a message to a Meshtastic node. */
+	static constexpr uint32_t MT_ACK_TIMEOUT_MS = 20000;
 	/* Adds the channels of the Spanish SFNarrow community that are not in the list. */
 	void mtAddDefaultChannels();
 	static void mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
@@ -456,12 +471,7 @@ private:
 	 * onDiscoveredContact() can tell an addition or a real change (name,
 	 * type, position) from a re-advert. Set by onAdvertRecv() around the
 	 * base class call. */
-	struct AdvertPrev {
-		bool known;
-		uint8_t type;
-		int32_t gps_lat, gps_lon;
-		char name[sizeof(ContactInfo::name)];
-	} _advert_prev;
+	ContactSnapshot _advert_prev;
 	void snapshotAdvertPrev(const ContactInfo *c);
 
 	/* Forward-only: our clock stamps outgoing DMs, and peers keep per-sender

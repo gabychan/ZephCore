@@ -75,6 +75,11 @@ bool decodeData(const uint8_t *buf, size_t len, Data &d);
 /* Bytes written, 0 when cap is too small. */
 size_t encodeData(const Data &d, uint8_t *out, size_t cap);
 
+/* Routing.error_reason of a routing payload: 0 is an ACK, anything else a NAK
+ * (PKI_UNKNOWN_PUBKEY is 35). False when the payload carries none. */
+static constexpr uint32_t ROUTING_PKI_UNKNOWN_PUBKEY = 35;
+bool decodeRouting(const uint8_t *buf, size_t len, uint32_t &error_reason);
+
 struct Position {
 	bool has_lat, has_lon;
 	int32_t lat_i;  /* degrees * 1e7 */
