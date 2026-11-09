@@ -33,6 +33,17 @@ public:
 	void savePrefs(const NodePrefs &prefs);
 	void loadContacts(DataStoreHost *host);
 	void saveContacts(DataStoreHost *host);
+	/* Meshtastic node public keys (Zephtacore PKI): 36 byte records, node (u32 LE)
+	 * then the X25519 key, appended as learned. */
+	enum MtKeyResult { MTKEY_STORED, MTKEY_SAME, MTKEY_CONFLICT, MTKEY_FAILED };
+	typedef bool (*MtKeyKeep)(uint32_t node, void *ctx);
+	bool getMtKey(uint32_t node, uint8_t key[32]);
+	/* A node's first key is kept: a different one is MTKEY_CONFLICT, as in
+	 * Meshtastic. At max_keys records, those keep() refuses are dropped first. */
+	MtKeyResult putMtKey(uint32_t node, const uint8_t key[32], uint32_t max_keys, MtKeyKeep keep,
+			     void *ctx);
+	bool removeMtKey(uint32_t node);
+
 	void loadChannels(DataStoreHost *host);
 	void saveChannels(DataStoreHost *host);
 	uint8_t getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]);
@@ -73,11 +84,13 @@ private:
 	static constexpr const char *EXT_MNT_POINT = "/ext";
 	static constexpr const char *EXT_CONTACTS_FILE = "/ext/contacts3";
 	static constexpr const char *EXT_CHANNELS_FILE = "/ext/channels2";
+	static constexpr const char *EXT_MTKEYS_FILE = "/ext/mtkeys";
 	static constexpr const char *EXT_ADV_BLOBS_FILE = "/ext/adv_blobs";
 
 	/* Fallback to internal if no external */
 	static constexpr const char *INT_CONTACTS_FILE = "/lfs/contacts3";
 	static constexpr const char *INT_CHANNELS_FILE = "/lfs/channels2";
+	static constexpr const char *INT_MTKEYS_FILE = "/lfs/mtkeys";
 	static constexpr const char *INT_ADV_BLOBS_FILE = "/lfs/adv_blobs";
 
 	mesh::RTCClock *_clock;
@@ -85,6 +98,8 @@ private:
 
 	/* Get path based on external availability */
 	const char *contactsFile() const { return _has_ext_fs ? EXT_CONTACTS_FILE : INT_CONTACTS_FILE; }
+	const char *mtKeysFile() const { return _has_ext_fs ? EXT_MTKEYS_FILE : INT_MTKEYS_FILE; }
+	bool rewriteMtKeys(MtKeyKeep keep, void *ctx, uint32_t *kept);
 	const char *channelsFile() const { return _has_ext_fs ? EXT_CHANNELS_FILE : INT_CHANNELS_FILE; }
 	const char *advBlobsFile() const { return _has_ext_fs ? EXT_ADV_BLOBS_FILE : INT_ADV_BLOBS_FILE; }
 	int maxBlobRecs() const { return _has_ext_fs ? 100 : 20; }

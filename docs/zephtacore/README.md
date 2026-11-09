@@ -12,7 +12,9 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Send text | A message the app sends on an `MT:` channel leaves as a Meshtastic broadcast. |
 | Repeats heard | When a Meshtastic node repeats a text we sent, the app gets the same message as a MeshCore group packet, which it counts as a heard repeat. The packet carries the repeater's `relay_node` byte as a 1-byte path, so each repeater is one heard (up to 8 per text). Incoming texts carry their real hop count (`hop_start - hop_limit`). The last 3 sent texts are kept for this. |
 | Replies | A reply written in the app (`@[name] text`) leaves as a Meshtastic text with `reply_id` set to the newest text by that name, tag dropped. A Meshtastic reply or reaction reaches the app as `@[name] text`, `name` being the author of the answered text. Authors are known for the last 8 texts on `MT:` channels (ours included); older targets lose the tag on the way in and leave the reply unlinked on the way out. |
-| Direct messages | A message to a Meshtastic contact leaves as a channel-encrypted text addressed to that node, on the first `MT:` channel. No ACK is tracked. |
+| Direct messages | A message to a Meshtastic contact leaves as a Meshtastic PKI message (X25519 with the node's key, AES-256-CCM, channel 0), as Meshtastic 2.5+ nodes expect. It needs the node's public key, learned from its NodeInfo; without it the app gets an error. A PKI message addressed to us reaches the app as a message of that contact, and is answered with an ACK when it asks for one. Our own ACKs for our messages are not tracked. |
+| Node keys | The public key of a node is kept in the `mtkeys` file (36 bytes per node, next to `contacts3`: `/ext` when there is external flash, `/lfs` otherwise), written once per node. A node that later sends another key keeps the first, as Meshtastic does; removing the contact in the app drops its key. Our own key is derived from the node identity and goes out in our NodeInfo. |
+| Asking a node for its NodeInfo | Marking a Meshtastic contact as favourite, when it still has no name or no key, sends it our NodeInfo with `want_response`, once. Nothing is asked automatically. |
 | Nodes in the contact list | NodeInfo creates a contact `<long name> (MT)`. |
 | Nodes on the map | Position packets set the contact's coordinates. |
 | Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every 12 h, on the first `MT:` channel. |
@@ -70,7 +72,9 @@ only when a firmware raises the revision. Existing channels and radio settings a
 
 ## Limits
 
-- Channel encryption only: no Meshtastic PKI direct messages, no AEAD channels, no AES-256 keys.
+- Channels use the AES-128 channel cipher only: no AEAD channels, no AES-256 channel keys. Direct messages use PKI.
+- A PKI message from a node whose key we do not hold is not opened. No `PKI_UNKNOWN_PUBKEY` reply, no ACK proof, no admin messages.
+- PKI is used for text only (not NodeInfo, Position or routing, as in Meshtastic), except our ACKs, which are PKI too.
 - A frame we send or repeat is at most 184 bytes (MeshCore's payload limit), about 164 characters of text.
 - Our position is not broadcast.
 - Text sent from the device UI (joystick) still goes out as MeshCore; only app messages are bridged.
@@ -89,7 +93,9 @@ radio RX (hybrid sync 0x14B4) -> Dispatcher::checkRecv
           decrypts on our MT: channels (hash, AES-CTR, protobuf Data)
           yes: text / NodeInfo / Position -> app, optional relay, frame consumed
           no : MeshCore parser, as before
+          channel 0 to us: PKI, opened with the sender's key (mtkeys) -> direct text to the app, ACK if asked
 app message on MT: channel -> mt::Bridge::buildText -> Dispatcher::sendForeign
+app message to a Meshtastic contact -> mt::Bridge::buildDirectText (PKI) -> same TX queue
     -> normal TX queue (LBT, duty cycle) -> LoRaRadio writes sync 0x24B4 for the frame
 ```
 
@@ -97,7 +103,9 @@ app message on MT: channel -> mt::Bridge::buildText -> Dispatcher::sendForeign
 | --- | --- |
 | Frame header, AES-CTR, protobuf Data/Position/User | `zephcore/helpers/meshtastic/MtWire.*` |
 | Channels, dedupe, delivery, relay, frame builders | `zephcore/helpers/meshtastic/MtBridge.*` |
-| Companion glue (channels, contacts, app commands) | `zephcore/app/CompanionMeshtastic.cpp` |
+| PKI: X25519, shared key, AES-CCM seal/open | `zephcore/helpers/meshtastic/MtPki.*` |
+| Companion glue (channels, contacts, keys, app commands) | `zephcore/app/CompanionMeshtastic.cpp` |
+| Node key file | `ZephyrDataStore::getMtKey/putMtKey/removeMtKey` (`zephcore/adapters/datastore`) |
 | RX hook and foreign TX frames | `Dispatcher::onRecvForeign`, `Dispatcher::sendForeign`, `Packet::isForeign` |
 | Sync word per frame | `LoRaRadio::applySyncWord`, `sx126x_set_sync_word_reg` in `patches/zephyr/0003-lora-sx126x-native.patch` |
 

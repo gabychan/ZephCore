@@ -8,8 +8,10 @@
  *   - Meshtastic nodes heard on those channels (NodeInfo, Position) become
  *     contacts named "<long name> (MT)", keyed by an Ed25519 key derived from the
  *     node number, so they appear in the contact list and on the map.
- *   - A direct message to such a contact goes out as a channel-encrypted text
- *     addressed to that node.
+ *   - A direct message to such a contact goes out as a Meshtastic PKI message
+ *     (X25519 with the key from the node's NodeInfo, AES-256-CCM); a PKI
+ *     message addressed to us reaches the app as a message of that contact.
+ *     The keys are kept in the "mtkeys" file.
  * Nothing here enters the MeshCore routing path.
  */
 
@@ -20,6 +22,8 @@
 #include <mesh/Utils.h>
 #include <string.h>
 #include <stdio.h>
+#include <psa/crypto.h>
+#include <zephyr/random/random.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zephcore_companion, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
@@ -64,6 +68,42 @@ void CompanionMesh::mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint
 {
 	mesh::Utils::encrypt(key, out, in, 16);
 }
+
+/* AES-256 block and SHA-256 for the PKI code, through PSA like the rest of the crypto. */
+static void mtAes256Block(const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
+{
+	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+	psa_key_id_t id;
+	size_t n = 0;
+
+	psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
+	psa_set_key_bits(&attr, 256);
+	psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT);
+	psa_set_key_algorithm(&attr, PSA_ALG_ECB_NO_PADDING);
+	if (psa_import_key(&attr, key, 32, &id) != PSA_SUCCESS) {
+		memset(out, 0, 16);
+		return;
+	}
+	if (psa_cipher_encrypt(id, PSA_ALG_ECB_NO_PADDING, in, 16, out, 16, &n) != PSA_SUCCESS) {
+		memset(out, 0, 16);
+	}
+	psa_destroy_key(id);
+}
+
+static void mtSha256(const uint8_t *msg, size_t len, uint8_t out[32])
+{
+	mesh::Utils::sha256(out, 32, msg, (int)len);
+}
+
+static uint32_t mtRandom32()
+{
+	uint32_t r = 0;
+
+	sys_csrand_get(&r, sizeof(r));
+	return r;
+}
+
+static const mt::PkiCrypto kMtPki = {mtAes256Block, mtSha256, mtRandom32};
 
 bool CompanionMesh::mtIsChannelName(const char *name)
 {
@@ -156,6 +196,13 @@ void CompanionMesh::mtSetup()
 	_mt.setSelf(mtSelfNode(self_id), prefs.node_name, short_name, seed);
 	_mt.setRelay(IS_ENABLED(CONFIG_ZEPHTACORE_MT_RELAY));
 	_mt.setHopLimit(CONFIG_ZEPHTACORE_MT_HOP_LIMIT);
+
+	uint8_t identity[PRV_KEY_SIZE + PUB_KEY_SIZE];
+
+	if (self_id.writeTo(identity, PRV_KEY_SIZE) == PRV_KEY_SIZE) {
+		_mt.setPki(&kMtPki, identity);
+	}
+	memset(identity, 0, sizeof(identity));
 	mtSyncChannels();
 	/* Channels are loaded once the app side is up; with none yet, try again. */
 	_mt_ready = getNumChannels() > 0;
@@ -438,6 +485,57 @@ void CompanionMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
 	const char *name = user.long_name[0] ? user.long_name : user.short_name;
 
 	m.mtUpsertContact(from, name, false, 0, 0);
+	if (user.has_public_key) {
+		m.mtStoreKey(from, user.public_key);
+	}
+}
+
+bool CompanionMesh::MtSink::peerKey(uint32_t node, uint8_t key[32])
+{
+	return m._store && m._store->getMtKey(node, key);
+}
+
+void CompanionMesh::MtSink::onDirectText(uint32_t from, uint32_t id, uint32_t reply_id,
+					 bool want_ack, const char *text, size_t len,
+					 int8_t snr_x4, uint8_t hops)
+{
+	(void)reply_id;
+
+	uint8_t key[PUB_KEY_SIZE];
+
+	if (!m.mtKeyFor(from, key)) {
+		return;
+	}
+	if (!m.lookupContactByPubKey(key, PUB_KEY_SIZE)) {
+		m.mtUpsertContact(from, nullptr, false, 0, 0);
+	}
+	ContactInfo *c = m.lookupContactByPubKey(key, PUB_KEY_SIZE);
+
+	if (!c) {
+		return;
+	}
+	char line[MAX_TEXT_LEN + 1];
+
+	if (len > sizeof(line) - 1) {
+		len = sizeof(line) - 1;
+	}
+	memcpy(line, text, len);
+	line[len] = '\0';
+
+	mesh::Packet *pkt = m.obtainNewPacket();
+
+	if (pkt) {
+		pkt->header = ROUTE_TYPE_FLOOD | (PAYLOAD_TYPE_TXT_MSG << PH_TYPE_SHIFT);
+		pkt->setPathHashSizeAndCount(1, hops);
+		pkt->_snr = snr_x4;
+	}
+	m.onMessageRecv(*c, pkt, m.getRTCClock()->getCurrentTimeUnique(), line);
+	if (pkt) {
+		m.releasePacket(pkt);
+	}
+	if (want_ack) {
+		m.mtSendAck(from, id);
+	}
 }
 
 void CompanionMesh::MtSink::onPosition(uint32_t from, const mt::Position &pos)
@@ -592,6 +690,7 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 				     bool &sent)
 {
 	uint32_t node;
+	uint8_t key[32];
 
 	if (!mtNodeOf(contact, node)) {
 		return false;
@@ -600,19 +699,98 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 	if (!_mt_ready) {
 		mtSetup();
 	}
-	int ch = mtFirstChannel();
-
-	if (ch < 0) {
+	/* Without the node's public key there is nothing a Meshtastic node would accept. */
+	if (!_store || !_store->getMtKey(node, key)) {
 		return true;
 	}
 	uint8_t frame[mt::kMaxTxFrame];
-	size_t n = _mt.buildText((uint8_t)ch, node, text, len, frame, sizeof(frame));
+	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame));
 
 	if (n > 0) {
 		mtQueue(frame, n, 0);
 		sent = true;
 	}
 	return true;
+}
+
+/* A contact keeps its key while some contact holds its node number. */
+bool CompanionMesh::mtKeyInUse(uint32_t node)
+{
+	ContactInfo c;
+
+	for (int i = 0; i < getNumContacts(); i++) {
+		if (getContactByIdx((uint32_t)i, c) && c.sync_since == node) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void CompanionMesh::mtStoreKey(uint32_t node, const uint8_t key[32])
+{
+	if (!_store) {
+		return;
+	}
+	auto in_use = [](uint32_t n, void *self) { return static_cast<CompanionMesh *>(self)->mtKeyInUse(n); };
+
+	switch (_store->putMtKey(node, key, MAX_CONTACTS, in_use, this)) {
+	case ZephyrDataStore::MTKEY_STORED:
+		LOG_INF("mt: key of %08x stored", (unsigned)node);
+		break;
+	case ZephyrDataStore::MTKEY_CONFLICT:
+		LOG_WRN("mt: node %08x sent another key, keeping the first", (unsigned)node);
+		break;
+	case ZephyrDataStore::MTKEY_FAILED:
+		LOG_WRN("mt: key of %08x not stored", (unsigned)node);
+		break;
+	default:
+		break;
+	}
+}
+
+void CompanionMesh::mtSendAck(uint32_t to, uint32_t request_id)
+{
+	uint8_t key[32], frame[mt::kMaxTxFrame];
+
+	if (!_store || !_store->getMtKey(to, key)) {
+		return;
+	}
+	size_t n = _mt.buildAck(to, request_id, key, frame, sizeof(frame));
+
+	if (n > 0) {
+		mtQueue(frame, n, 0);
+	}
+}
+
+void CompanionMesh::mtRequestNodeInfo(uint32_t node)
+{
+	int ch = mtFirstChannel();
+	uint8_t frame[mt::kMaxTxFrame];
+	size_t n = ch < 0 ? 0 : _mt.buildNodeInfoRequest((uint8_t)ch, node, frame, sizeof(frame));
+
+	if (n > 0) {
+		mtQueue(frame, n, 0);
+	}
+}
+
+/* Still the name it was created with, or no key kept. */
+bool CompanionMesh::mtNeedsNodeInfo(const ContactInfo &contact, uint32_t node)
+{
+	char base[32];
+	uint8_t key[32];
+
+	return !mtContactBase(contact.name, base, sizeof(base)) || base[0] == '!' ||
+	       !_store || !_store->getMtKey(node, key);
+}
+
+/* An app-removed contact takes its key with it, so a node that changed key can be learned again. */
+void CompanionMesh::mtForgetContact(const ContactInfo &contact)
+{
+	uint32_t node;
+
+	if (_store && mtNodeOf(contact, node)) {
+		_store->removeMtKey(node);
+	}
 }
 
 /* Our NodeInfo on every Meshtastic channel is too chatty: the first one only,

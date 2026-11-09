@@ -657,6 +657,7 @@ else()
       app/CompanionMeshtastic.cpp
       helpers/meshtastic/MtWire.cpp
       helpers/meshtastic/MtBridge.cpp
+      helpers/meshtastic/MtPki.cpp
     )
   endif()
   # Companion transports: main_companion.cpp registers every one the build

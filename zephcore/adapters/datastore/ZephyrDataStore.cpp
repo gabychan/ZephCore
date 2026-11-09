@@ -571,6 +571,138 @@ void ZephyrDataStore::saveContacts(DataStoreHost *host)
 		save_mode, written, path, written * CONTACT_DATA_SZ);
 }
 
+/* ── Meshtastic node keys: mtkeys (36B records) ─────────────────────── */
+
+static constexpr size_t MTKEY_REC_SZ = 36;  /* node u32 LE + X25519 key */
+
+/* Scans the file: the record of node, or the number of records. */
+static bool mtkeys_scan(const char *path, uint32_t node, uint8_t key[32], uint32_t *count)
+{
+	struct fs_file_t file;
+	uint8_t rec[MTKEY_REC_SZ];
+	uint32_t n = 0;
+	bool found = false;
+
+	*count = 0;
+	if (!zephcore_fs_exists(path)) {
+		return false;
+	}
+	fs_file_t_init(&file);
+	if (fs_open(&file, path, FS_O_READ) < 0) {
+		return false;
+	}
+	while (fs_read(&file, rec, MTKEY_REC_SZ) == (ssize_t)MTKEY_REC_SZ) {
+		uint32_t rn;
+
+		memcpy(&rn, rec, 4);
+		n++;
+		if (rn == node && !found) {
+			memcpy(key, rec + 4, 32);
+			found = true;
+		}
+	}
+	fs_close(&file);
+	*count = n;
+	return found;
+}
+
+bool ZephyrDataStore::getMtKey(uint32_t node, uint8_t key[32])
+{
+	uint32_t count;
+
+	return mtkeys_scan(mtKeysFile(), node, key, &count);
+}
+
+struct MtKeysRewrite {
+	const char *src;
+	ZephyrDataStore::MtKeyKeep keep;
+	void *ctx;
+	uint32_t kept;
+};
+
+bool ZephyrDataStore::rewriteMtKeys(MtKeyKeep keep, void *ctx, uint32_t *kept)
+{
+	MtKeysRewrite rw = {mtKeysFile(), keep, ctx, 0};
+	auto writer = [](struct fs_file_t *dst, void *arg) -> bool {
+		MtKeysRewrite *r = static_cast<MtKeysRewrite *>(arg);
+		struct fs_file_t src;
+		uint8_t rec[MTKEY_REC_SZ];
+
+		fs_file_t_init(&src);
+		if (fs_open(&src, r->src, FS_O_READ) < 0) {
+			return true;
+		}
+		bool ok = true;
+
+		while (ok && fs_read(&src, rec, MTKEY_REC_SZ) == (ssize_t)MTKEY_REC_SZ) {
+			uint32_t rn;
+
+			memcpy(&rn, rec, 4);
+			if (!r->keep(rn, r->ctx)) {
+				continue;
+			}
+			ok = fs_write(dst, rec, MTKEY_REC_SZ) == (ssize_t)MTKEY_REC_SZ;
+			r->kept += ok ? 1 : 0;
+		}
+		fs_close(&src);
+		return ok;
+	};
+
+	if (!zephcore_fs_exists(rw.src)) {
+		*kept = 0;
+		return true;
+	}
+	bool ok = zephcore_fs_atomic_write(rw.src, writer, &rw, "rewriteMtKeys");
+
+	*kept = rw.kept;
+	return ok;
+}
+
+ZephyrDataStore::MtKeyResult ZephyrDataStore::putMtKey(uint32_t node, const uint8_t key[32],
+						       uint32_t max_keys, MtKeyKeep keep, void *ctx)
+{
+	const char *path = mtKeysFile();
+	uint8_t have[32];
+	uint32_t count;
+
+	if (mtkeys_scan(path, node, have, &count)) {
+		return memcmp(have, key, 32) == 0 ? MTKEY_SAME : MTKEY_CONFLICT;
+	}
+	if (count >= max_keys && !rewriteMtKeys(keep, ctx, &count)) {
+		return MTKEY_FAILED;
+	}
+	if (count >= max_keys) {
+		return MTKEY_FAILED;
+	}
+	uint8_t rec[MTKEY_REC_SZ];
+	struct fs_file_t file;
+
+	memcpy(rec, &node, 4);
+	memcpy(rec + 4, key, 32);
+	fs_file_t_init(&file);
+	if (fs_open(&file, path, FS_O_CREATE | FS_O_WRITE | FS_O_APPEND) < 0) {
+		LOG_ERR("putMtKey: fs_open(%s) failed", path);
+		return MTKEY_FAILED;
+	}
+	bool ok = fs_write(&file, rec, MTKEY_REC_SZ) == (ssize_t)MTKEY_REC_SZ;
+
+	ok = (fs_sync(&file) >= 0) && ok;
+	fs_close(&file);
+	return ok ? MTKEY_STORED : MTKEY_FAILED;
+}
+
+bool ZephyrDataStore::removeMtKey(uint32_t node)
+{
+	uint8_t have[32];
+	uint32_t count, kept;
+
+	if (!mtkeys_scan(mtKeysFile(), node, have, &count)) {
+		return true;
+	}
+	return rewriteMtKeys([](uint32_t n, void *arg) { return n != *static_cast<uint32_t *>(arg); },
+			     &node, &kept);
+}
+
 /* ── Channels ──────────────────────────────────────────────────────── */
 
 void ZephyrDataStore::loadChannels(DataStoreHost *host)

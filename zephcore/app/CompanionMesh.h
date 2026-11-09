@@ -308,6 +308,9 @@ private:
 			    uint8_t hops) override;
 		void onNodeInfo(uint32_t from, const mt::User &user) override;
 		void onPosition(uint32_t from, const mt::Position &pos) override;
+		void onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
+				  const char *text, size_t len, int8_t snr_x4, uint8_t hops) override;
+		bool peerKey(uint32_t node, uint8_t key[32]) override;
 	};
 	struct MtKey {
 		uint32_t node;
@@ -364,6 +367,13 @@ private:
 	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent);
 	void mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rssi);
 	bool mtSendDirectText(const ContactInfo &contact, const char *text, size_t len, bool &sent);
+	void mtStoreKey(uint32_t node, const uint8_t key[32]);
+	bool mtKeyInUse(uint32_t node);
+	void mtSendAck(uint32_t to, uint32_t request_id);
+	/* Our NodeInfo to a node, asking for its own: its name and its public key. */
+	void mtRequestNodeInfo(uint32_t node);
+	bool mtNeedsNodeInfo(const ContactInfo &contact, uint32_t node);
+	void mtForgetContact(const ContactInfo &contact);
 public:
 	/* Bump when the default channel list changes; the next boot adds what is missing. */
 	static constexpr uint8_t MT_DEFAULTS_REV = 1;

@@ -668,6 +668,41 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-015",
+      "name": "Reference AES-256 and SHA-256 match their standard vectors",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-016",
+      "name": "X25519 shared key hashes as Meshtastic does; a weak peer key is refused",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-017",
+      "name": "A real Meshtastic PKI packet opens, and sealing it again reproduces it",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-018",
+      "name": "Seal and open round trip; any altered input is refused",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-019",
+      "name": "User carries the public key; our NodeInfo publishes it",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-020",
+      "name": "A PKI direct text reaches only its addressee, as channel 0, and is acked",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-021",
+      "name": "Only unicast text on channel 0 is taken for PKI; channel traffic is untouched",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

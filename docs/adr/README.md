@@ -15,3 +15,4 @@ restructure; most describe decisions taken earlier. The system view is in [../DE
 | [0008](0008-storage-and-settings-backend.md) | Storage layout, power-loss writes, BLE bonds in NVS |
 | [0009](0009-wifi-companion-boards.md) | WiFi companion boards and contact counts |
 | [0011](0011-esp32-companion-ble-ota.md) | ESP32 companions update over BLE with MCUmgr (sysbuild builds; `ble_ota: false` opts a board out) |
+| [0012](0012-meshtastic-pki-direct-messages.md) | Zephtacore: Meshtastic PKI direct messages, our key derived from the identity, node keys in `mtkeys` |

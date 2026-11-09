@@ -2288,13 +2288,17 @@ bool CompanionMesh::handleCmdAddUpdateContact(const uint8_t *data, size_t len)
 		c.sync_since = 0;
 		c.shared_secret_valid = false;
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-		uint32_t mt_node;
+		uint32_t mt_node = 0;
+		bool mt_known = existing && mtNodeOf(*existing, mt_node);
 
 		/* The app does not carry sync_since: keep the node number of a
 		 * Meshtastic contact or an edit would turn it into a MeshCore one. */
-		if (existing && mtNodeOf(*existing, mt_node)) {
+		if (mt_known) {
 			c.sync_since = mt_node;
 		}
+		/* Marking a Meshtastic node a favourite asks it, once, for its NodeInfo. */
+		bool mt_asks = mt_known && !existing->isFav() && (c.flags & 0x01) &&
+			       mtNeedsNodeInfo(*existing, mt_node);
 #endif
 
 		if (existing) {
@@ -2302,6 +2306,11 @@ bool CompanionMesh::handleCmdAddUpdateContact(const uint8_t *data, size_t len)
 			*existing = c;
 			markContactsDirty();
 			writeOKFrame();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+			if (mt_asks) {
+				mtRequestNodeInfo(mt_node);
+			}
+#endif
 		} else if (addContact(c)) {
 			markContactsDirty();
 			writeOKFrame();
@@ -2318,6 +2327,11 @@ bool CompanionMesh::handleCmdRemoveContact(const uint8_t *data, size_t len)
 {
 	if (len >= 1 + PUB_KEY_SIZE) {
 		ContactInfo *c = lookupContactByPubKey(&data[1], PUB_KEY_SIZE);
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		if (c) {
+			mtForgetContact(*c);
+		}
+#endif
 		if (c && removeContact(*c)) {
 			_store->deleteBlobByKey(&data[1], PUB_KEY_SIZE);
 			markContactsDirty();

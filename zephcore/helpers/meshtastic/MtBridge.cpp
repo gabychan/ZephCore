@@ -22,11 +22,25 @@ void Bridge::setSelf(uint32_t node, const char *long_name, const char *short_nam
 	_id_prefix = (seed & 0x3FFu) << 22;
 	_id_counter = (seed >> 10) & 0x3FFFFFu;
 
+	bool had_key = _user.has_public_key;
+	uint8_t key[32];
+
+	memcpy(key, _user.public_key, sizeof(key));
 	memset(&_user, 0, sizeof(_user));
+	_user.has_public_key = had_key;
+	memcpy(_user.public_key, key, sizeof(key));
 	snprintf(_user.id, sizeof(_user.id), "!%08x", (unsigned)_self);
 	snprintf(_user.long_name, sizeof(_user.long_name), "%s", long_name);
 	snprintf(_user.short_name, sizeof(_user.short_name), "%s", short_name);
 	_user.hw_model = kHwPrivate;
+}
+
+void Bridge::setPki(const PkiCrypto *crypto, const uint8_t seed[32])
+{
+	_pki = crypto;
+	pkiPrivateKey(*crypto, seed, _pki_priv);
+	pkiPublicKey(_pki_priv, _user.public_key);
+	_user.has_public_key = true;
 }
 
 bool Bridge::setChannel(uint8_t channel_id, const char *name, const uint8_t *psk, size_t psk_len)
@@ -159,6 +173,18 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 	Data d;
 	const Channel *match = nullptr;
 
+	/* Channel 0 to us alone is PKI; one that does not open may still be a
+	 * channel whose hash is 0. */
+	if (_pki && h.channel == 0 && h.to == _self && plen > kPkiOverhead &&
+	    openPki(h, raw, plen, sink, buf, d)) {
+		if (h.from == _self || seen(h.from, h.id)) {
+			return RX_DUPLICATE;
+		}
+		remember(h.from, h.id);
+		deliverPki(h, d, snr_x4, sink);
+		return RX_HANDLED;
+	}
+
 	for (auto &c : _ch) {
 		if (!c.used || c.hash != h.channel) {
 			continue;
@@ -212,8 +238,46 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 	return RX_HANDLED;
 }
 
-size_t Bridge::buildFrame(const Channel &ch, uint32_t to, uint32_t port, const uint8_t *payload,
-			  size_t payload_len, uint8_t *out, size_t cap, uint32_t reply_id)
+bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,
+		     Data &d)
+{
+	uint8_t peer[32], key[32];
+
+	if (!sink.peerKey(h.from, peer) || !pkiSharedKey(*_pki, _pki_priv, peer, key)) {
+		return false;
+	}
+	int n = pkiOpen(*_pki, key, h.from, h.id, raw + kHeaderLen, plen, buf, plen);
+
+	return n > 0 && decodeData(buf, (size_t)n, d);
+}
+
+void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink)
+{
+	uint8_t hops = h.hopStart() > h.hopLimit() ? (uint8_t)(h.hopStart() - h.hopLimit()) : 0;
+
+	if (d.portnum == PORT_TEXT) {
+		if (d.payload_len > 0) {
+			sink.onDirectText(h.from, h.id, d.reply_id, h.wantAck(),
+					  (const char *)d.payload, d.payload_len, snr_x4, hops);
+		}
+	} else if (d.portnum == PORT_NODEINFO) {
+		User u;
+
+		if (decodeUser(d.payload, d.payload_len, u)) {
+			sink.onNodeInfo(h.from, u);
+		}
+	} else if (d.portnum == PORT_POSITION) {
+		Position p;
+
+		if (decodePosition(d.payload, d.payload_len, p) && p.has_lat && p.has_lon) {
+			sink.onPosition(h.from, p);
+		}
+	}
+}
+
+size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
+			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
+			  uint32_t reply_id, uint32_t request_id, bool want_response)
 {
 	if (_self == 0 || cap < kHeaderLen) {
 		return 0;
@@ -224,8 +288,14 @@ size_t Bridge::buildFrame(const Channel &ch, uint32_t to, uint32_t port, const u
 	d.payload = payload;
 	d.payload_len = payload_len;
 	d.reply_id = reply_id;
+	d.request_id = request_id;
+	d.want_response = want_response;
 
 	size_t room = (cap < kMaxTxFrame ? cap : kMaxTxFrame) - kHeaderLen;
+
+	if (pki_key) {
+		room = room > kPkiOverhead ? room - kPkiOverhead : 0;
+	}
 	size_t n = encodeData(d, out + kHeaderLen, room);
 
 	if (n == 0) {
@@ -237,15 +307,21 @@ size_t Bridge::buildFrame(const Channel &ch, uint32_t to, uint32_t port, const u
 	h.from = _self;
 	h.id = nextId();
 	h.flags = (uint8_t)(_hops | (_hops << 5));
-	h.channel = ch.hash;
+	h.channel = pki_key ? 0 : ch->hash;
 	h.next_hop = 0;
 	h.relay = (uint8_t)_self;
 	writeHeader(h, out);
 
-	if (ch.encrypted) {
-		ctrCrypt(_aes, ch.key, _self, h.id, out + kHeaderLen, n);
-	}
 	remember(_self, h.id);
+	if (pki_key) {
+		size_t sealed = pkiSeal(*_pki, pki_key, _self, h.id, out + kHeaderLen, n,
+					out + kHeaderLen, cap - kHeaderLen);
+
+		return sealed ? kHeaderLen + sealed : 0;
+	}
+	if (ch->encrypted) {
+		ctrCrypt(_aes, ch->key, _self, h.id, out + kHeaderLen, n);
+	}
 	return kHeaderLen + n;
 }
 
@@ -257,7 +333,8 @@ size_t Bridge::buildText(uint8_t channel_id, uint32_t to, const char *text, size
 	if (!ch || len == 0) {
 		return 0;
 	}
-	return buildFrame(*ch, to, PORT_TEXT, (const uint8_t *)text, len, out, cap, reply_id);
+	return buildFrame(ch, nullptr, to, PORT_TEXT, (const uint8_t *)text, len, out, cap,
+			  reply_id);
 }
 
 size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)
@@ -270,7 +347,45 @@ size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)
 	}
 	size_t n = encodeUser(_user, pb, sizeof(pb));
 
-	return n ? buildFrame(*ch, kBroadcast, PORT_NODEINFO, pb, n, out, cap) : 0;
+	return n ? buildFrame(ch, nullptr, kBroadcast, PORT_NODEINFO, pb, n, out, cap) : 0;
+}
+
+size_t Bridge::buildNodeInfoRequest(uint8_t channel_id, uint32_t to, uint8_t *out, size_t cap)
+{
+	const Channel *ch = find(channel_id);
+	uint8_t pb[96];
+
+	if (!ch) {
+		return 0;
+	}
+	size_t n = encodeUser(_user, pb, sizeof(pb));
+
+	return n ? buildFrame(ch, nullptr, to, PORT_NODEINFO, pb, n, out, cap, 0, 0, true) : 0;
+}
+
+size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const char *text,
+			       size_t len, uint8_t *out, size_t cap, uint32_t reply_id)
+{
+	uint8_t key[32];
+
+	if (!_pki || len == 0 || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
+		return 0;
+	}
+	return buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap, reply_id);
+}
+
+size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,
+			size_t cap)
+{
+	/* Routing { error_reason = NONE }. */
+	static const uint8_t kRoutingAck[] = {0x18, 0x00};
+	uint8_t key[32];
+
+	if (!_pki || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
+		return 0;
+	}
+	return buildFrame(nullptr, key, to, PORT_ROUTING, kRoutingAck, sizeof(kRoutingAck), out, cap,
+			  0, request_id);
 }
 
 size_t Bridge::buildPosition(uint8_t channel_id, const Position &pos, uint8_t *out, size_t cap)
@@ -283,7 +398,7 @@ size_t Bridge::buildPosition(uint8_t channel_id, const Position &pos, uint8_t *o
 	}
 	size_t n = encodePosition(pos, pb, sizeof(pb));
 
-	return n ? buildFrame(*ch, kBroadcast, PORT_POSITION, pb, n, out, cap) : 0;
+	return n ? buildFrame(ch, nullptr, kBroadcast, PORT_POSITION, pb, n, out, cap) : 0;
 }
 
 } /* namespace mt */

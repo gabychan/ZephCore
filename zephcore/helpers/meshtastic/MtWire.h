@@ -21,6 +21,7 @@ enum : uint32_t {
 	PORT_TEXT = 1,
 	PORT_POSITION = 3,
 	PORT_NODEINFO = 4,
+	PORT_ROUTING = 5,
 };
 
 struct Header {
@@ -91,6 +92,8 @@ struct User {
 	char short_name[5];
 	uint32_t hw_model;
 	uint32_t role;
+	bool has_public_key;
+	uint8_t public_key[32];  /* X25519, field 8 */
 };
 bool decodeUser(const uint8_t *buf, size_t len, User &u);
 size_t encodeUser(const User &u, uint8_t *out, size_t cap);

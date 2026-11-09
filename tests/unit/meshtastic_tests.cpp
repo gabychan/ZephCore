@@ -32,28 +32,32 @@ const uint8_t kSbox[256] = {
 
 uint8_t xtime(uint8_t x) { return (uint8_t)((x << 1) ^ ((x & 0x80) ? 0x1b : 0)); }
 
-void refAes(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) {
-    uint8_t rk[176];
-    std::memcpy(rk, key, 16);
+// Key of 16 (AES-128) or 32 (AES-256) bytes.
+void refAesKeyed(const uint8_t* key, int key_len, const uint8_t in[16], uint8_t out[16]) {
+    const int nk = key_len / 4, rounds = nk + 6, total = 16 * (rounds + 1);
+    uint8_t rk[240];
+    std::memcpy(rk, key, (size_t)key_len);
     uint8_t rcon = 1;
-    for (int i = 16; i < 176; i += 4) {
+    for (int i = key_len; i < total; i += 4) {
         uint8_t t[4] = {rk[i - 4], rk[i - 3], rk[i - 2], rk[i - 1]};
-        if (i % 16 == 0) {
+        if ((i / 4) % nk == 0) {
             uint8_t a = t[0];
             t[0] = (uint8_t)(kSbox[t[1]] ^ rcon); t[1] = kSbox[t[2]]; t[2] = kSbox[t[3]]; t[3] = kSbox[a];
             rcon = xtime(rcon);
+        } else if (nk > 6 && (i / 4) % nk == 4) {
+            for (int j = 0; j < 4; j++) t[j] = kSbox[t[j]];
         }
-        for (int j = 0; j < 4; j++) rk[i + j] = (uint8_t)(rk[i - 16 + j] ^ t[j]);
+        for (int j = 0; j < 4; j++) rk[i + j] = (uint8_t)(rk[i - key_len + j] ^ t[j]);
     }
     uint8_t s[16];
     for (int i = 0; i < 16; i++) s[i] = (uint8_t)(in[i] ^ rk[i]);
-    for (int round = 1; round <= 10; round++) {
+    for (int round = 1; round <= rounds; round++) {
         uint8_t t[16];
         for (int i = 0; i < 16; i++) t[i] = kSbox[s[i]];
         uint8_t u[16];  // ShiftRows
         for (int c = 0; c < 4; c++)
             for (int r = 0; r < 4; r++) u[c * 4 + r] = t[((c + r) % 4) * 4 + r];
-        if (round < 10) {
+        if (round < rounds) {
             for (int c = 0; c < 4; c++) {
                 uint8_t* p = &u[c * 4];
                 uint8_t a0 = p[0], a1 = p[1], a2 = p[2], a3 = p[3];
@@ -66,6 +70,49 @@ void refAes(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) {
         for (int i = 0; i < 16; i++) s[i] = (uint8_t)(u[i] ^ rk[round * 16 + i]);
     }
     std::memcpy(out, s, 16);
+}
+
+void refAes(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 16, in, out); }
+void refAes256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 32, in, out); }
+
+// Independent SHA-256 (FIPS 180-4), one shot.
+void refSha256(const uint8_t* msg, size_t len, uint8_t out[32]) {
+    static const uint32_t k[64] = {
+        0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2};
+    uint32_t h[8] = {0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19};
+    std::vector<uint8_t> m(msg, msg + len);
+    m.push_back(0x80);
+    while (m.size() % 64 != 56) m.push_back(0);
+    uint64_t bits = (uint64_t)len * 8;
+    for (int i = 7; i >= 0; i--) m.push_back((uint8_t)(bits >> (8 * i)));
+    auto rotr = [](uint32_t x, int n) { return (x >> n) | (x << (32 - n)); };
+    for (size_t off = 0; off < m.size(); off += 64) {
+        uint32_t w[64];
+        for (int i = 0; i < 16; i++)
+            w[i] = ((uint32_t)m[off + 4 * i] << 24) | ((uint32_t)m[off + 4 * i + 1] << 16) |
+                   ((uint32_t)m[off + 4 * i + 2] << 8) | m[off + 4 * i + 3];
+        for (int i = 16; i < 64; i++) {
+            uint32_t s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
+            uint32_t s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
+            w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+        }
+        uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+        for (int i = 0; i < 64; i++) {
+            uint32_t t1 = hh + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + k[i] + w[i];
+            uint32_t t2 = (rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c));
+            hh = g; g = f; f = e; e = d + t1; d = c; c = b; b = a; a = t1 + t2;
+        }
+        h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
+    }
+    for (int i = 0; i < 8; i++)
+        for (int j = 0; j < 4; j++) out[4 * i + j] = (uint8_t)(h[i] >> (24 - 8 * j));
 }
 
 const uint8_t kDefaultKey[16] = {0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59,
@@ -83,6 +130,16 @@ struct Capture : Sink {
     }
     void onNodeInfo(uint32_t from, const User& u) override { users.push_back({from, u}); }
     void onPosition(uint32_t from, const Position& p) override { positions.push_back({from, p}); }
+    struct Direct { uint32_t from, id, reply; bool want_ack; std::string text; };
+    std::vector<Direct> directs;
+    std::vector<std::pair<uint32_t, std::vector<uint8_t>>> keys;  // known peer keys
+    void onDirectText(uint32_t from, uint32_t id, uint32_t reply, bool want_ack, const char* t, size_t n, int8_t, uint8_t) override {
+        directs.push_back({from, id, reply, want_ack, std::string(t, n)});
+    }
+    bool peerKey(uint32_t node, uint8_t key[32]) override {
+        for (auto& k : keys) if (k.first == node) { std::memcpy(key, k.second.data(), 32); return true; }
+        return false;
+    }
 };
 
 }  // namespace
@@ -419,4 +476,216 @@ TEST(mt_foreign_hash, "UNIT-MT-014", "Queued Meshtastic relay hashes by sender a
     CHECK(mesh::ContentionTracker::computePacketHash32(&pkt) == h);
     pkt.payload[8] ^= 0x01;   // packet id
     CHECK(mesh::ContentionTracker::computePacketHash32(&pkt) != h);
+}
+
+namespace {
+
+std::vector<uint8_t> hex(const char* s) {
+    std::vector<uint8_t> v;
+    for (size_t i = 0; s[i] && s[i + 1]; i += 2) v.push_back((uint8_t)std::stoi(std::string(s + i, 2), nullptr, 16));
+    return v;
+}
+
+uint32_t g_random = 0x2b796a03u;
+uint32_t fixedRandom() { return g_random; }
+
+const PkiCrypto kPki = {refAes256, refSha256, fixedRandom};
+
+Bridge makePkiNode(uint32_t node, const char* name, uint32_t seed, uint8_t seed_byte) {
+    Bridge b = makeNode(node, name, seed);
+    uint8_t identity[32];
+    std::memset(identity, seed_byte, sizeof(identity));
+    b.setPki(&kPki, identity);
+    return b;
+}
+
+void ownKey(uint8_t seed_byte, uint8_t priv[32], uint8_t pub[32]) {
+    uint8_t identity[32];
+    std::memset(identity, seed_byte, sizeof(identity));
+    pkiPrivateKey(kPki, identity, priv);
+    pkiPublicKey(priv, pub);
+}
+
+}  // namespace
+
+TEST(mt_pki_references, "UNIT-MT-015", "Reference AES-256 and SHA-256 match their standard vectors") {
+    uint8_t key[32], in[16], out[16], hash[32];
+    for (int i = 0; i < 32; i++) key[i] = (uint8_t)i;
+    for (int i = 0; i < 16; i++) in[i] = (uint8_t)(i * 0x11);
+    refAes256(key, in, out);
+    CHECK(std::memcmp(out, hex("8ea2b7ca516745bfeafc49904b496089").data(), 16) == 0);
+    refSha256((const uint8_t*)"abc", 3, hash);
+    CHECK(std::memcmp(hash, hex("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad").data(), 32) == 0);
+}
+
+TEST(mt_pki_key_agreement, "UNIT-MT-016", "X25519 shared key hashes as Meshtastic does; a weak peer key is refused") {
+    uint8_t key[32];
+    // Wycheproof vector used by Meshtastic's test_crypto: the key is SHA256 of the shared secret.
+    CHECK(pkiSharedKey(kPki, hex("10300724f3bea134eb1575245ef26ff9b8ccd59849cd98ce1a59002fe1d5986c").data(),
+                       hex("f7e13a1a067d2f4e1061bf9936fde5be6b0c2494a8f809cbac7f290ef719e91c").data(), key));
+    CHECK(std::memcmp(key, hex("24becd5dfed9e9289ba2e15b82b0d54f8e9aacb72f5e4248c58d8d74b451ce76").data(), 32) == 0);
+    // A low-order point gives an all-zero secret.
+    CHECK(!pkiSharedKey(kPki, hex("18630f93598637c35da623a74559cf944374a559114c7937811041fc8605564a").data(),
+                        hex("ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f").data(), key));
+    // Both sides derive the same key.
+    uint8_t pa[32], qa[32], pb[32], qb[32], ka[32], kb[32];
+    ownKey(1, pa, qa);
+    ownKey(2, pb, qb);
+    CHECK(pkiSharedKey(kPki, pa, qb, ka) && pkiSharedKey(kPki, pb, qa, kb) && std::memcmp(ka, kb, 32) == 0);
+}
+
+TEST(mt_pki_vector, "UNIT-MT-017", "A real Meshtastic PKI packet opens, and sealing it again reproduces it") {
+    // From meshtastic-firmware test/test_crypto: our private key, the sender's public key, packet 0x13b2d662 from 0x0929.
+    uint8_t key[32];
+    CHECK(pkiSharedKey(kPki, hex("a00330633e63522f8a4d81ec6d9d1e6617f6c8ffd3a4c698229537d44e522277").data(),
+                       hex("db18fc50eea47f00251cb784819a3cf5fc361882597f589f0d7ff820e8064457").data(), key));
+    CHECK(std::memcmp(key, hex("777b1545c9d6f9a2").data(), 8) == 0);
+    std::vector<uint8_t> payload = hex("40df24abfcc30a17a3d9046726099e796a1c036a792b");
+    uint8_t plain[16];
+    int n = pkiOpen(kPki, key, 0x0929, 0x13b2d662u, payload.data(), payload.size(), plain, sizeof(plain));
+    CHECK(n == 10 && std::memcmp(plain, hex("08011204746573744800").data(), 10) == 0);
+    Data d;
+    CHECK(decodeData(plain, (size_t)n, d) && d.portnum == PORT_TEXT && d.payload_len == 4 && std::memcmp(d.payload, "test", 4) == 0);
+    // The extra nonce is the last four bytes, little endian.
+    g_random = 0x2b796a03u;
+    uint8_t sealed[32];
+    CHECK(pkiSeal(kPki, key, 0x0929, 0x13b2d662u, plain, 10, sealed, sizeof(sealed)) == payload.size());
+    CHECK(std::memcmp(sealed, payload.data(), payload.size()) == 0);
+}
+
+TEST(mt_pki_seal_open, "UNIT-MT-018", "Seal and open round trip; any altered input is refused") {
+    uint8_t key[32];
+    for (int i = 0; i < 32; i++) key[i] = (uint8_t)(0x40 + i);
+    for (size_t len : {1u, 15u, 16u, 17u, 100u}) {
+        std::vector<uint8_t> plain(len), sealed(len + kPkiOverhead), back(len);
+        for (size_t i = 0; i < len; i++) plain[i] = (uint8_t)(i * 3 + 1);
+        CHECK(pkiSeal(kPki, key, 0xAABBCCDDu, 77, plain.data(), len, sealed.data(), sealed.size()) == sealed.size());
+        CHECK(std::memcmp(sealed.data(), plain.data(), len) != 0);
+        CHECK(pkiOpen(kPki, key, 0xAABBCCDDu, 77, sealed.data(), sealed.size(), back.data(), back.size()) == (int)len);
+        CHECK(back == plain);
+        CHECK(pkiOpen(kPki, key, 0xAABBCCDEu, 77, sealed.data(), sealed.size(), back.data(), back.size()) == -1);  // from
+        CHECK(pkiOpen(kPki, key, 0xAABBCCDDu, 78, sealed.data(), sealed.size(), back.data(), back.size()) == -1);  // id
+        for (size_t i = 0; i < sealed.size(); i++) {  // cipher, tag and extra nonce
+            std::vector<uint8_t> bad = sealed;
+            bad[i] ^= 0x01;
+            CHECK(pkiOpen(kPki, key, 0xAABBCCDDu, 77, bad.data(), bad.size(), back.data(), back.size()) == -1);
+        }
+        uint8_t other[32];
+        std::memcpy(other, key, 32);
+        other[5] ^= 0x80;
+        CHECK(pkiOpen(kPki, other, 0xAABBCCDDu, 77, sealed.data(), sealed.size(), back.data(), back.size()) == -1);
+    }
+    uint8_t out[8];
+    CHECK(pkiOpen(kPki, key, 1, 1, out, kPkiOverhead, out, sizeof(out)) == -1);  // nothing to open
+    CHECK(pkiSeal(kPki, key, 1, 1, out, 4, out, 10) == 0);                         // cap too small
+}
+
+TEST(mt_pki_nodeinfo_key, "UNIT-MT-019", "User carries the public key; our NodeInfo publishes it") {
+    User u = {};
+    std::strcpy(u.id, "!00000001");
+    u.has_public_key = true;
+    for (int i = 0; i < 32; i++) u.public_key[i] = (uint8_t)(0xC0 + i);
+    uint8_t buf[128];
+    size_t n = encodeUser(u, buf, sizeof(buf));
+    User v;
+    CHECK(n > 0 && decodeUser(buf, n, v) && v.has_public_key && std::memcmp(v.public_key, u.public_key, 32) == 0);
+    u.has_public_key = false;
+    n = encodeUser(u, buf, sizeof(buf));
+    CHECK(decodeUser(buf, n, v) && !v.has_public_key);
+    // A key of the wrong length is ignored.
+    uint8_t odd[] = {0x42, 0x03, 1, 2, 3};
+    CHECK(decodeUser(odd, sizeof(odd), v) && !v.has_public_key);
+
+    uint8_t priv[32], pub[32], frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    ownKey(7, priv, pub);
+    Bridge a = makePkiNode(0xA1A1A1A1u, "alpha", 1, 7), plain = makeNode(0xB2B2B2B2u, "beta", 2);
+    Capture cap;
+    CHECK(plain.handleFrame(frame, a.buildNodeInfo(3, frame, sizeof(frame)), 0, cap, relay, &relay_len) == RX_HANDLED);
+    CHECK(cap.users.size() == 1 && cap.users[0].second.has_public_key && std::memcmp(cap.users[0].second.public_key, pub, 32) == 0);
+    Capture none;
+    Bridge b = makeNode(0xC3C3C3C3u, "gamma", 3);
+    CHECK(plain.handleFrame(frame, b.buildNodeInfo(3, frame, sizeof(frame)), 0, none, relay, &relay_len) == RX_HANDLED);
+    CHECK(none.users.size() == 1 && !none.users[0].second.has_public_key);
+    // setSelf after setPki keeps the key.
+    a.setSelf(0xA1A1A1A2u, "alpha2", "AL", 5);
+    Capture again;
+    CHECK(plain.handleFrame(frame, a.buildNodeInfo(3, frame, sizeof(frame)), 0, again, relay, &relay_len) == RX_HANDLED);
+    CHECK(again.users.size() == 1 && again.users[0].second.has_public_key && std::memcmp(again.users[0].second.public_key, pub, 32) == 0);
+}
+
+TEST(mt_pki_direct, "UNIT-MT-020", "A PKI direct text reaches only its addressee, as channel 0, and is acked") {
+    uint8_t pa[32], qa[32], pb[32], qb[32], frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    ownKey(7, pa, qa);
+    ownKey(9, pb, qb);
+    Bridge a = makePkiNode(0xA1A1A1A1u, "alpha", 1, 7), b = makePkiNode(0xB2B2B2B2u, "beta", 2, 9);
+    Bridge c = makePkiNode(0xC3C3C3C3u, "gamma", 3, 11);
+    Capture ca, cb, cc;
+    ca.keys.push_back({0xB2B2B2B2u, std::vector<uint8_t>(qb, qb + 32)});
+    cb.keys.push_back({0xA1A1A1A1u, std::vector<uint8_t>(qa, qa + 32)});
+    cc.keys.push_back({0xA1A1A1A1u, std::vector<uint8_t>(qa, qa + 32)});
+
+    size_t n = a.buildDirectText(0xB2B2B2B2u, qb, "hola beta", 9, frame, sizeof(frame), 0x0BADF00Du);
+    Header h;
+    CHECK(n > kHeaderLen + 9 + kPkiOverhead && n <= kMaxTxFrame && parseHeader(frame, n, h));
+    CHECK(h.to == 0xB2B2B2B2u && h.from == 0xA1A1A1A1u && h.channel == 0 && !h.wantAck());
+    CHECK(std::string((const char*)frame, n).find("hola") == std::string::npos);
+
+    CHECK(c.handleFrame(frame, n, 0, cc, relay, &relay_len) == RX_NOT_MESHTASTIC);  // not for gamma
+    CHECK(cc.directs.empty() && cc.texts.empty());
+    CHECK(b.handleFrame(frame, n, 8, cb, relay, &relay_len) == RX_HANDLED && relay_len == 0);
+    CHECK(cb.directs.size() == 1 && cb.directs[0].from == 0xA1A1A1A1u && cb.directs[0].id == h.id &&
+          cb.directs[0].reply == 0x0BADF00Du && cb.directs[0].text == "hola beta" && !cb.directs[0].want_ack);
+    CHECK(cb.texts.empty());
+    CHECK(b.handleFrame(frame, n, 8, cb, relay, &relay_len) == RX_DUPLICATE && cb.directs.size() == 1);
+
+    // Without the sender's key the frame is not opened.
+    Capture nokey;
+    Bridge d = makePkiNode(0xB2B2B2B2u, "beta", 2, 9);
+    CHECK(d.handleFrame(frame, n, 0, nokey, relay, &relay_len) == RX_NOT_MESHTASTIC && nokey.directs.empty());
+
+    // The ACK is a PKI frame whose Data answers the packet id.
+    size_t k = b.buildAck(0xA1A1A1A1u, h.id, qa, frame, sizeof(frame));
+    Header ha;
+    CHECK(k > kHeaderLen && parseHeader(frame, k, ha) && ha.to == 0xA1A1A1A1u && ha.channel == 0);
+    uint8_t key[32], plain[64];
+    CHECK(pkiSharedKey(kPki, pa, qb, key));
+    int pn = pkiOpen(kPki, key, 0xB2B2B2B2u, ha.id, frame + kHeaderLen, k - kHeaderLen, plain, sizeof(plain));
+    Data d2;
+    CHECK(pn > 0 && decodeData(plain, (size_t)pn, d2) && d2.portnum == PORT_ROUTING && d2.request_id == h.id &&
+          d2.payload_len == 2 && d2.payload[0] == 0x18 && d2.payload[1] == 0x00);
+    CHECK(a.handleFrame(frame, k, 0, ca, relay, &relay_len) == RX_HANDLED && ca.directs.empty() && ca.texts.empty());
+
+    // Limits: weak key, empty or too long text, no PKI.
+    uint8_t weak[32];
+    std::memcpy(weak, hex("ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f").data(), 32);
+    CHECK(a.buildDirectText(0xB2B2B2B2u, weak, "x", 1, frame, sizeof(frame)) == 0);
+    CHECK(a.buildDirectText(0xB2B2B2B2u, qb, "", 0, frame, sizeof(frame)) == 0);
+    std::string big(200, 'z');
+    CHECK(a.buildDirectText(0xB2B2B2B2u, qb, big.data(), big.size(), frame, sizeof(frame)) == 0);
+    Bridge nopki = makeNode(0xE5E5E5E5u, "eps", 5);
+    CHECK(nopki.buildDirectText(0xB2B2B2B2u, qb, "x", 1, frame, sizeof(frame)) == 0);
+    CHECK(!nopki.hasPki() && a.hasPki());
+}
+
+TEST(mt_pki_not_for_broadcast, "UNIT-MT-021", "Only unicast text on channel 0 is taken for PKI; channel traffic is untouched") {
+    uint8_t pa[32], qa[32], frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    ownKey(9, pa, qa);
+    Bridge a = makePkiNode(0xA1A1A1A1u, "alpha", 1, 7), b = makePkiNode(0xB2B2B2B2u, "beta", 2, 9);
+    Capture cb;
+    cb.keys.push_back({0xA1A1A1A1u, std::vector<uint8_t>(qa, qa + 32)});
+    size_t n = a.buildText(3, kBroadcast, "para todos", 10, frame, sizeof(frame));
+    CHECK(b.handleFrame(frame, n, 0, cb, relay, &relay_len) == RX_HANDLED && cb.texts.size() == 1 && cb.directs.empty());
+    n = a.buildText(3, 0xB2B2B2B2u, "unicast por canal", 17, frame, sizeof(frame));
+    CHECK(b.handleFrame(frame, n, 0, cb, relay, &relay_len) == RX_HANDLED && cb.texts.size() == 2 && cb.directs.empty());
+    // A NodeInfo request is unicast on the channel and asks for an answer.
+    n = a.buildNodeInfoRequest(3, 0xB2B2B2B2u, frame, sizeof(frame));
+    Header h;
+    CHECK(n > kHeaderLen && parseHeader(frame, n, h) && h.to == 0xB2B2B2B2u && h.channel == 0x08);
+    ctrCrypt(refAes, kDefaultKey, h.from, h.id, frame + kHeaderLen, n - kHeaderLen);
+    Data d;
+    CHECK(decodeData(frame + kHeaderLen, n - kHeaderLen, d) && d.portnum == PORT_NODEINFO && d.want_response);
+    CHECK(a.buildNodeInfoRequest(9, 0xB2B2B2B2u, frame, sizeof(frame)) == 0);  // unknown channel
 }

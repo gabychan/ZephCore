@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "MtPki.h"
 #include "MtWire.h"
 
 namespace mt {
@@ -40,6 +41,19 @@ public:
 			    uint8_t hops) = 0;
 	virtual void onNodeInfo(uint32_t from, const User &user) = 0;
 	virtual void onPosition(uint32_t from, const Position &pos) = 0;
+	/* A PKI direct message for us. want_ack: the sender asks for an ACK. */
+	virtual void onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
+				  const char *text, size_t len, int8_t snr_x4, uint8_t hops)
+	{
+		(void)from; (void)id; (void)reply_id; (void)want_ack;
+		(void)text; (void)len; (void)snr_x4; (void)hops;
+	}
+	/* X25519 public key of a node, false when unknown. */
+	virtual bool peerKey(uint32_t node, uint8_t key[32])
+	{
+		(void)node; (void)key;
+		return false;
+	}
 };
 
 enum RxResult {
@@ -64,6 +78,11 @@ public:
 	int channelCount() const;
 	bool hasChannel(uint8_t channel_id) const;
 
+	/* Enables PKI direct messages. seed: 32 bytes of the node identity. crypto
+	 * must outlive the bridge. Our public key then goes out in our NodeInfo. */
+	void setPki(const PkiCrypto *crypto, const uint8_t seed[32]);
+	bool hasPki() const { return _pki != nullptr; }
+
 	void setRelay(bool on) { _relay = on; }
 	/* hop_limit and hop_start of the frames we originate, 0 to 7. */
 	void setHopLimit(uint8_t hops) { _hops = hops > 7 ? 7 : hops; }
@@ -80,6 +99,13 @@ public:
 			 uint8_t *out, size_t cap, uint32_t reply_id = 0);
 	size_t buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap);
 	size_t buildPosition(uint8_t channel_id, const Position &pos, uint8_t *out, size_t cap);
+	/* Our NodeInfo to one node, asking for theirs (want_response). */
+	size_t buildNodeInfoRequest(uint8_t channel_id, uint32_t to, uint8_t *out, size_t cap);
+	/* PKI frames to a node whose public key is peer_pub. 0 without PKI or on a weak key. */
+	size_t buildDirectText(uint32_t to, const uint8_t peer_pub[32], const char *text, size_t len,
+			       uint8_t *out, size_t cap, uint32_t reply_id = 0);
+	size_t buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,
+			size_t cap);
 
 private:
 	struct Channel {
@@ -104,13 +130,21 @@ private:
 	bool _relay = false;
 	uint8_t _hops = 3;  /* Meshtastic's own default */
 	User _user = {};
+	const PkiCrypto *_pki = nullptr;
+	uint8_t _pki_priv[32] = {};
 
 	const Channel *find(uint8_t channel_id) const;
 	bool seen(uint32_t from, uint32_t id) const;
 	void remember(uint32_t from, uint32_t id);
 	uint32_t nextId();
-	size_t buildFrame(const Channel &ch, uint32_t to, uint32_t port, const uint8_t *payload,
-			  size_t payload_len, uint8_t *out, size_t cap, uint32_t reply_id = 0);
+	/* ch carries the frame on a channel; pki_key (32 bytes) instead seals it for
+	 * one node and sets channel 0. */
+	size_t buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
+			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
+			  uint32_t reply_id = 0, uint32_t request_id = 0, bool want_response = false);
+	bool openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,
+		     Data &d);
+	void deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink);
 };
 
 } /* namespace mt */

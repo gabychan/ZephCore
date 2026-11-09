@@ -426,7 +426,15 @@ bool decodeUser(const uint8_t *buf, size_t len, User &u)
 		const uint8_t *d;
 		size_t n;
 
-		if ((num == 1 || num == 2 || num == 3) && wt == WT_LEN) {
+		if (num == 8 && wt == WT_LEN) {
+			if (!r.bytes(d, n)) {
+				return false;
+			}
+			if (n == sizeof(u.public_key)) {
+				memcpy(u.public_key, d, n);
+				u.has_public_key = true;
+			}
+		} else if ((num == 1 || num == 2 || num == 3) && wt == WT_LEN) {
 			if (!r.bytes(d, n)) {
 				return false;
 			}
@@ -465,6 +473,9 @@ size_t encodeUser(const User &u, uint8_t *out, size_t cap)
 	}
 	if (u.role) {
 		w.uint(7, u.role);
+	}
+	if (u.has_public_key) {
+		w.bytes(8, u.public_key, sizeof(u.public_key));
 	}
 	return w.ok ? (size_t)(w.p - out) : 0;
 }
