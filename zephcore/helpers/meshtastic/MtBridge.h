@@ -84,6 +84,7 @@ enum RxResult {
 	RX_HANDLED,         /* decrypted on one of our channels */
 	RX_DUPLICATE,       /* seen before; nothing to deliver */
 	RX_OPAQUE,          /* Meshtastic on a channel we hold no key for; only relayed */
+	RX_IGNORED,         /* not for MeshCore either, and Meshtastic is off */
 };
 
 class Bridge {

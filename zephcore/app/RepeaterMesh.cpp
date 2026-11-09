@@ -1411,10 +1411,6 @@ void RepeaterMesh::handleCommand(uint32_t sender_timestamp, char* command, char*
       sendNodeDiscoverReq();
       strcpy(reply, "OK - Discover sent");
     }
-#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-  } else if (mtHandleCommand(command, reply)) {
-    // Zephtacore: "get/set mt." answered by the Meshtastic side.
-#endif
   } else {
     _cli.handleCommand(sender_timestamp, command, reply);
   }
@@ -1469,8 +1465,7 @@ void RepeaterMesh::loop() {
 #endif
 
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-  mtNodeInfoTick();
-  mtTelemetryTick();
+  mtTick();
 #endif
   timeSyncTick();
 
@@ -1593,11 +1588,9 @@ uint32_t RepeaterMesh::msUntilNextMaintenance() {
 #endif
 
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-  if (_mt_next_nodeinfo) {
-    next = mesh::maintenanceSooner(next, mesh::maintenanceUntil(now, _mt_next_nodeinfo));
-  }
-  if (_mt_next_telemetry) {
-    next = mesh::maintenanceSooner(next, mesh::maintenanceUntil(now, _mt_next_telemetry));
+  uint32_t mt_at;
+  if (_mtport.nextAt(mt_at)) {
+    next = mesh::maintenanceSooner(next, mesh::maintenanceUntil(now, mt_at));
   }
 #endif
 

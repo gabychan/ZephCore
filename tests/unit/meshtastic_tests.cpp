@@ -937,16 +937,16 @@ TEST(mt_discriminate, "UNIT-MT-032", "A well formed MeshCore frame is never take
     CHECK(!looksLikeMeshCore(tr, 5, 0));
 }
 
-static std::string mtCmd(RepeaterPrefs& p, const char* cmd, bool* changed = nullptr) {
+static std::string mtCmd(RepeaterPrefs& p, const char* cmd, bool* changed = nullptr, bool standalone = true) {
     char reply[96] = "";
-    CmdResult r = handleCommand(p, cmd, reply, sizeof(reply));
+    CmdResult r = handleCommand(p, cmd, reply, sizeof(reply), standalone);
     if (changed) *changed = r.changed;
     return r.handled ? std::string(reply) : std::string("<not mine>");
 }
 
 TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, reject bad values, and leave other commands alone") {
     RepeaterPrefs p;
-    setDefaults(p, 3);
+    setDefaults(p, 3, RELAY_ALL);
     bool ch = false;
     CHECK(mtCmd(p, "get mt.enable") == "> on" && mtCmd(p, "get mt.role") == "> client");
     CHECK(mtCmd(p, "get mt.relay") == "> all" && mtCmd(p, "get mt.relay.opaque") == "> on");
@@ -969,7 +969,7 @@ TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, r
 
 TEST(mt_config_channel, "UNIT-MT-034", "The channel takes a name and an optional 1 or 16 byte base64 key; a bad key changes nothing") {
     RepeaterPrefs p;
-    setDefaults(p, 3);
+    setDefaults(p, 3, RELAY_ALL);
     bool ch = false;
     CHECK(mtCmd(p, "set mt.channel Mesh AQ==", &ch) == "OK" && ch);
     CHECK(std::string(p.channel) == "Mesh" && p.psk_len == 1 && p.psk[0] == 1);
@@ -989,7 +989,7 @@ TEST(mt_config_channel, "UNIT-MT-034", "The channel takes a name and an optional
 
 TEST(mt_config_sanitize, "UNIT-MT-035", "Out of range stored settings are put back in range") {
     RepeaterPrefs p;
-    setDefaults(p, 3);
+    setDefaults(p, 3, RELAY_ALL);
     CHECK(p.enable == 1 && p.hops == 3 && p.relay == RELAY_ALL && p.nodeinfo_s == 43200);
     p.enable = 9; p.role = 77; p.hops = 99; p.relay = 9; p.relay_opaque = 3;
     p.psk_len = 7; p.nodeinfo_s = 5; p.telemetry_s = 99999999;
@@ -1103,4 +1103,21 @@ TEST(mt_telemetry, "UNIT-MT-038", "Device metrics encode as Meshtastic's Telemet
     Data d;
     CHECK(decodeData(plain, fn - kHeaderLen, d) && d.portnum == PORT_TELEMETRY && d.payload_len > 0);
     CHECK(a.buildTelemetry(9, m, frame, sizeof(frame)) == 0);  // unknown channel
+}
+
+TEST(mt_config_roles, "UNIT-MT-039", "A companion has no channel or telemetry setting; its relay starts off; timers wrap") {
+    RepeaterPrefs p;
+    setDefaults(p, 7, RELAY_OFF);
+    CHECK(p.relay == RELAY_OFF && p.hops == 7 && p.enable == 1);
+    bool ch = true;
+    CHECK(mtCmd(p, "set mt.channel Mesh", &ch, false).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "get mt.telemetry", &ch, false).find("Error") == 0);
+    CHECK(mtCmd(p, "set mt.relay all", &ch, false) == "OK" && ch && p.relay == RELAY_ALL);
+    CHECK(mtCmd(p, "set mt.hops 2", &ch, false) == "OK" && p.hops == 2);
+    Timer t;
+    CHECK(!t.armed() && !t.due(0));
+    t.arm(0xFFFFFF00u, 0x200);          // crosses the wrap
+    CHECK(t.armed() && !t.due(0xFFFFFF00u) && !t.due(0x000000FFu) && t.due(0x00000100u) && t.due(0x5000u));
+    t.stop();
+    CHECK(!t.due(0x5000u));
 }

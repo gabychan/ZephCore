@@ -80,6 +80,29 @@ public:
 	explicit ZcCommonJson(NodePrefs *p) : _p(p) {}
 };
 
+/* mt{}: the Meshtastic side of both roles. */
+class MtJson : public ConfigSerializer {
+	NodePrefs *_p;
+
+protected:
+	void structure() override
+	{
+		def("en", _p->mt.enable);
+		def("role", _p->mt.role);
+		def("hops", _p->mt.hops);
+		def("relay", _p->mt.relay);
+		def("opaque", _p->mt.relay_opaque);
+		def("ni_s", _p->mt.nodeinfo_s);
+		def("tel_s", _p->mt.telemetry_s);
+		def("ch", _p->mt.channel, sizeof(_p->mt.channel));
+		def("psk_len", _p->mt.psk_len);
+		def("psk", (void *)_p->mt.psk, sizeof(_p->mt.psk));
+	}
+
+public:
+	explicit MtJson(NodePrefs *p) : _p(p) {}
+};
+
 /* ── Companion: upstream examples/companion_radio/NodePrefs.h ──────── */
 
 class RepeatDisableJson : public ConfigSerializer {
@@ -159,6 +182,7 @@ class CompanionJson : public ConfigSerializer {
 	CompJson _comp;
 	WifiJson _wifi;
 	ZcCompanionJson _zc;
+	MtJson _mt;
 
 protected:
 	void structure() override
@@ -172,11 +196,12 @@ protected:
 		def("comp", _comp);
 		def("wifi", _wifi);
 		def("zc", _zc);
+		def("mt", _mt);
 	}
 
 public:
 	explicit CompanionJson(NodePrefs *p)
-		: _p(p), _radio(p), _gps(p), _comp(p), _wifi(p), _zc(p)
+		: _p(p), _radio(p), _gps(p), _comp(p), _wifi(p), _zc(p), _mt(p)
 	{
 		/* upstream: repeat.disable; ours: client_repeat (1 = forward) */
 		_repeat.disable = p->client_repeat ? 0 : 1;
@@ -233,29 +258,6 @@ protected:
 
 public:
 	explicit PowerJson(NodePrefs *p) : _p(p) {}
-};
-
-/* mt{}: the repeater's Meshtastic side. */
-class MtJson : public ConfigSerializer {
-	NodePrefs *_p;
-
-protected:
-	void structure() override
-	{
-		def("en", _p->mt.enable);
-		def("role", _p->mt.role);
-		def("hops", _p->mt.hops);
-		def("relay", _p->mt.relay);
-		def("opaque", _p->mt.relay_opaque);
-		def("ni_s", _p->mt.nodeinfo_s);
-		def("tel_s", _p->mt.telemetry_s);
-		def("ch", _p->mt.channel, sizeof(_p->mt.channel));
-		def("psk_len", _p->mt.psk_len);
-		def("psk", (void *)_p->mt.psk, sizeof(_p->mt.psk));
-	}
-
-public:
-	explicit MtJson(NodePrefs *p) : _p(p) {}
 };
 
 class ZcServerJson : public ZcCommonJson {

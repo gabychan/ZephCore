@@ -148,6 +148,12 @@ public:
 		return _mesh.getMeshTimeSync();
 	}
 
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	/* mt.*: the channels are the app's, so channel and telemetry do not apply. */
+	void onMtPrefsChanged() override { _mesh.mtPrefsChanged(); }
+	void formatMtStatsReply(char* reply, size_t cap) override { _mesh.mtFormatStats(reply, cap); }
+#endif
+
 	/* stats-core / stats-radio / stats-packets, as the repeater prints them. */
 	void formatStatsReply(char* reply) override {
 		StatsFormatHelper::formatCoreStats(reply, _board, _ms,

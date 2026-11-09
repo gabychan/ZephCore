@@ -122,15 +122,18 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   mt::Bridge _mt{MtRelayPort::aesBlock};
   MtRelayPort _mtport{*this, _mt};
   MtSink _mt_sink;
-  uint32_t _mt_dropped = 0;                // non-MeshCore frames dropped while mt.enable is off
-  uint32_t _mt_next_nodeinfo = 0;          // millis; 0 = none planned
-  uint32_t _mt_next_telemetry = 0;         // millis; 0 = none planned
-  uint32_t _mt_tele_at = 0, _mt_tele_tx = 0, _mt_tele_rx = 0;  // millis and air times at the last telemetry
+  struct MtSource : MtRelayPort::Source {
+    explicit MtSource(RepeaterMesh& mesh) : m(mesh) {}
+    bool position(mt::Position& pos) override;
+    bool metrics(mt::DeviceMetrics& d) override;
+    RepeaterMesh& m;
+    uint32_t at = 0, last_tx = 0, last_rx = 0;  // millis and air times at the last metrics
+  };
+  MtSource _mt_source{*this};
   bool _mt_ready = false;
   void mtApplyPrefs();
-  void mtNodeInfoTick();
-  void mtTelemetryTick();
-  bool mtHandleCommand(char* command, char* reply);
+  void mtTick();
+  void mtFormatStats(char* reply, size_t cap) const;
 #endif
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
@@ -314,6 +317,11 @@ public:
   bool configSideDetectors(const uint8_t* sfs, uint8_t num) override;
 
   // ZEPHCORE: CommonCLICallbacks additions.
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  bool mtStandalone() const override { return true; }
+  void onMtPrefsChanged() override { mtApplyPrefs(); }
+  void formatMtStatsReply(char* reply, size_t cap) override { mtFormatStats(reply, cap); }
+#endif
   uint32_t getDefaultGpsIntervalSec() const override { return CONFIG_ZEPHCORE_REPEATER_GPS_INTERVAL_SEC; }
   void freezeRadioParams(float freq, float bw, uint8_t sf, uint8_t cr) override;
   bool setFemRxGain(bool enable) override;

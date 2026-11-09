@@ -13,6 +13,7 @@
 #include <helpers/ui/display.h>
 #endif
 #include <helpers/MeshTimeSync.h>
+#include <helpers/meshtastic/MtConfig.h>
 #include <helpers/OffgridPolicy.h>
 #include <helpers/LoopWakeStats.h>
 extern "C" void power_diag_line(int n, char *out, size_t cap);  /* TEMPORARY: helpers/power_diag.c */
@@ -331,8 +332,34 @@ void CommonCLI::scheduleReboot(uint8_t type)
 /* CLI commands are case-sensitive, matching upstream Arduino MeshCore. Do
  * not fold the input buffer: a value can be the second token (`password
  * <value>`). */
+/* Zephtacore: "get/set mt.*", the same settings and commands in every role. */
+bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char* reply) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	const size_t cap = replyCap(sender_timestamp);
+
+	if (strcmp(command, "get mt.stats") == 0) {
+		_callbacks->formatMtStatsReply(reply, cap);
+		return true;
+	}
+	mt::CmdResult r = mt::handleCommand(_prefs->mt, command, reply, cap, _callbacks->mtStandalone());
+
+	if (r.changed) {
+		mt::sanitize(_prefs->mt);
+		_callbacks->onMtPrefsChanged();
+		savePrefs();
+	}
+	return r.handled;
+#else
+	(void)sender_timestamp; (void)command; (void)reply;
+	return false;
+#endif
+}
+
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
 	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
+		return;
+	}
+	if (handleMtCmd(sender_timestamp, command, reply)) {
 		return;
 	}
 	// hook for variant-specific CLI processing

@@ -453,9 +453,14 @@ static inline void initNodePrefs(NodePrefs* prefs) {
 	prefs->v_battery_alert_mv = 0xFFFF; // Sentinel: derive from board auto-shutdown threshold
 	prefs->wifi_enabled = 1;          // as upstream: WiFi still stays off until an SSID is set
 #ifdef CONFIG_ZEPHTACORE_MT_HOP_LIMIT
-	mt::setDefaults(prefs->mt, CONFIG_ZEPHTACORE_MT_HOP_LIMIT);
+	const uint8_t mt_hops = CONFIG_ZEPHTACORE_MT_HOP_LIMIT;
 #else
-	mt::setDefaults(prefs->mt, 3);
+	const uint8_t mt_hops = 3;
+#endif
+#ifdef CONFIG_ZEPHCORE_ROLE_COMPANION
+	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_OFF);  // a companion does not repeat unless asked
+#else
+	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_ALL);
 #endif
 	/* Companion-only default, set here so every caller of initNodePrefs() sees
 	 * it. 0 means disabled and is a legal stored value. */

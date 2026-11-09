@@ -160,8 +160,7 @@ void CompanionMesh::mtAddDefaultChannels()
 void CompanionMesh::mtSetup()
 {
 	MtRelayPort::initSelf(_mt, self_id, prefs.node_name, *getRNG());
-	_mt.setRelay(IS_ENABLED(CONFIG_ZEPHTACORE_MT_RELAY));
-	_mt.setHopLimit(CONFIG_ZEPHTACORE_MT_HOP_LIMIT);
+	_mtport.apply(prefs.mt);
 
 	uint8_t identity[PRV_KEY_SIZE + PUB_KEY_SIZE];
 
@@ -172,8 +171,21 @@ void CompanionMesh::mtSetup()
 	mtSyncChannels();
 	/* Channels are loaded once the app side is up; with none yet, try again. */
 	_mt_ready = getNumChannels() > 0;
-	/* First NodeInfo shortly after boot, then every interval. */
-	_mt_nodeinfo_next_s = (uint32_t)(k_uptime_get() / 1000) + 30;
+	_mtport.arm((uint32_t)_ms->getMillis(), prefs.mt);
+}
+
+/* mt.* changed through the CLI. */
+void CompanionMesh::mtPrefsChanged()
+{
+	if (_mt_ready) {
+		_mtport.apply(prefs.mt);
+		_mtport.arm((uint32_t)_ms->getMillis(), prefs.mt);
+	}
+}
+
+void CompanionMesh::mtFormatStats(char *reply, size_t cap) const
+{
+	_mtport.formatStats(reply, cap);
 }
 
 void CompanionMesh::mtSyncChannels()
@@ -318,10 +330,8 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 		return false;
 	}
 
-	/* The companion repeats flood frames with a client's timing and never drops a repeat
-	 * because another node sent it first. */
-	const MtRelayPort::Policy policy = {true, false, false};
-	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, policy, prefs.sf, prefs.bw);
+	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(prefs.mt),
+					 prefs.sf, prefs.bw);
 
 	if (r == mt::RX_NOT_MESHTASTIC) {
 		return false;
@@ -782,23 +792,14 @@ void CompanionMesh::mtNodeInfoTick()
 	if (!_mt_ready) {
 		mtSetup();
 	}
-	if (CONFIG_ZEPHTACORE_MT_NODEINFO_INTERVAL_S == 0 || _mt.channelCount() == 0) {
-		return;
-	}
-	uint32_t now_s = (uint32_t)(k_uptime_get() / 1000);
-
-	if ((int32_t)(now_s - _mt_nodeinfo_next_s) < 0) {
-		return;
-	}
-	_mt_nodeinfo_next_s = now_s + CONFIG_ZEPHTACORE_MT_NODEINFO_INTERVAL_S;
-
 	int ch = mtFirstChannel();
-	uint8_t frame[mt::kMaxTxFrame];
-	size_t n = ch < 0 ? 0 : _mt.buildNodeInfo((uint8_t)ch, frame, sizeof(frame));
 
-	if (n > 0) {
-		_mtport.send(frame, n);
+	if (ch < 0) {
+		return;
 	}
+	MtRelayPort::Source none;
+
+	_mtport.tick((uint32_t)_ms->getMillis(), prefs.mt, (uint8_t)ch, none);
 }
 
 #endif /* CONFIG_ZEPHTACORE_MESHTASTIC */

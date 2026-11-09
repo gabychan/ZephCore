@@ -133,7 +133,8 @@ static void setChannel(RepeaterPrefs &p, const char *args, char *reply, size_t c
 	snprintf(reply, cap, "OK");
 }
 
-CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap)
+CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap,
+			bool standalone)
 {
 	const bool get = strncmp(command, "get mt.", 7) == 0;
 	const bool set = strncmp(command, "set mt.", 7) == 0;
@@ -154,6 +155,11 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 	uint32_t u;
 	uint8_t b;
 	bool changed = false;
+
+	if (!standalone && (strcmp(name, "channel") == 0 || strcmp(name, "telemetry") == 0)) {
+		snprintf(reply, cap, "Error: not available here, the app sets the channels");
+		return {true, false};
+	}
 
 	if (get) {
 		if (strcmp(name, "enable") == 0) {

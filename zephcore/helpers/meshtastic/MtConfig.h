@@ -99,8 +99,8 @@ inline void sanitize(RepeaterPrefs &p)
 	}
 }
 
-/* hops is the one default that depends on the network joined (Kconfig). */
-inline void setDefaults(RepeaterPrefs &p, uint8_t hops)
+/* hops depends on the network joined (Kconfig); a companion starts with relay off, a repeater on. */
+inline void setDefaults(RepeaterPrefs &p, uint8_t hops, uint8_t relay)
 {
 	for (size_t i = 0; i < sizeof(p); i++) {
 		((uint8_t *)&p)[i] = 0;
@@ -108,7 +108,7 @@ inline void setDefaults(RepeaterPrefs &p, uint8_t hops)
 	p.enable = 1;
 	p.role = ROLE_CLIENT;
 	p.hops = hops;
-	p.relay = RELAY_ALL;
+	p.relay = relay;
 	p.relay_opaque = 1;
 	p.psk_len = 1;
 	p.psk[0] = 1;
@@ -150,8 +150,10 @@ struct CmdResult {
 };
 
 /* "get mt.<key>" and "set mt.<key> <value>". The reply is always written when
- * handled. */
-CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap);
+ * handled. standalone: the node has one channel of its own (a repeater) and
+ * sends telemetry; a companion's channels are the app's. */
+CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap,
+			bool standalone);
 
 /* Standard base64 into out; length, or -1 on bad input or overflow. */
 int base64Decode(const char *s, uint8_t *out, size_t cap);

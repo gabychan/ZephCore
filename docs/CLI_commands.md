@@ -234,9 +234,9 @@ As upstream, the one setting is `gps` (`0`/`1`), listed only on a board with a G
 
 ---
 
-## Meshtastic (Zephtacore repeater, `CONFIG_ZEPHTACORE_MESHTASTIC`)
+## Meshtastic (Zephtacore, `CONFIG_ZEPHTACORE_MESHTASTIC`)
 
-The repeater also repeats Meshtastic floods on the radio it shares with MeshCore. Every command works from the serial console and as a remote admin command, and persists in `prefs.json` (`mt{}`).
+The repeater and the companion repeat Meshtastic floods on the radio they share with MeshCore, with the same settings and commands. They work from the serial console (and, on the repeater, as remote admin commands) and persist in `prefs.json` (`mt{}`). Differences: the repeater starts with `mt.relay all`, the companion with `off`; on the companion `mt.channel` and `mt.telemetry` are refused, because its channels are the app's (the NodeInfo goes out on its first `MT:` channel) and it has no metrics to send; with `mt.enable off` it stops decoding Meshtastic frames, so the `MT:` channels fall silent.
 
 | Command | Description |
 |---------|-------------|

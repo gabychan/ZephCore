@@ -58,6 +58,25 @@ inline bool favouriteAsksNodeInfo(bool was_favourite, bool is_favourite, bool ha
 	return !was_favourite && is_favourite && !(has_name && has_key);
 }
 
+/* A one-shot deadline in milliseconds that may wrap: the NodeInfo and the
+ * telemetry we send now and then. */
+class Timer {
+public:
+	void arm(uint32_t now_ms, uint32_t delay_ms)
+	{
+		_at = now_ms + delay_ms;
+		_on = true;
+	}
+	void stop() { _on = false; }
+	bool armed() const { return _on; }
+	uint32_t at() const { return _at; }
+	bool due(uint32_t now_ms) const { return _on && (int32_t)(now_ms - _at) >= 0; }
+
+private:
+	uint32_t _at = 0;
+	bool _on = false;
+};
+
 /* What a repeater does with a frame it heard repeated by another node while
  * its own copy waits: Always sends it anyway, CancelOnEcho drops it. */
 enum class RelayClass : uint8_t { Always, CancelOnEcho };

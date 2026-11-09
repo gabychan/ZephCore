@@ -65,6 +65,12 @@ public:
 	virtual void formatStatsReply(char* reply)           { strcpy(reply, "not available"); }
 	virtual void formatRadioStatsReply(char* reply)      { strcpy(reply, "not available"); }
 	virtual void formatPacketStatsReply(char* reply)     { strcpy(reply, "not available"); }
+
+	/* Zephtacore "mt." commands: standalone = the node has a channel of its own
+	 * (repeater); the role applies the settings after a change. */
+	virtual bool mtStandalone() const { return false; }
+	virtual void onMtPrefsChanged() {}
+	virtual void formatMtStatsReply(char* reply, size_t cap) { (void)cap; strcpy(reply, "not available"); }
 	virtual mesh::LocalIdentity& getSelfId() = 0;
 	virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
 	virtual void clearStats() = 0;
@@ -143,6 +149,7 @@ class CommonCLI {
 	void savePrefs();
 	void scheduleReboot(uint8_t type);
 	bool handleRadioCmd(uint32_t sender_timestamp, const char* command, char* reply);
+	bool handleMtCmd(uint32_t sender_timestamp, const char* command, char* reply);
 	void handleGetCmd(uint32_t sender_timestamp, const char* command, char* reply);
 	void handleSetCmd(uint32_t sender_timestamp, const char* command, char* reply);
 	void handleRegionCmd(uint32_t sender_timestamp, char* command, char* reply);

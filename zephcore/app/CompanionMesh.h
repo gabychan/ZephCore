@@ -329,7 +329,6 @@ private:
 	MtKey _mt_keys[MT_KEY_CACHE] = {};
 	uint8_t _mt_key_next = 0;
 	bool _mt_ready = false;
-	uint32_t _mt_nodeinfo_next_s = 0;
 	/* NodeInfo we send to a node on our own account (answering its request,
 	 * asking for a key we lack): once per node per interval. */
 	mt::NodeRateLimit _mt_info_limit;
@@ -394,6 +393,9 @@ public:
 	static constexpr uint32_t MT_ACK_TIMEOUT_MS = 20000;
 	/* Adds the channels of the Spanish SFNarrow community that are not in the list. */
 	void mtAddDefaultChannels();
+	/* mt.* settings changed through the CLI, and its stats. */
+	void mtPrefsChanged();
+	void mtFormatStats(char *reply, size_t cap) const;
 private:
 #endif
 	ZephyrDataStore *_store;

@@ -17,8 +17,8 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Exchanging keys | Marking a Meshtastic contact as favourite, when it still has no name or no key, sends it our NodeInfo with `want_response`, once. We also send our NodeInfo, at most once per node per hour: when a node asks for ours (a unicast NodeInfo with `want_response`), when a node answers `PKI_UNKNOWN_PUBKEY`, and (asking for theirs too) when a PKI message for us arrives from a node whose key we do not hold. |
 | Nodes in the contact list | NodeInfo creates a contact `<long name> (MT)`. |
 | Nodes on the map | Position packets set the contact's coordinates. |
-| Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every 12 h, on the first `MT:` channel. |
-| Repeat Meshtastic floods | Optional, `CONFIG_ZEPHTACORE_MT_RELAY`: repeats frames of our `MT:` channels with `hop_limit` lowered. |
+| Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every `mt.nodeinfo` seconds (12 h), on the first `MT:` channel. |
+| Repeat Meshtastic floods | `mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. |
 
 MeshCore behaves as before. A frame that does not decrypt on one of our `MT:` channels is handled as MeshCore.
 
@@ -30,8 +30,8 @@ Companion role, SX126x, LR1110 and LR2021 boards. The feature is `CONFIG_ZEPHTAC
 west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/zephtacore.conf"
 ```
 
-Add `CONFIG_ZEPHTACORE_MT_RELAY=y` to the fragment to repeat Meshtastic floods. `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`
-(default 7) is the hop limit of the frames we originate; Meshtastic's own default is 3.
+Repeating is the `mt.relay` setting (see `docs/CLI_commands.md`), not a build option. `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`
+is the default of `mt.hops`, the hop limit of the frames we originate; Meshtastic's own default is 3.
 
 SX127x boards build, but cannot pick the sync word per frame, so Meshtastic is neither heard nor sent there.
 On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x1B`
@@ -150,8 +150,12 @@ A repeat heard from another repeater is not dropped if that repeater named this 
 
 Our NodeInfo, our position and our device metrics (when enabled) go out on the primary channel only. The position is the MeshCore one (`set lat` / `set lon`), sent after each NodeInfo while `advert.loc` is not `none`. Name, identity, radio parameters and `repeat` stay MeshCore's; `mt.relay` is Meshtastic's own switch, independent of `repeat`.
 
-Size: the repeater grows by 12.2 KB of flash and 1.2 KB of RAM (`wio_tracker_l1`, 289344 vs 277168 B and 85148 vs 83932 B);
-the companion by 1.3 KB of flash and 0.4 KB of RAM (settings in `NodePrefs`, the dedup table's relayed flag, the shared port).
+Companion and repeater keep one copy of the settings (`mt::RepeaterPrefs`), of the `mt.` commands (`CommonCLI::handleMtCmd`),
+of `prefs.json` `mt{}`, and of the timers and beacons (`MtRelayPort::apply/arm/tick`). The role supplies only what it has:
+the repeater its channel, position and metrics (`MtRelayPort::Source`), the companion its channels.
+
+Size: the repeater grows by 12.7 KB of flash and 1.2 KB of RAM (`wio_tracker_l1`, 289832 vs 277168 B and 85148 vs 83932 B);
+the companion with the feature is 488772 B of flash and 228640 B of RAM (`wio_tracker_l1`, 87 % of RAM).
 Not run on air.
 
 ## Verification
