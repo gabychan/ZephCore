@@ -758,6 +758,21 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-033",
+      "name": "mt. commands read and change the settings, reject bad values, and leave other commands alone",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-034",
+      "name": "The channel takes a name and an optional 1 or 16 byte base64 key; a bad key changes nothing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-035",
+      "name": "Out of range stored settings are put back in range",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

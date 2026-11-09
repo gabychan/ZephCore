@@ -6,6 +6,7 @@
 #include <helpers/meshtastic/MtBridge.h>
 #include <helpers/meshtastic/MtPolicy.h>
 #include <helpers/meshtastic/MtDiscriminate.h>
+#include <helpers/meshtastic/MtConfig.h>
 #include <mesh/ContentionTracker.h>
 #include <mesh/Packet.h>
 
@@ -932,4 +933,67 @@ TEST(mt_discriminate, "UNIT-MT-032", "A well formed MeshCore frame is never take
     tr[0] = (uint8_t)((PAYLOAD_TYPE_GRP_TXT << 2) | ROUTE_TYPE_TRANSPORT_FLOOD);
     CHECK(looksLikeMeshCore(tr, sizeof(tr), 0));
     CHECK(!looksLikeMeshCore(tr, 5, 0));
+}
+
+static std::string mtCmd(RepeaterPrefs& p, const char* cmd, bool* changed = nullptr) {
+    char reply[96] = "";
+    CmdResult r = handleCommand(p, cmd, reply, sizeof(reply));
+    if (changed) *changed = r.changed;
+    return r.handled ? std::string(reply) : std::string("<not mine>");
+}
+
+TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, reject bad values, and leave other commands alone") {
+    RepeaterPrefs p;
+    bool ch = false;
+    CHECK(mtCmd(p, "get mt.enable") == "> on" && mtCmd(p, "get mt.role") == "> client");
+    CHECK(mtCmd(p, "get mt.relay") == "> all" && mtCmd(p, "get mt.relay.opaque") == "> on");
+    CHECK(mtCmd(p, "get mt.channel") == "> LongFast (default key)");
+    CHECK(mtCmd(p, "get dutycycle") == "<not mine>" && mtCmd(p, "set freq 869") == "<not mine>");
+    CHECK(mtCmd(p, "get mt.nope").find("Error") == 0);
+
+    CHECK(mtCmd(p, "set mt.role router_late", &ch) == "OK" && ch && p.role == ROLE_ROUTER_LATE);
+    CHECK(mtCmd(p, "set mt.role router_late", &ch) == "OK" && !ch);  // same value: nothing to save
+    CHECK(mtCmd(p, "set mt.role boss", &ch).find("Error") == 0 && !ch && p.role == ROLE_ROUTER_LATE);
+    CHECK(mtCmd(p, "set mt.relay essential", &ch) == "OK" && p.relay == RELAY_ESSENTIAL);
+    CHECK(mtCmd(p, "set mt.enable off", &ch) == "OK" && p.enable == 0);
+    CHECK(mtCmd(p, "set mt.hops 7", &ch) == "OK" && p.hops == 7);
+    CHECK(mtCmd(p, "set mt.hops 8", &ch).find("Error") == 0 && p.hops == 7);
+    CHECK(mtCmd(p, "set mt.hops x", &ch).find("Error") == 0);
+    CHECK(mtCmd(p, "set mt.nodeinfo 100", &ch) == "OK - 600 s" && p.nodeinfo_s == 600);  // raised to the floor
+    CHECK(mtCmd(p, "set mt.nodeinfo 0", &ch) == "OK - 0 s" && p.nodeinfo_s == 0);
+    CHECK(mtCmd(p, "set mt.telemetry 30", &ch) == "OK - 60 s");
+}
+
+TEST(mt_config_channel, "UNIT-MT-034", "The channel takes a name and an optional 1 or 16 byte base64 key; a bad key changes nothing") {
+    RepeaterPrefs p;
+    bool ch = false;
+    CHECK(mtCmd(p, "set mt.channel Mesh AQ==", &ch) == "OK" && ch);
+    CHECK(std::string(p.channel) == "Mesh" && p.psk_len == 1 && p.psk[0] == 1);
+    CHECK(mtCmd(p, "set mt.channel Mesh AAECAwQFBgcICQoLDA0ODw==", &ch) == "OK" && ch);
+    CHECK(p.psk_len == 16 && p.psk[0] == 0 && p.psk[15] == 15);
+    CHECK(mtCmd(p, "get mt.channel") == "> Mesh (custom key)");
+    CHECK(mtCmd(p, "set mt.channel Other", &ch) == "OK" && ch && p.psk_len == 16);  // key kept
+    CHECK(mtCmd(p, "set mt.channel Other AAEC", &ch).find("Error") == 0 && !ch && p.psk_len == 16);
+    CHECK(mtCmd(p, "set mt.channel Other !!!!", &ch).find("Error") == 0);
+    CHECK(mtCmd(p, "set mt.channel TooLongChannelName", &ch).find("Error") == 0);
+    CHECK(mtCmd(p, "set mt.channel", &ch).find("Error") == 0);
+    CHECK(mtCmd(p, "set mt.channel Mesh default", &ch) == "OK" && ch && p.psk_len == 1 && p.psk[0] == 1);
+    uint8_t out[4];
+    CHECK(base64Decode("AQ==", out, sizeof(out)) == 1 && out[0] == 1);
+    CHECK(base64Decode("AAECAwQ", out, 4) == -1);  // would overflow
+}
+
+TEST(mt_config_sanitize, "UNIT-MT-035", "Out of range stored settings are put back in range") {
+    RepeaterPrefs p;
+    p.enable = 9; p.role = 77; p.hops = 99; p.relay = 9; p.relay_opaque = 3; p.position = 5;
+    p.psk_len = 7; p.nodeinfo_s = 5; p.telemetry_s = 99999999;
+    std::memset(p.channel, 0x01, sizeof(p.channel));  // control characters
+    sanitize(p);
+    CHECK(p.enable == 1 && p.role == ROLE_CLIENT && p.hops == 7 && p.relay == RELAY_ALL);
+    CHECK(p.relay_opaque == 1 && p.position == 1 && p.psk_len == 1 && p.psk[0] == 1);
+    CHECK(p.nodeinfo_s == 600 && p.telemetry_s == 86400);
+    CHECK(std::string(p.channel) == "LongFast");
+    CHECK(roleSendsEarly(ROLE_ROUTER) && !roleSendsEarly(ROLE_ROUTER_LATE));
+    CHECK(!roleYieldsToEcho(ROLE_ROUTER) && !roleYieldsToEcho(ROLE_ROUTER_LATE));
+    CHECK(roleYieldsToEcho(ROLE_CLIENT) && roleYieldsToEcho(ROLE_REPEATER));
 }

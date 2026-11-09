@@ -46,6 +46,7 @@ add_executable(zephcore_unit
   ${PRODUCTION}/helpers/meshtastic/MtWire.cpp
   ${PRODUCTION}/helpers/meshtastic/MtBridge.cpp
   ${PRODUCTION}/helpers/meshtastic/MtPki.cpp
+  ${PRODUCTION}/helpers/meshtastic/MtConfig.cpp
 )
 target_compile_features(zephcore_unit PRIVATE cxx_std_17)
 target_compile_definitions(zephcore_unit PRIVATE CONFIG_ZEPHCORE_PACKET_LOGGING=0
