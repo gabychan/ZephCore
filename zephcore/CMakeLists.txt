@@ -651,6 +651,14 @@ else()
     # COMPANION_SERIAL (e.g. plain ESP32/S3 companions) failed to link otherwise.
     helpers/CommonCLI.cpp
   )
+  if(CONFIG_ZEPHTACORE_MESHTASTIC)
+    message(STATUS "Zephtacore: Meshtastic bridge")
+    target_sources(app PRIVATE
+      app/CompanionMeshtastic.cpp
+      helpers/meshtastic/MtWire.cpp
+      helpers/meshtastic/MtBridge.cpp
+    )
+  endif()
   # Companion transports: main_companion.cpp registers every one the build
   # has in upstream's MultiSerialInterface — BLE NUS when there is a
   # controller, TCP (native Linux, WiFi companion), and the wired link below.

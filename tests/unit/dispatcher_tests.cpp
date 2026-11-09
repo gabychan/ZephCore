@@ -186,3 +186,34 @@ TEST(dispatch_generated_rx, "UNIT-DISPATCH-017", "Generated dispatcher inputs ob
     const uint8_t empty[] = {9, 0}; mesh::Packet p;
     CHECK(f.dispatcher.tryParsePacket(&p, empty, sizeof(empty)) && p.payload_len == 0);
 }
+
+TEST(dispatch_foreign_rx, "UNIT-DISPATCH-018", "A consumed foreign frame never reaches the MeshCore parser") {
+    Fixture f; f.begin();
+    const std::vector<uint8_t> meshcore = {9, 0, 0xAA}, other = {0xDE, 0xAD, 0xBE, 0xEF, 1, 2, 3};
+    f.radio.incoming = {other, meshcore};
+    f.dispatcher.consume_foreign = true; f.dispatcher.loop();
+    CHECK(f.dispatcher.foreign_rx.size() == 2 && f.dispatcher.received.empty());
+    CHECK(f.pool.getFreeCount() == 32);  // nothing was allocated for a consumed frame
+    f.radio.incoming = {meshcore};
+    f.dispatcher.consume_foreign = false; f.dispatcher.loop();
+    CHECK(f.dispatcher.foreign_rx.size() == 3 && f.dispatcher.received.size() == 1);
+    CHECK(f.dispatcher.received[0].header == 9 && f.dispatcher.received[0].payload_len == 1);
+}
+TEST(dispatch_foreign_tx, "UNIT-DISPATCH-019", "A foreign frame goes out as its payload alone, flagged for the radio") {
+    Fixture f; f.begin();
+    std::vector<uint8_t> frame(40);
+    for (size_t i = 0; i < frame.size(); i++) frame[i] = (uint8_t)(i * 3 + 1);
+    CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
+    CHECK(!f.dispatcher.sendForeign(frame.data(), 0, 1, 0));
+    std::vector<uint8_t> big(185, 1);
+    CHECK(!f.dispatcher.sendForeign(big.data(), (int)big.size(), 1, 0));
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 1 && f.radio.sent[0] == frame && f.radio.sent_foreign[0]);
+    f.complete();
+    CHECK(f.pool.getFreeCount() == 32 && f.dispatcher.successes == 1);
+    // A MeshCore packet queued afterwards is not flagged and keeps its framing.
+    f.dispatcher.sendPacket(f.packet(), 2, 0); f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 2 && !f.radio.sent_foreign[1] &&
+          f.radio.sent[1] == std::vector<uint8_t>({9, 0, 0xAA}));
+    f.complete();
+}

@@ -1047,6 +1047,9 @@ int main(void)
 			0xc9, 0xe5, 0xed, 0xba, 0xa1, 0x15, 0xcd, 0x72
 		};
 		companion_mesh.addChannel("Public", public_psk, 16);
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		companion_mesh.mtAddDefaultChannels();
+#endif
 		data_store.saveChannels(&companion_mesh);
 		LOG_INF("Added default Public channel");
 	}

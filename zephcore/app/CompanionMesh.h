@@ -14,6 +14,10 @@
 #include <helpers/OffgridPolicy.h>
 #include <zephyr/kernel.h>
 
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+#include <helpers/meshtastic/MtBridge.h>
+#endif
+
 /* Push notification codes */
 #define PUSH_CODE_ADVERT              0x80
 #define PUSH_CODE_PATH_UPDATED        0x81
@@ -266,6 +270,11 @@ protected:
 	uint8_t getDutyCyclePercent() const override;
 	uint8_t getExtraAckTransmitCount() const override;
 
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	/* Zephtacore: a frame that is not MeshCore goes to the Meshtastic bridge first. */
+	bool onRecvForeign(const uint8_t raw[], int len, float snr, float rssi) override;
+#endif
+
 	/* Adaptive CAD: persist the staircase's learned offset */
 	void onCadOffsetChanged(int8_t offset) override {
 		prefs.cad_offset = offset;
@@ -286,6 +295,49 @@ protected:
 	bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], int len) override;
 
 private:
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	/* ---- Meshtastic bridge, see app/CompanionMeshtastic.cpp ----
+	 * Group channels named "MT:<name>" are Meshtastic channels (16 byte PSK);
+	 * Meshtastic nodes appear as contacts keyed by a key derived from their node
+	 * number. Nothing here enters the MeshCore routing path. */
+	struct MtSink : mt::Sink {
+		CompanionMesh &m;
+		explicit MtSink(CompanionMesh &mesh) : m(mesh) {}
+		void onText(uint8_t channel_id, uint32_t from, uint32_t to, const char *text,
+			    size_t len, int8_t snr_x4, uint8_t hops) override;
+		void onNodeInfo(uint32_t from, const mt::User &user) override;
+		void onPosition(uint32_t from, const mt::Position &pos) override;
+	};
+	struct MtKey {
+		uint32_t node;
+		uint8_t key[PUB_KEY_SIZE];
+	};
+	static constexpr int MT_KEY_CACHE = 16;
+	mt::Bridge _mt{mtAesBlock};
+	MtSink _mt_sink{*this};
+	MtKey _mt_keys[MT_KEY_CACHE] = {};
+	uint8_t _mt_key_next = 0;
+	bool _mt_ready = false;
+	uint32_t _mt_nodeinfo_next_s = 0;
+
+	static bool mtIsChannelName(const char *name);
+	void mtSyncChannels();
+	void mtSetup();
+	bool mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE]);
+	bool mtNodeOf(const ContactInfo &contact, uint32_t &node);
+	void mtUpsertContact(uint32_t node, const char *name, bool has_pos, int32_t lat_i, int32_t lon_i);
+	void mtQueue(const uint8_t *frame, size_t len, uint32_t delay_ms);
+	int mtFirstChannel() const;
+	void mtNodeInfoTick();
+	/* App commands; false when the channel or contact is not a Meshtastic one. */
+	bool mtSendChannelText(int ch_idx, const char *text, size_t len, bool &sent);
+	bool mtSendDirectText(const ContactInfo &contact, const char *text, size_t len, bool &sent);
+public:
+	/* First boot: the channels of the Spanish SFNarrow community. */
+	void mtAddDefaultChannels();
+	static void mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
+private:
+#endif
 	ZephyrDataStore *_store;
 	BaseSerialInterface *_serial;
 	GetBatteryCallback _batt_cb;

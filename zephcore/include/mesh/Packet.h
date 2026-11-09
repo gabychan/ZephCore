@@ -75,6 +75,12 @@ public:
    */
   uint8_t getPayloadType() const { return (header >> PH_TYPE_SHIFT) & PH_TYPE_MASK; }
 
+  // ZEPHCORE: a frame that is not a MeshCore packet (a Meshtastic frame): the payload
+  // is the whole on-air frame. Payload version 3 never arrives from the radio
+  // (Dispatcher::tryParsePacket rejects it), so this cannot be set by a received packet.
+  static constexpr uint8_t FOREIGN_HEADER = 0xFD;  // ver 3, type RAW_CUSTOM, route FLOOD
+  bool isForeign() const { return header == FOREIGN_HEADER; }
+
   /**
    * \returns  one of PAYLOAD_VER_ values
    */

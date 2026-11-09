@@ -52,6 +52,7 @@ public:
 	uint32_t getEstAirtimeFor(int len_bytes) override;
 	float packetScore(float snr, int packet_len) override;
 	bool startSendRaw(const uint8_t *bytes, int len) override;
+	void setNextTxForeign(bool foreign) override { _tx_foreign = foreign; }
 	bool isSendComplete() override;
 	void onSendFinished() override;
 	bool isInRecvMode() const override;
@@ -341,6 +342,10 @@ private:
 	/* Config cache — skip redundant hwConfigure() */
 	struct lora_modem_config _last_cfg;
 	bool _config_cached;
+	/* The next startSendRaw() carries a Meshtastic frame (sync word 0x2B). */
+	bool _tx_foreign = false;
+	/* Writes one SX126x sync word register; a no-op unless the family has the op. */
+	void applySyncWord(uint16_t reg);
 
 	/* Radio param override — when set, buildModemConfig() uses these
 	 * for freq/bw/sf/cr instead of _prefs.  Everything else (tx_power,

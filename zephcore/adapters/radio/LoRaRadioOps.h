@@ -60,6 +60,10 @@ struct LoRaRadioOps {
 			      uint8_t num);
 	void (*reset_stats)(const struct device *dev);
 	int (*format_freq_error)(const struct device *dev, char *buf, int cap);
+
+	/* Raw sync word register write. Non-NULL means the family can receive
+	 * MeshCore and Meshtastic at once and pick the sync word per frame. */
+	int (*set_sync_word_reg)(const struct device *dev, uint16_t reg);
 };
 
 extern const LoRaRadioOps kLoRaRadioOps;

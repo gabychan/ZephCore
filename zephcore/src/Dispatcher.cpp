@@ -272,6 +272,9 @@ void Dispatcher::checkRecv() {
         break;  // ring empty
       }
       logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
+      if (onRecvForeign(raw, len, _radio->getLastSNR(), _radio->getLastRSSI())) {  // ZEPHCORE
+        continue;
+      }
 
       pkt = _mgr->allocNew();
       if (pkt == NULL) {
@@ -431,13 +434,15 @@ void Dispatcher::checkSend() {
     int len = 0;
     uint8_t raw[MAX_TRANS_UNIT];
 
-    raw[len++] = outbound->header;
-    if (outbound->hasTransportCodes()) {
-      memcpy(&raw[len], &outbound->transport_codes[0], 2); len += 2;
-      memcpy(&raw[len], &outbound->transport_codes[1], 2); len += 2;
+    if (!outbound->isForeign()) {  // ZEPHCORE: a foreign frame is its payload alone
+      raw[len++] = outbound->header;
+      if (outbound->hasTransportCodes()) {
+        memcpy(&raw[len], &outbound->transport_codes[0], 2); len += 2;
+        memcpy(&raw[len], &outbound->transport_codes[1], 2); len += 2;
+      }
+      raw[len++] = outbound->path_len;
+      len += Packet::writePath(&raw[len], outbound->path, outbound->path_len);
     }
-    raw[len++] = outbound->path_len;
-    len += Packet::writePath(&raw[len], outbound->path, outbound->path_len);
 
     if (len + outbound->payload_len > MAX_TRANS_UNIT) {
       MESH_DEBUG_PRINTLN("%s Dispatcher::checkSend(): FATAL: Invalid packet queued... too long, len=%d", getLogDateTime(), len + outbound->payload_len);
@@ -460,6 +465,7 @@ void Dispatcher::checkSend() {
         return;
       }
 
+      _radio->setNextTxForeign(outbound->isForeign());  // ZEPHCORE
       bool success = _radio->startSendRaw(raw, len);
       if (!success) {
         onLbtRefused(now, len);  // ZEPHCORE: re-queue (upstream drops the packet)
@@ -497,6 +503,20 @@ void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_mil
     // system work queue, off the mesh thread, and need the drain signal.
     notifyTxQueued(delay_millis);
   }
+}
+
+// ZEPHCORE: a foreign frame rides the normal queue, so it gets LBT, the duty-cycle
+// budget and the TX thread like any packet; only the radio sync word differs.
+bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis) {
+  if (len <= 0 || len > MAX_PACKET_PAYLOAD) return false;
+  Packet* pkt = obtainNewPacket();
+  if (pkt == NULL) return false;
+  pkt->header = Packet::FOREIGN_HEADER;
+  pkt->path_len = 0;
+  pkt->payload_len = (uint16_t)len;
+  memcpy(pkt->payload, frame, len);
+  sendPacket(pkt, priority, delay_millis);
+  return true;
 }
 
 // Utility function -- handles the case where millis() wraps around back to zero

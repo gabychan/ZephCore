@@ -48,6 +48,12 @@ public:
   virtual bool startSendRaw(const uint8_t* bytes, int len) = 0;
 
   /**
+   * \brief  ZEPHCORE: selects the protocol of the next startSendRaw() (true: Meshtastic).
+   *         Radios that cannot send a second sync word ignore it.
+  */
+  virtual void setNextTxForeign(bool foreign) { }
+
+  /**
    * \returns true if the previous 'startSendRaw()' completed successfully.
    * ZEPHCORE: one-shot — returns true exactly once per completed transmit and
    * consumes that completion (like RadioLibWrapper). Never use it as a state
@@ -217,6 +223,10 @@ protected:
 
   virtual void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) { }   // custom hook
 
+  // ZEPHCORE: offers a received frame to a second protocol before it is parsed as
+  // MeshCore. Returns true when the frame was consumed.
+  virtual bool onRecvForeign(const uint8_t raw[], int len, float snr, float rssi) { return false; }
+
   virtual void logRx(Packet* packet, int len, float score) { }   // hooks for custom logging
   virtual void logTx(Packet* packet, int len) { }
   virtual void logTxFail(Packet* packet, int len) { }
@@ -253,6 +263,8 @@ public:
   Packet* obtainNewPacket();
   void releasePacket(Packet* packet);
   void sendPacket(Packet* packet, uint8_t priority, uint32_t delay_millis=0);
+  // ZEPHCORE: queues a complete on-air frame of another protocol (len <= MAX_PACKET_PAYLOAD).
+  bool sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis=0);
 
   uint32_t getTotalAirTime() const { return total_air_time; }
   uint32_t getReceiveAirTime() const {return rx_air_time; }

@@ -1384,3 +1384,51 @@ config ZEPHCORE_UI_DESIGN_JOYSTICK
 endmenu
 
 endmenu
+
+menu "Zephtacore (Meshtastic bridge)"
+
+config ZEPHTACORE_MESHTASTIC
+	bool "Hear and speak Meshtastic on the same radio"
+	depends on ZEPHCORE_ROLE_COMPANION
+	default n
+	help
+	  Receives MeshCore and Meshtastic with one SX126x (hybrid sync word
+	  register) and picks the sync word per transmitted frame. Group
+	  channels named "MT:<name>" in the companion app carry a Meshtastic
+	  channel (name and 16 byte PSK): text sent on one goes out as a
+	  Meshtastic frame, and text, node names and positions heard on it
+	  reach the app as channel messages and contacts.
+
+	  Needs a radio family that can write the sync word register
+	  (SX126x). On other families the build still links, but the second
+	  protocol is never heard or sent.
+
+config ZEPHTACORE_MT_RELAY
+	bool "Rebroadcast Meshtastic frames of our channels"
+	depends on ZEPHTACORE_MESHTASTIC
+	default n
+	help
+	  Repeat Meshtastic flood frames that decrypt on one of our MT:
+	  channels, with hop_limit decremented. Frames of channels we hold
+	  no key for are never repeated.
+
+config ZEPHTACORE_MT_HOP_LIMIT
+	int "hop_limit of the Meshtastic frames we send (0-7)"
+	depends on ZEPHTACORE_MESHTASTIC
+	range 0 7
+	default 7
+	help
+	  Meshtastic's own default is 3. 7 is what the Spanish SFNarrow
+	  community network uses, and its nodes drop a frame whose
+	  hop_start is lower than they expect only by policy, so match the
+	  network you join.
+
+config ZEPHTACORE_MT_NODEINFO_INTERVAL_S
+	int "Seconds between our Meshtastic NodeInfo broadcasts (0 = never)"
+	depends on ZEPHTACORE_MESHTASTIC
+	default 10800
+	help
+	  Meshtastic nodes learn our name from a NodeInfo frame on the primary
+	  channel. Meshtastic's own default is 3 hours.
+
+endmenu

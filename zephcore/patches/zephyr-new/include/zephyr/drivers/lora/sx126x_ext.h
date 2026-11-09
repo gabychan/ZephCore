@@ -51,6 +51,19 @@ bool sx126x_is_receiving(const struct device *dev);
 void sx126x_set_rx_boost(const struct device *dev, bool enable);
 
 /**
+ * @brief Write the LoRa sync word register (0x0740/0x0741) directly.
+ *
+ * lora_config() only reaches the two values public_network selects. This
+ * takes the raw register value, so a build can receive two sync words at
+ * once (0x14B4) and pick one per transmitted frame.
+ *
+ * @param dev LoRa device
+ * @param reg 16-bit register value (not the 8-bit sync word)
+ * @return 0 on success, a negative errno from the SPI transfer otherwise
+ */
+int sx126x_set_sync_word_reg(const struct device *dev, uint16_t reg);
+
+/**
  * @brief Select an external FEM's LNA or its bypass path for RX
  *
  * Acts on lna-bypass-gpios, the FEM's receive-path select -- KCT8103L CTX on

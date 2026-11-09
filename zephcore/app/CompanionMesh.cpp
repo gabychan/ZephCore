@@ -246,6 +246,9 @@ void CompanionMesh::loop()
 {
 	BaseChatMesh::loop();
 	drainPendingChannelInfos();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	mtNodeInfoTick();
+#endif
 
 	/* Check for pending lazy contact/channel writes */
 	int64_t now = _ms->getMillis();
@@ -296,6 +299,11 @@ void CompanionMesh::markChannelsDirty()
 	/* Channels import arrives as a burst of CMD_SET_CHANNEL writes.
 	 * Keep pushing the flush deadline so we save once after the burst. */
 	_dirty_channels_expiry = _ms->getMillis() + LAZY_WRITE_DELAY_MS;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	if (_mt_ready) {
+		mtSyncChannels();
+	}
+#endif
 }
 
 void CompanionMesh::flushDirtyContacts()
@@ -1928,6 +1936,19 @@ bool CompanionMesh::handleCmdSendTxtMsg(const uint8_t *data, size_t len)
 			pub_key_prefix[3], pub_key_prefix[4], pub_key_prefix[5]);
 
 		ContactInfo *contact = lookupContactByPubKey(pub_key_prefix, 6);
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		bool mt_sent = false;
+
+		if (contact && txt_type == TXT_TYPE_PLAIN &&
+		    mtSendDirectText(*contact, text, text_len, mt_sent)) {
+			if (mt_sent) {
+				sendPacketSent(MSG_SEND_SENT_FLOOD, 0, 3000);
+			} else {
+				writeErrFrame(ERR_BAD_STATE);
+			}
+			return true;
+		}
+#endif
 		if (contact && (txt_type == TXT_TYPE_PLAIN || txt_type == TXT_TYPE_CLI_DATA ||
 				txt_type == TXT_TYPE_CLI_COMMAND)) {
 			LOG_DBG("CMD_SEND_TXT_MSG: contact='%s' text='%s' text_len=%u", contact->name, text, (unsigned)text_len);
@@ -1998,6 +2019,18 @@ bool CompanionMesh::handleCmdSendChannelTxtMsg(const uint8_t *data, size_t len)
 		} else {
 			ChannelDetails ch;
 			if (getChannel(ch_idx, ch)) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+				bool mt_sent = false;
+
+				if (mtSendChannelText(ch_idx, text, text_len, mt_sent)) {
+					if (mt_sent) {
+						writeOKFrame();
+					} else {
+						writeErrFrame(ERR_BAD_STATE);
+					}
+					return true;
+				}
+#endif
 				if (sendGroupMessage(msg_timestamp, ch.channel, prefs.node_name, text, text_len)) {
 					writeOKFrame();
 				} else {
