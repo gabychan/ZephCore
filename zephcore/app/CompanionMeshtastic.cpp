@@ -345,35 +345,6 @@ void CompanionMesh::mtQueue(const uint8_t *frame, size_t len, uint32_t delay_ms)
 	}
 }
 
-/* Pushes the queued relay of a frame another node just repeated back by the
- * reactive backoff, counted from its own slot so it is never brought forward. */
-void CompanionMesh::mtDeferRelay(uint32_t hash, uint32_t now)
-{
-	int total = _mgr->getOutboundTotal();
-
-	for (int i = 0; i < total; i++) {
-		mesh::Packet *pkt = _mgr->getOutboundByIdx(i);
-
-		if (!pkt || !pkt->isForeign() ||
-		    mesh::ContentionTracker::computePacketHash32(pkt) != hash) {
-			continue;
-		}
-		uint16_t delay = _contention.getReactiveHeadroom(
-			hash, _radio->getEstAirtimeFor(pkt->payload_len));
-
-		if (delay == 0) {
-			return;
-		}
-		uint32_t at = mesh::ContentionTracker::deferredSchedule(_mgr->getOutboundSchedule(i),
-									now, delay);
-
-		_mgr->rescheduleOutbound(i, at);
-		_contention.addReactiveExtension(hash, delay);
-		notifyTxQueued(at - now);
-		return;
-	}
-}
-
 /* ── RX ───────────────────────────────────────────────────────────────── */
 
 bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
@@ -397,15 +368,10 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 		return false;
 	}
 	mt::Header h;
-	const uint32_t now = (uint32_t)_ms->getMillis();
 
 	if (r == mt::RX_DUPLICATE) {
 		/* Another node repeated a frame we hold: move ours out of its way, never drop it. */
-		uint32_t hash = mesh::ContentionTracker::computeForeignHash32(raw, len);
-
-		if (_contention.recordDupeIfTracked(hash, now)) {
-			mtDeferRelay(hash, now);
-		}
+		foreignDupeHeard(raw, len);
 		if (mt::parseHeader(raw, (size_t)len, h) && h.from == _mt.self()) {
 			mtEchoHeard(h.id, h.relay, snr, rssi);
 		}
@@ -414,9 +380,10 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 		const uint32_t slot = mt::slotTimeMs(prefs.sf, prefs.bw);
 		const uint8_t cw = mt::rebroadcastCw((int8_t)(snr * 4.0f));
 
-		_contention.trackRetransmit(mesh::ContentionTracker::computeForeignHash32(relay, (int)relay_len), now);
-		mtQueue(relay, relay_len,
-			mt::rebroadcastDelayMs(slot, (uint32_t)getRNG()->nextInt(0, 1 << cw)));
+		if (!relayForeign(relay, relay_len,
+				  mt::rebroadcastDelayMs(slot, (uint32_t)getRNG()->nextInt(0, 1 << cw)))) {
+			LOG_WRN("mt: relay not queued (len=%u)", (unsigned)relay_len);
+		}
 	}
 	return true;
 }

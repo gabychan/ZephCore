@@ -365,7 +365,6 @@ private:
 	bool mtNodeOf(const ContactInfo &contact, uint32_t &node);
 	void mtUpsertContact(uint32_t node, const char *name, bool has_pos, int32_t lat_i, int32_t lon_i);
 	void mtQueue(const uint8_t *frame, size_t len, uint32_t delay_ms);
-	void mtDeferRelay(uint32_t hash, uint32_t now);
 	int mtFirstChannel() const;
 	void mtNodeInfoTick();
 	void mtNoteText(uint32_t id, const char *name);
