@@ -248,7 +248,7 @@ The repeater also repeats Meshtastic floods on the radio it shares with MeshCore
 | `get mt.hops` / `set mt.hops <0-7>` | `hop_limit` of the frames this node originates (default `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`). |
 | `get mt.nodeinfo` / `set mt.nodeinfo <seconds>` | Seconds between our NodeInfo broadcasts, `0` never, otherwise 600 to 604800 (default 43200). The first goes out 30 s after boot or after a change. |
 | `get mt.telemetry` / `set mt.telemetry <seconds>` | Device metrics (battery level and voltage, channel utilisation, TX air utilisation, uptime) on the primary channel. `0` never, otherwise 60 to 86400 (default 0). Without a battery reading the level is 101, which Meshtastic shows as powered. Utilisations are the share of the time since the previous telemetry that the radio spent receiving and sending (the first one counts from boot), not Meshtastic's sliding windows. The first goes out 60 s after boot or after a change. |
-| `set mt.position on\|off` | Fixed position in the Meshtastic frames (default off). |
+| `get mt.position` / `set mt.position on\|off` | Send our fixed position (`set lat` / `set lon`) right after each NodeInfo (default off). Nothing is sent while the position is 0,0. |
 | `get mt.stats` | `heard` Meshtastic frames, `relayed` repeats queued, `opaque` frames of unknown channels, `yielded` repeats dropped because another node sent them first, `dropped` non-MeshCore frames discarded while `mt.enable` is off. |
 
 ---
