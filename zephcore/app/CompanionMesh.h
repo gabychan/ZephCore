@@ -326,9 +326,12 @@ private:
 		uint32_t timestamp;
 		uint8_t channel;
 		uint8_t len;
+		uint8_t n_relays;
+		uint8_t relays[8];
 		char text[MAX_TEXT_LEN];
 	};
 	static constexpr int MT_SENT_KEEP = 3;
+	static constexpr int MT_RELAYS_KEEP = 8;
 	MtSent _mt_sent[MT_SENT_KEEP] = {};
 	uint8_t _mt_sent_next = 0;
 
@@ -344,7 +347,7 @@ private:
 	void mtNodeInfoTick();
 	/* App commands; false when the channel or contact is not a Meshtastic one. */
 	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent);
-	void mtEchoHeard(uint32_t id, float snr, float rssi);
+	void mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rssi);
 	bool mtSendDirectText(const ContactInfo &contact, const char *text, size_t len, bool &sent);
 public:
 	/* Bump when the default channel list changes; the next boot adds what is missing. */

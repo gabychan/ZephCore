@@ -10,11 +10,11 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Meshtastic channels in the MeshCore app | A group channel named `MT:<name>` with the Meshtastic PSK as its 16 byte secret. |
 | Receive text | Text heard on an `MT:` channel reaches the app as a channel message, `<sender>: <text>`. |
 | Send text | A message the app sends on an `MT:` channel leaves as a Meshtastic broadcast. |
-| Repeats heard | When a Meshtastic node repeats a text we sent, the app gets the same message as a MeshCore group packet, which it counts as a heard repeat. The last 3 sent texts are kept for this. |
+| Repeats heard | When a Meshtastic node repeats a text we sent, the app gets the same message as a MeshCore group packet, which it counts as a heard repeat. The packet carries the repeater's `relay_node` byte as a 1-byte path, so each repeater is one heard (up to 8 per text). Incoming texts carry their real hop count (`hop_start - hop_limit`). The last 3 sent texts are kept for this. |
 | Direct messages | A message to a Meshtastic contact leaves as a channel-encrypted text addressed to that node, on the first `MT:` channel. No ACK is tracked. |
-| Nodes in the contact list | NodeInfo creates a contact `MT:<long name>`. |
+| Nodes in the contact list | NodeInfo creates a contact `<long name> (MT)`. |
 | Nodes on the map | Position packets set the contact's coordinates. |
-| Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every 3 h, on the first `MT:` channel. |
+| Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every 12 h, on the first `MT:` channel. |
 | Repeat Meshtastic floods | Optional, `CONFIG_ZEPHTACORE_MT_RELAY`: repeats frames of our `MT:` channels with `hop_limit` lowered. |
 
 MeshCore behaves as before. A frame that does not decrypt on one of our `MT:` channels is handled as MeshCore.

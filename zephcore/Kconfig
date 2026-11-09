@@ -1426,9 +1426,10 @@ config ZEPHTACORE_MT_HOP_LIMIT
 config ZEPHTACORE_MT_NODEINFO_INTERVAL_S
 	int "Seconds between our Meshtastic NodeInfo broadcasts (0 = never)"
 	depends on ZEPHTACORE_MESHTASTIC
-	default 10800
+	default 43200
 	help
 	  Meshtastic nodes learn our name from a NodeInfo frame on the primary
-	  channel. Meshtastic's own default is 3 hours.
+	  channel. One goes out 30 s after boot, then every this many seconds
+	  (12 hours by default).
 
 endmenu

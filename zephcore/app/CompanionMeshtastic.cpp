@@ -6,7 +6,7 @@
  *     channel with that name and PSK. Text the app sends on it leaves as a
  *     Meshtastic frame; text heard on it reaches the app as a channel message.
  *   - Meshtastic nodes heard on those channels (NodeInfo, Position) become
- *     contacts named "MT:<long name>", keyed by an Ed25519 key derived from the
+ *     contacts named "<long name> (MT)", keyed by an Ed25519 key derived from the
  *     node number, so they appear in the contact list and on the map.
  *   - A direct message to such a contact goes out as a channel-encrypted text
  *     addressed to that node.
@@ -26,6 +26,39 @@ LOG_MODULE_DECLARE(zephcore_companion, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 
 static const char kMtPrefix[] = "MT:";
 static constexpr size_t kMtPrefixLen = sizeof(kMtPrefix) - 1;
+/* Contacts are named "<name> (MT)"; "MT:<name>" is the older form, still read. */
+static const char kMtSuffix[] = " (MT)";
+static constexpr size_t kMtSuffixLen = sizeof(kMtSuffix) - 1;
+
+/* name plus the suffix, the name cut at a character boundary to fit cap. */
+static void mtContactName(char *out, size_t cap, const char *name)
+{
+	size_t keep = strlen(name);
+
+	if (keep > cap - 1 - kMtSuffixLen) {
+		keep = cap - 1 - kMtSuffixLen;
+		while (keep > 0 && ((uint8_t)name[keep] & 0xC0) == 0x80) {
+			keep--;
+		}
+	}
+	snprintf(out, cap, "%.*s%s", (int)keep, name, kMtSuffix);
+}
+
+/* The Meshtastic name behind a contact name, false if it is not one. */
+static bool mtContactBase(const char *contact, char *out, size_t cap)
+{
+	size_t len = strlen(contact);
+
+	if (len > kMtSuffixLen && strcmp(contact + len - kMtSuffixLen, kMtSuffix) == 0) {
+		snprintf(out, cap, "%.*s", (int)(len - kMtSuffixLen), contact);
+		return true;
+	}
+	if (strncmp(contact, kMtPrefix, kMtPrefixLen) == 0) {
+		snprintf(out, cap, "%s", contact + kMtPrefixLen);
+		return true;
+	}
+	return false;
+}
 
 void CompanionMesh::mtAesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
 {
@@ -227,7 +260,7 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 		fresh.out_path_len = OUT_PATH_UNKNOWN;
 		fresh.shared_secret_valid = false;
 		memset(fresh.out_path, 0, sizeof(fresh.out_path));
-		snprintf(fresh.name, sizeof(fresh.name), "%s!%08x", kMtPrefix, (unsigned)node);
+		snprintf(fresh.name, sizeof(fresh.name), "!%08x%s", (unsigned)node, kMtSuffix);
 		fresh.gps_lat = 0;
 		fresh.gps_lon = 0;
 		fresh.sync_since = node;
@@ -243,7 +276,7 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 		}
 	}
 	if (name && name[0]) {
-		snprintf(c->name, sizeof(c->name), "%s%s", kMtPrefix, name);
+		mtContactName(c->name, sizeof(c->name), name);
 	}
 	if (has_pos) {
 		c->gps_lat = lat_i / 10;  /* 1e-7 degrees to 1e-6 */
@@ -286,7 +319,7 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 	mt::Header h;
 
 	if (r == mt::RX_DUPLICATE && mt::parseHeader(raw, (size_t)len, h) && h.from == _mt.self()) {
-		mtEchoHeard(h.id, snr, rssi);
+		mtEchoHeard(h.id, h.relay, snr, rssi);
 	}
 	if (relay_len > 0 && relay_len <= mt::kMaxTxFrame) {
 		mtQueue(relay, relay_len, 50 + getRNG()->nextInt(0, 351));
@@ -298,8 +331,6 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 				   const char *text, size_t len, int8_t snr_x4, uint8_t hops)
 {
 	(void)to;
-	(void)snr_x4;
-	(void)hops;
 
 	ChannelDetails ch;
 
@@ -314,9 +345,7 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 	if (m.mtKeyFor(from, key)) {
 		c = m.lookupContactByPubKey(key, PUB_KEY_SIZE);
 	}
-	if (c && strncmp(c->name, kMtPrefix, kMtPrefixLen) == 0) {
-		snprintf(sender, sizeof(sender), "%s", c->name + kMtPrefixLen);
-	} else {
+	if (!c || !mtContactBase(c->name, sender, sizeof(sender))) {
 		snprintf(sender, sizeof(sender), "!%08x", (unsigned)from);
 	}
 
@@ -334,7 +363,19 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 	memcpy(line + n, text, len);
 	line[n + len] = '\0';
 
-	m.onChannelMessageRecv(ch.channel, nullptr, m.getRTCClock()->getCurrentTimeUnique(), line);
+	/* The app reads the hop count from the packet's path length; without a
+	 * packet it shows the "unknown" value, 63. */
+	mesh::Packet *pkt = m.obtainNewPacket();
+
+	if (pkt) {
+		pkt->header = ROUTE_TYPE_FLOOD | (PAYLOAD_TYPE_GRP_TXT << PH_TYPE_SHIFT);
+		pkt->setPathHashSizeAndCount(1, hops);
+		pkt->_snr = snr_x4;
+	}
+	m.onChannelMessageRecv(ch.channel, pkt, m.getRTCClock()->getCurrentTimeUnique(), line);
+	if (pkt) {
+		m.releasePacket(pkt);
+	}
 }
 
 void CompanionMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
@@ -375,6 +416,7 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 		s.id = h.id;
 		s.timestamp = timestamp;
 		s.channel = (uint8_t)ch_idx;
+		s.n_relays = 0;
 		s.len = (uint8_t)(len < sizeof(s.text) ? len : sizeof(s.text));
 		memcpy(s.text, text, s.len);
 		mtQueue(frame, n, 0);
@@ -385,14 +427,28 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 
 /* A node repeated our frame: hand the app the MeshCore group message it would
  * have heard had MeshCore carried it, which is what it counts as a repeat. */
-void CompanionMesh::mtEchoHeard(uint32_t id, float snr, float rssi)
+void CompanionMesh::mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rssi)
 {
-	for (const MtSent &s : _mt_sent) {
+	for (MtSent &s : _mt_sent) {
 		ChannelDetails ch;
 
 		if (s.id != id || s.len == 0 || !getChannel(s.channel, ch)) {
 			continue;
 		}
+		/* One echo per repeater: the relay byte is its path, so each repeater
+		 * is a distinct packet to the app, and one heard twice counts once. */
+		if (relay == (uint8_t)_mt.self()) {
+			return;
+		}
+		bool known = false;
+
+		for (int i = 0; i < s.n_relays; i++) {
+			known = known || s.relays[i] == relay;
+		}
+		if (known || s.n_relays >= MT_RELAYS_KEEP) {
+			return;
+		}
+		s.relays[s.n_relays++] = relay;
 		uint8_t body[5 + MAX_TEXT_LEN + 32];
 
 		memcpy(body, &s.timestamp, 4);
@@ -407,6 +463,10 @@ void CompanionMesh::mtEchoHeard(uint32_t id, float snr, float rssi)
 
 		if (pkt) {
 			uint8_t raw[MAX_TRANS_UNIT + 1];
+
+			pkt->header |= ROUTE_TYPE_FLOOD;
+			pkt->setPathHashSizeAndCount(1, 1);
+			pkt->path[0] = relay;
 
 			logRxRaw(snr, rssi, raw, pkt->writeTo(raw));
 			releasePacket(pkt);
