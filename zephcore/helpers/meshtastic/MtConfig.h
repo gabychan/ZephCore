@@ -8,6 +8,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 namespace mt {
 
@@ -44,11 +45,75 @@ struct RepeaterPrefs {
 	char channel[kChannelNameMax + 1];
 };
 
-/* hops is the one default that depends on the network joined (Kconfig). */
-void setDefaults(RepeaterPrefs &p, uint8_t hops);
+/* 0 (off) or at least min, at most max. */
+inline uint32_t clampInterval(uint32_t v, uint32_t min, uint32_t max)
+{
+	return v == 0 ? 0 : (v < min ? min : (v > max ? max : v));
+}
+
+inline bool validName(const char *s)
+{
+	size_t n = strlen(s);
+
+	if (n == 0 || n > kChannelNameMax) {
+		return false;
+	}
+	for (size_t i = 0; i < n; i++) {
+		if ((uint8_t)s[i] < 0x20 || (uint8_t)s[i] > 0x7E) {
+			return false;
+		}
+	}
+	return true;
+}
+
+inline bool validRole(uint8_t r)
+{
+	return r == ROLE_CLIENT || r == ROLE_ROUTER || r == ROLE_REPEATER || r == ROLE_ROUTER_LATE;
+}
 
 /* Puts every field back in range. */
-void sanitize(RepeaterPrefs &p);
+inline void sanitize(RepeaterPrefs &p)
+{
+	p.enable = p.enable > 1 ? 1 : p.enable;
+	if (!validRole(p.role)) {
+		p.role = ROLE_CLIENT;
+	}
+	p.hops = p.hops > 7 ? 7 : p.hops;
+	p.relay = p.relay > RELAY_ALL ? RELAY_ALL : p.relay;
+	p.relay_opaque = p.relay_opaque > 1 ? 1 : p.relay_opaque;
+	p.position = p.position > 1 ? 1 : p.position;
+	if (p.psk_len != 1 && p.psk_len != kPskMax) {
+		p.psk_len = 1;
+		p.psk[0] = 1;
+	}
+	p.nodeinfo_s = clampInterval(p.nodeinfo_s, 600, 604800);
+	p.telemetry_s = clampInterval(p.telemetry_s, 60, 86400);
+	p.channel[kChannelNameMax] = '\0';
+	if (!validName(p.channel)) {
+		const char kDefault[] = "LongFast";
+
+		for (size_t i = 0; i < sizeof(kDefault); i++) {
+			p.channel[i] = kDefault[i];
+		}
+	}
+}
+
+/* hops is the one default that depends on the network joined (Kconfig). */
+inline void setDefaults(RepeaterPrefs &p, uint8_t hops)
+{
+	for (size_t i = 0; i < sizeof(p); i++) {
+		((uint8_t *)&p)[i] = 0;
+	}
+	p.enable = 1;
+	p.role = ROLE_CLIENT;
+	p.hops = hops;
+	p.relay = RELAY_ALL;
+	p.relay_opaque = 1;
+	p.psk_len = 1;
+	p.psk[0] = 1;
+	p.nodeinfo_s = 43200;
+	sanitize(p);
+}
 
 /* A router sends early and never yields to an echo; so does a late router,
  * but with the client's delay. */

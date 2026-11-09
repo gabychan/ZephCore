@@ -67,65 +67,7 @@ bool parseUint(const char *s, uint32_t max, uint32_t &out)
 	return true;
 }
 
-/* Both 0 (off) or at least min. */
-uint32_t clampInterval(uint32_t v, uint32_t min, uint32_t max)
-{
-	return v == 0 ? 0 : (v < min ? min : (v > max ? max : v));
-}
-
-bool validName(const char *s)
-{
-	size_t n = strlen(s);
-
-	if (n == 0 || n > kChannelNameMax) {
-		return false;
-	}
-	for (size_t i = 0; i < n; i++) {
-		if ((uint8_t)s[i] < 0x20 || (uint8_t)s[i] > 0x7E) {
-			return false;
-		}
-	}
-	return true;
-}
-
 } /* namespace */
-
-void setDefaults(RepeaterPrefs &p, uint8_t hops)
-{
-	memset(&p, 0, sizeof(p));
-	p.enable = 1;
-	p.role = ROLE_CLIENT;
-	p.hops = hops;
-	p.relay = RELAY_ALL;
-	p.relay_opaque = 1;
-	p.psk_len = 1;
-	p.psk[0] = 1;
-	p.nodeinfo_s = 43200;
-	strcpy(p.channel, "LongFast");
-	sanitize(p);
-}
-
-void sanitize(RepeaterPrefs &p)
-{
-	p.enable = p.enable > 1 ? 1 : p.enable;
-	if (strcmp(nameOf(kRoles, p.role), "?") == 0) {
-		p.role = ROLE_CLIENT;
-	}
-	p.hops = p.hops > 7 ? 7 : p.hops;
-	p.relay = p.relay > RELAY_ALL ? RELAY_ALL : p.relay;
-	p.relay_opaque = p.relay_opaque > 1 ? 1 : p.relay_opaque;
-	p.position = p.position > 1 ? 1 : p.position;
-	if (p.psk_len != 1 && p.psk_len != 16) {
-		p.psk_len = 1;
-		p.psk[0] = 1;
-	}
-	p.nodeinfo_s = clampInterval(p.nodeinfo_s, 600, 604800);
-	p.telemetry_s = clampInterval(p.telemetry_s, 60, 86400);
-	p.channel[kChannelNameMax] = '\0';
-	if (!validName(p.channel)) {
-		strcpy(p.channel, "LongFast");
-	}
-}
 
 int base64Decode(const char *s, uint8_t *out, size_t cap)
 {
