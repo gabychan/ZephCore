@@ -944,6 +944,7 @@ static std::string mtCmd(RepeaterPrefs& p, const char* cmd, bool* changed = null
 
 TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, reject bad values, and leave other commands alone") {
     RepeaterPrefs p;
+    setDefaults(p, 3);
     bool ch = false;
     CHECK(mtCmd(p, "get mt.enable") == "> on" && mtCmd(p, "get mt.role") == "> client");
     CHECK(mtCmd(p, "get mt.relay") == "> all" && mtCmd(p, "get mt.relay.opaque") == "> on");
@@ -966,6 +967,7 @@ TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, r
 
 TEST(mt_config_channel, "UNIT-MT-034", "The channel takes a name and an optional 1 or 16 byte base64 key; a bad key changes nothing") {
     RepeaterPrefs p;
+    setDefaults(p, 3);
     bool ch = false;
     CHECK(mtCmd(p, "set mt.channel Mesh AQ==", &ch) == "OK" && ch);
     CHECK(std::string(p.channel) == "Mesh" && p.psk_len == 1 && p.psk[0] == 1);
@@ -985,6 +987,8 @@ TEST(mt_config_channel, "UNIT-MT-034", "The channel takes a name and an optional
 
 TEST(mt_config_sanitize, "UNIT-MT-035", "Out of range stored settings are put back in range") {
     RepeaterPrefs p;
+    setDefaults(p, 3);
+    CHECK(p.enable == 1 && p.hops == 3 && p.relay == RELAY_ALL && p.nodeinfo_s == 43200);
     p.enable = 9; p.role = 77; p.hops = 99; p.relay = 9; p.relay_opaque = 3; p.position = 5;
     p.psk_len = 7; p.nodeinfo_s = 5; p.telemetry_s = 99999999;
     std::memset(p.channel, 0x01, sizeof(p.channel));  // control characters

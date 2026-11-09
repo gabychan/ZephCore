@@ -29,19 +29,23 @@ enum Relay : uint8_t {
 static constexpr size_t kChannelNameMax = 11;
 static constexpr size_t kPskMax = 16;
 
+/* Plain data: NodePrefs holds one and is cleared with memset. setDefaults() fills it. */
 struct RepeaterPrefs {
-	uint8_t enable = 1;
-	uint8_t role = ROLE_CLIENT;
-	uint8_t hops = 3;           /* hop_limit of the frames we originate, 0-7 */
-	uint8_t relay = RELAY_ALL;
-	uint8_t relay_opaque = 1;   /* also repeat channels we hold no key for */
-	uint8_t position = 0;       /* send our fixed position */
-	uint8_t psk_len = 1;        /* 1: the default key, whose byte is psk[0] */
-	uint8_t psk[kPskMax] = {1};
-	uint32_t nodeinfo_s = 43200;
-	uint32_t telemetry_s = 0;
-	char channel[kChannelNameMax + 1] = "LongFast";
+	uint8_t enable;
+	uint8_t role;
+	uint8_t hops;          /* hop_limit of the frames we originate, 0-7 */
+	uint8_t relay;
+	uint8_t relay_opaque;  /* also repeat channels we hold no key for */
+	uint8_t position;      /* send our fixed position */
+	uint8_t psk_len;       /* 1: the default key, whose byte is psk[0] */
+	uint8_t psk[kPskMax];
+	uint32_t nodeinfo_s;
+	uint32_t telemetry_s;
+	char channel[kChannelNameMax + 1];
 };
+
+/* hops is the one default that depends on the network joined (Kconfig). */
+void setDefaults(RepeaterPrefs &p, uint8_t hops);
 
 /* Puts every field back in range. */
 void sanitize(RepeaterPrefs &p);

@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "LoRaConfig.h"
+#include "meshtastic/MtConfig.h"
 
 /* LEDS_RADIO_* / LEDS_HB_* mode values for the leds_radio_mode and leds_hb_mode
  * fields below.  They live in led_gate.h because the heartbeat consumers are C
@@ -197,6 +198,8 @@ struct NodePrefs {
 	char wifi_ssid[33];
 	char wifi_pwd[64];
 	uint8_t wifi_enabled;           // 1 = join wifi_ssid when set (upstream default)
+	/* Zephtacore repeater's Meshtastic side; prefs.json mt{} of the servers. */
+	mt::RepeaterPrefs mt;
 };
 
 /* Range guards for prefs that came off flash: a blob can be intact and
@@ -287,6 +290,7 @@ static inline void sanitizeNodePrefs(NodePrefs* p) {
 	p->backoff_multiplier = sanePrefFloat(p->backoff_multiplier, 0.0f, 2.0f, 0.2f);
 	p->node_lat = sanePrefFloat(p->node_lat, -90.0, 90.0, 0.0);
 	p->node_lon = sanePrefFloat(p->node_lon, -180.0, 180.0, 0.0);
+	mt::sanitize(p->mt);
 
 	p->cr           = clampPref<uint8_t>(p->cr, 5, 8);
 	p->tx_power_dbm = clampPref<int8_t>(p->tx_power_dbm, -9, 30);
@@ -448,6 +452,11 @@ static inline void initNodePrefs(NodePrefs* prefs) {
 	prefs->v_contact_enabled = 1;     // Default ON — v-contact loopback admin chat (companion)
 	prefs->v_battery_alert_mv = 0xFFFF; // Sentinel: derive from board auto-shutdown threshold
 	prefs->wifi_enabled = 1;          // as upstream: WiFi still stays off until an SSID is set
+#ifdef CONFIG_ZEPHTACORE_MT_HOP_LIMIT
+	mt::setDefaults(prefs->mt, CONFIG_ZEPHTACORE_MT_HOP_LIMIT);
+#else
+	mt::setDefaults(prefs->mt, 3);
+#endif
 	/* Companion-only default, set here so every caller of initNodePrefs() sees
 	 * it. 0 means disabled and is a legal stored value. */
 #ifdef CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS

@@ -773,6 +773,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-PJSON-010",
+      "name": "The repeater's Meshtastic settings survive prefs.json; a file without mt{} keeps the defaults",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

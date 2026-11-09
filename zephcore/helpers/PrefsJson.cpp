@@ -235,6 +235,30 @@ public:
 	explicit PowerJson(NodePrefs *p) : _p(p) {}
 };
 
+/* mt{}: the repeater's Meshtastic side. */
+class MtJson : public ConfigSerializer {
+	NodePrefs *_p;
+
+protected:
+	void structure() override
+	{
+		def("en", _p->mt.enable);
+		def("role", _p->mt.role);
+		def("hops", _p->mt.hops);
+		def("relay", _p->mt.relay);
+		def("opaque", _p->mt.relay_opaque);
+		def("pos", _p->mt.position);
+		def("ni_s", _p->mt.nodeinfo_s);
+		def("tel_s", _p->mt.telemetry_s);
+		def("ch", _p->mt.channel, sizeof(_p->mt.channel));
+		def("psk_len", _p->mt.psk_len);
+		def("psk", (void *)_p->mt.psk, sizeof(_p->mt.psk));
+	}
+
+public:
+	explicit MtJson(NodePrefs *p) : _p(p) {}
+};
+
 class ZcServerJson : public ZcCommonJson {
 protected:
 	void structure() override
@@ -258,6 +282,7 @@ class ServerJson : public ConfigSerializer {
 	RoomJson _room;
 	PowerJson _power;
 	ZcServerJson _zc;
+	MtJson _mt;
 
 protected:
 	void structure() override
@@ -276,11 +301,12 @@ protected:
 		def("room", _room);
 		def("power", _power);
 		def("zc", _zc);
+		def("mt", _mt);
 	}
 
 public:
 	explicit ServerJson(NodePrefs *p)
-		: _p(p), _radio(p), _gps(p), _repeat(p), _room(p), _power(p), _zc(p) {}
+		: _p(p), _radio(p), _gps(p), _repeat(p), _room(p), _power(p), _zc(p), _mt(p) {}
 
 	bool save(Stream &s) { return saveSerial(s); }
 	bool load(Stream &s) { return loadSerial(s); }

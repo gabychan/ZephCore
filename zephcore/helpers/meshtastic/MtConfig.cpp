@@ -90,6 +90,21 @@ bool validName(const char *s)
 
 } /* namespace */
 
+void setDefaults(RepeaterPrefs &p, uint8_t hops)
+{
+	memset(&p, 0, sizeof(p));
+	p.enable = 1;
+	p.role = ROLE_CLIENT;
+	p.hops = hops;
+	p.relay = RELAY_ALL;
+	p.relay_opaque = 1;
+	p.psk_len = 1;
+	p.psk[0] = 1;
+	p.nodeinfo_s = 43200;
+	strcpy(p.channel, "LongFast");
+	sanitize(p);
+}
+
 void sanitize(RepeaterPrefs &p)
 {
 	p.enable = p.enable > 1 ? 1 : p.enable;

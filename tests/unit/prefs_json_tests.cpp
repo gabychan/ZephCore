@@ -216,3 +216,32 @@ TEST(pjson_tz_fraction, "UNIT-PJSON-009", "A quarter-hour timezone survives pref
     CHECK(companionPrefsFromJson(q, u));
     CHECK(q.tz_offset == 5.5f);
 }
+
+TEST(pjson_server_mt, "UNIT-PJSON-010", "The repeater's Meshtastic settings survive prefs.json; a file without mt{} keeps the defaults") {
+    NodePrefs p = defaults();
+    p.mt.enable = 0;
+    p.mt.role = mt::ROLE_ROUTER;
+    p.mt.hops = 5;
+    p.mt.relay = mt::RELAY_ESSENTIAL;
+    p.mt.relay_opaque = 0;
+    p.mt.position = 1;
+    p.mt.nodeinfo_s = 3600;
+    p.mt.telemetry_s = 900;
+    strcpy(p.mt.channel, "Mesh");
+    p.mt.psk_len = 16;
+    for (int i = 0; i < 16; i++) p.mt.psk[i] = (uint8_t)(0x30 + i);
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.mt.enable == 0 && q.mt.role == mt::ROLE_ROUTER && q.mt.hops == 5);
+    CHECK(q.mt.relay == mt::RELAY_ESSENTIAL && q.mt.relay_opaque == 0 && q.mt.position == 1);
+    CHECK(q.mt.nodeinfo_s == 3600 && q.mt.telemetry_s == 900);
+    CHECK(std::string(q.mt.channel) == "Mesh" && q.mt.psk_len == 16 && q.mt.psk[15] == 0x3F);
+
+    MemStream old("{name:\"R\",lat:0,lon:0,radio:{freq:869.6180,bw:62.5000,sf:8,cr:5,tx:20}}");
+    NodePrefs d = defaults();
+    CHECK(serverPrefsFromJson(d, old));
+    CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT && d.mt.relay == mt::RELAY_ALL);
+    CHECK(std::string(d.mt.channel) == "LongFast" && d.mt.psk_len == 1 && d.mt.psk[0] == 1);
+}
