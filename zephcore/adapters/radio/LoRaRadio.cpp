@@ -38,22 +38,15 @@ static uint16_t rxDutyDetectSymbols(uint8_t sf)
 	return (sf >= 7) ? d : (uint16_t)(d + 4);
 }
 
-/* SX126x sync word register values (sync byte 0xXY is stored as 0xX4Y4).
- * Meshtastic 0x2B -> 0x24B4, MeshCore 0x12 -> 0x1424. RX uses the first nibble
- * of one and the second of the other, so a single receiver hears both. */
-static constexpr uint16_t kSyncRegMeshCore   = 0x1424;
-static constexpr uint16_t kSyncRegMeshtastic = 0x24B4;
-static constexpr uint16_t kSyncRegHybridRx   = 0x14B4;
-
-void LoRaRadio::applySyncWord(uint16_t reg)
+void LoRaRadio::applySyncWord(SyncKind kind)
 {
-	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_sync_word_reg) {
+	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_sync_word) {
 		return;
 	}
-	int ret = _ops.set_sync_word_reg(_dev, reg);
+	int ret = _ops.set_sync_word(_dev, kind);
 
 	if (ret < 0) {
-		LOG_ERR("sync word 0x%04x write failed: %d", reg, ret);
+		LOG_ERR("sync word %d write failed: %d", (int)kind, ret);
 	}
 }
 
@@ -573,7 +566,7 @@ void LoRaRadio::clearRadioOverride()
 void LoRaRadio::startReceive()
 {
 	configureRx();
-	applySyncWord(kSyncRegHybridRx);
+	applySyncWord(SyncKind::HybridRx);
 
 	int ret;
 
@@ -730,7 +723,7 @@ bool LoRaRadio::startSendRaw(const uint8_t *bytes, int len)
 	/* LBT: stay in RX (no cancel) so the driver's send_async takes its
 	 * RX->TX entry and restores RX itself on CAD-busy. */
 	configureTx();
-	applySyncWord(_tx_foreign ? kSyncRegMeshtastic : kSyncRegMeshCore);
+	applySyncWord(_tx_foreign ? SyncKind::Meshtastic : SyncKind::MeshCore);
 
 	memcpy(_tx_buf, bytes, len);
 	/* Published before the _tx_start_sem handoff below so txWaitBudgetMs()

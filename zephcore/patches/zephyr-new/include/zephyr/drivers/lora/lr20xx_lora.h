@@ -58,6 +58,10 @@ bool lr20xx_is_receiving(const struct device *dev);
 /* RX boosted gain. */
 void lr20xx_set_rx_boost(const struct device *dev, bool enable);
 
+/* 8-bit LoRa sync word for the next RX or TX start (0 restores the
+ * public/private word of the modem config). */
+void lr20xx_set_sync_word(const struct device *dev, uint8_t word);
+
 /* Up to 3 extra SFs demodulated alongside the configured one, same bandwidth
  * (num = 0 disables). Datasheet constraints, enforced: every side SF above the
  * main SF, all distinct, highest - lowest <= 4, and at BW >= 500 kHz at most 2

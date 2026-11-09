@@ -103,6 +103,8 @@ struct lr11xx_data {
 	/* Extension features (duty cycle, boost) */
 	bool rx_duty_cycle_enabled;
 	bool rx_boost_enabled;
+	/* LoRa sync word to program; 0 derives it from public_network. */
+	uint8_t sync_word;
 	bool rx_boost_applied;  /* RX boost register written to hardware */
 
 	/* Stored duty-cycle timing from recv_duty_cycle() — the re-arm paths
@@ -326,7 +328,8 @@ static void lr11xx_apply_modem_config(struct lr11xx_data *data,
 	};
 	lr11xx_radio_set_lora_pkt_params(ctx, &pkt);
 
-	lr11xx_radio_set_lora_sync_word(ctx, mc->public_network ? 0x34 : 0x12);
+	lr11xx_radio_set_lora_sync_word(ctx, data->sync_word ? data->sync_word
+						       : mc->public_network ? 0x34 : 0x12);
 
 	if (tx_mode) {
 		/* PA config BEFORE TX params — the power byte in SetTxParams
@@ -1565,6 +1568,16 @@ uint32_t lr11xx_get_wakeup_time_us(const struct device *dev)
 		us += cfg->tcxo_startup_delay_ms * 1000U;
 	}
 	return us;
+}
+
+void lr11xx_set_sync_word(const struct device *dev, uint8_t word)
+{
+	struct lr11xx_data *data = dev->data;
+
+	/* Applied by the next modem configuration, which every RX and TX start runs. */
+	k_mutex_lock(&data->spi_mutex, K_FOREVER);
+	data->sync_word = word;
+	k_mutex_unlock(&data->spi_mutex);
 }
 
 void lr11xx_set_rx_boost(const struct device *dev, bool enable)

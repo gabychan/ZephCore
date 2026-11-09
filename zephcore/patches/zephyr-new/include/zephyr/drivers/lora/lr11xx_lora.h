@@ -32,6 +32,10 @@ bool lr11xx_is_receiving(const struct device *dev);
 /* RX boosted gain: more sensitivity for ~2 mA more current. */
 void lr11xx_set_rx_boost(const struct device *dev, bool enable);
 
+/* 8-bit LoRa sync word for the next RX or TX start (0 restores the
+ * public/private word of the modem config). */
+void lr11xx_set_sync_word(const struct device *dev, uint8_t word);
+
 /* Deaf time per duty-cycle wake (context restore + PLL + TCXO start), in us. */
 uint32_t lr11xx_get_wakeup_time_us(const struct device *dev);
 

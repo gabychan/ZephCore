@@ -20,7 +20,7 @@ MeshCore behaves as before. A frame that does not decrypt on one of our `MT:` ch
 
 ## Build
 
-Companion role, any SX126x board. The feature is `CONFIG_ZEPHTACORE_MESHTASTIC`, set by a config fragment:
+Companion role, SX126x, LR1110 and LR2021 boards. The feature is `CONFIG_ZEPHTACORE_MESHTASTIC`, set by a config fragment:
 
 ```bash
 west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/zephtacore.conf"
@@ -29,8 +29,10 @@ west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/co
 Add `CONFIG_ZEPHTACORE_MT_RELAY=y` to the fragment to repeat Meshtastic floods. `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`
 (default 7) is the hop limit of the frames we originate; Meshtastic's own default is 3.
 
-Other radio families (LR1110, SX127x, LR2021) build, but cannot write the sync word register, so Meshtastic is
-neither heard nor sent there.
+SX127x boards build, but cannot pick the sync word per frame, so Meshtastic is neither heard nor sent there.
+On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x1B`
+(high nibble of one, low nibble of the other, as in meshtacore). The driver applies it at the next RX or TX start.
+The LR2021 side detectors (other SFs) use the same word as the main detector.
 
 ## Defaults
 
@@ -107,10 +109,11 @@ derived from it matches.
 | Host tests (`python3 tests/run.py run --profile quick`) | 142 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, false-positive bound, Dispatcher RX hook and foreign TX |
 | Field numbers and nonce layout | Read against `mesh.proto` and `CryptoEngine.cpp` of the Meshtastic firmware |
 | Firmware build `wio_tracker_l1` (SX1262) | OK. Flash +4.6 KB (476724 vs 472084 B), RAM +1.3 KB (227168 vs 225824 B) |
-| Firmware build `t1000_e` (LR1110) | OK, Meshtastic inactive on that radio |
+| Firmware build `t1000_e` (LR1110) | OK. Flash 377388 B |
+| Firmware build `promicro_lr2021` (LR2021) | OK. Flash 383532 B |
 | Firmware build `wio_tracker_l1` repeater, feature off | OK |
 | SX126x patch | Applies to the pinned Zephyr (`0534e997e`) |
-| **On air** | **Not done.** No frame has been sent to or received from a Meshtastic node, and the hybrid sync word has not been measured for packet loss on this code |
+| **On air** | **Not done**, on any radio family. No frame has been sent to or received from a Meshtastic node, and the hybrid sync word has not been measured for packet loss on this code |
 
 First on-air checks, in order: (1) a Meshtastic node on the same frequency, bandwidth, SF and CR sends text on
 `SFNarrow`: it must show in the app; (2) the app sends on `MT:SFNarrow`: the Meshtastic node must show it;

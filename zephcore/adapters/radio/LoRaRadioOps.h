@@ -13,6 +13,13 @@
 
 namespace mesh {
 
+/* Which network a frame belongs to; the family maps it to its own sync word. */
+enum class SyncKind : uint8_t {
+	MeshCore,
+	Meshtastic,
+	HybridRx,  /* receiver that hears both */
+};
+
 struct LoRaRadioOps {
 	/* loramac-node backend (SX127x): its TX and RX configs are disjoint
 	 * state, so configure() must not take the direction-only fast path. */
@@ -61,9 +68,9 @@ struct LoRaRadioOps {
 	void (*reset_stats)(const struct device *dev);
 	int (*format_freq_error)(const struct device *dev, char *buf, int cap);
 
-	/* Raw sync word register write. Non-NULL means the family can receive
-	 * MeshCore and Meshtastic at once and pick the sync word per frame. */
-	int (*set_sync_word_reg)(const struct device *dev, uint16_t reg);
+	/* Sync word of the next RX or TX start. Non-NULL means the family can
+	 * receive MeshCore and Meshtastic at once and pick the word per frame. */
+	int (*set_sync_word)(const struct device *dev, SyncKind kind);
 };
 
 extern const LoRaRadioOps kLoRaRadioOps;

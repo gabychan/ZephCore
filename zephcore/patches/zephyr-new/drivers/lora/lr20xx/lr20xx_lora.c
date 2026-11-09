@@ -99,6 +99,8 @@ struct lr20xx_data {
 	/* Extension features */
 	bool rx_duty_cycle_enabled;
 	bool rx_boost_enabled;
+	/* LoRa sync word to program; 0 derives it from public_network. */
+	uint8_t sync_word;
 	bool rx_boost_applied;
 
 
@@ -880,7 +882,8 @@ static void lr20xx_apply_side_detectors(struct lr20xx_data *data, bool enable)
 				: LR20XX_RADIO_LORA_IQ_STANDARD;
 		/* One mesh, one sync word: side detectors carry the same
 		 * public/private word as the main detector. */
-		syncwords[i] = data->modem_cfg.public_network ? 0x34 : 0x12;
+		syncwords[i] = data->sync_word ? data->sync_word
+			     : data->modem_cfg.public_network ? 0x34 : 0x12;
 	}
 
 	lr20xx_radio_lora_configure_side_detectors(ctx, det, n);
@@ -966,10 +969,11 @@ static void lr20xx_apply_modem_config(struct lr20xx_data *data,
 		pkt.crc, pkt.iq, rc);
 	CHECK_CMD(ctx, "set_pkt_params");
 
-	rc = lr20xx_radio_lora_set_syncword(ctx,
-				       mc->public_network ? 0x34 : 0x12);
-	LOG_DBG("modem_cfg: set_syncword(0x%02x)=%d",
-		mc->public_network ? 0x34 : 0x12, rc);
+	uint8_t sync = data->sync_word ? data->sync_word
+				       : mc->public_network ? 0x34 : 0x12;
+
+	rc = lr20xx_radio_lora_set_syncword(ctx, sync);
+	LOG_DBG("modem_cfg: set_syncword(0x%02x)=%d", sync, rc);
 	CHECK_CMD(ctx, "set_syncword");
 
 	if (tx_mode) {
@@ -2818,6 +2822,16 @@ int lr20xx_configure_side_detectors(const struct device *dev,
 
 	LOG_INF("side detectors configured: %u", num);
 	return 0;
+}
+
+void lr20xx_set_sync_word(const struct device *dev, uint8_t word)
+{
+	struct lr20xx_data *data = dev->data;
+
+	/* Applied by the next modem configuration, which every RX and TX start runs. */
+	k_mutex_lock(&data->spi_mutex, K_FOREVER);
+	data->sync_word = word;
+	k_mutex_unlock(&data->spi_mutex);
 }
 
 void lr20xx_set_rx_boost(const struct device *dev, bool enable)

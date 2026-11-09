@@ -345,7 +345,7 @@ private:
 	/* The next startSendRaw() carries a Meshtastic frame (sync word 0x2B). */
 	bool _tx_foreign = false;
 	/* Writes one SX126x sync word register; a no-op unless the family has the op. */
-	void applySyncWord(uint16_t reg);
+	void applySyncWord(SyncKind kind);
 
 	/* Radio param override — when set, buildModemConfig() uses these
 	 * for freq/bw/sf/cr instead of _prefs.  Everything else (tx_power,

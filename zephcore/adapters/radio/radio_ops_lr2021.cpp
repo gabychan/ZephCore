@@ -30,6 +30,15 @@ static int lr2021_format_freq_error(const struct device *dev, char *buf, int cap
  * Adaptive CAD probing runs CAD_ONLY plus an explicit SetRx in the driver,
  * so the 524 ms cad_timeout never bounds it; not yet hardware-verified on an
  * LR2021 (LLD 05). */
+/* 8-bit words: MeshCore 0x12, Meshtastic 0x2B; the hybrid takes the high nibble
+ * of one and the low nibble of the other. */
+static int lr20xx_set_sync_word_kind(const struct device *dev, SyncKind kind)
+{
+	lr20xx_set_sync_word(dev, kind == SyncKind::Meshtastic ? 0x2B
+			       : kind == SyncKind::HybridRx ? 0x1B : 0x12);
+	return 0;
+}
+
 const LoRaRadioOps kLoRaRadioOps = {
 	.loramac_node = false,
 	.rssi_inst = lr20xx_get_rssi_inst,
@@ -54,6 +63,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.side_detectors = lr20xx_configure_side_detectors,
 	.reset_stats = lr20xx_reset_freq_offset,
 	.format_freq_error = lr2021_format_freq_error,
+	.set_sync_word = lr20xx_set_sync_word_kind,
 };
 
 } /* namespace mesh */

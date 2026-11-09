@@ -14,6 +14,15 @@ namespace mesh {
 /* No AGC reset: this part has no jammed-AGC fault, and running the SX126x
  * remedy anyway cost packets (LLD 03 §13). Drift recalibration is specified
  * (UM: image cal after > 10 C), with the temperature from the board. */
+/* 8-bit words: MeshCore 0x12, Meshtastic 0x2B; the hybrid takes the high nibble
+ * of one and the low nibble of the other. */
+static int lr11xx_set_sync_word_kind(const struct device *dev, SyncKind kind)
+{
+	lr11xx_set_sync_word(dev, kind == SyncKind::Meshtastic ? 0x2B
+			       : kind == SyncKind::HybridRx ? 0x1B : 0x12);
+	return 0;
+}
+
 const LoRaRadioOps kLoRaRadioOps = {
 	.loramac_node = false,
 	.rssi_inst = lr11xx_get_rssi_inst,
@@ -38,6 +47,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.side_detectors = nullptr,
 	.reset_stats = nullptr,
 	.format_freq_error = nullptr,
+	.set_sync_word = lr11xx_set_sync_word_kind,
 };
 
 } /* namespace mesh */

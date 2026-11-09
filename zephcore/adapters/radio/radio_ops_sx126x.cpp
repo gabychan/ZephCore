@@ -27,6 +27,20 @@ static void sx126x_post_begin(const struct device *dev)
 /* The one family with the jammed-AGC fault, so reset_agc is set (the remedy
  * re-issues CalibrateImage itself); drift recalibration is not specified by
  * the datasheet, so recalibrate stays NULL. */
+/* Sync byte 0xXY is stored as 0xX4Y4: MeshCore 0x12, Meshtastic 0x2B. The
+ * hybrid takes the first nibble of one and the second of the other. */
+static int sx126x_set_sync_word_kind(const struct device *dev, SyncKind kind)
+{
+	switch (kind) {
+	case SyncKind::Meshtastic:
+		return sx126x_set_sync_word_reg(dev, 0x24B4);
+	case SyncKind::HybridRx:
+		return sx126x_set_sync_word_reg(dev, 0x14B4);
+	default:
+		return sx126x_set_sync_word_reg(dev, 0x1424);
+	}
+}
+
 const LoRaRadioOps kLoRaRadioOps = {
 	.loramac_node = false,
 	.rssi_inst = sx126x_get_rssi_inst,
@@ -55,7 +69,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.side_detectors = nullptr,
 	.reset_stats = nullptr,
 	.format_freq_error = nullptr,
-	.set_sync_word_reg = sx126x_set_sync_word_reg,
+	.set_sync_word = sx126x_set_sync_word_kind,
 };
 
 } /* namespace mesh */
