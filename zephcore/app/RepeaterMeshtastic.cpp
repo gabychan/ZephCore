@@ -115,12 +115,20 @@ bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float 
 	if (r == mt::RX_OPAQUE) {
 		_mt_stats.opaque++;
 	}
-	if (r == mt::RX_DUPLICATE) {
-		/* Another node repeated a frame we hold: a frame that yields is dropped,
-		 * the others move out of its way. */
+	if (r == mt::RX_DUPLICATE && relay_len == 0) {
+		/* Heard again and nothing to repeat. From a repeater, while we hold the frame: a
+		 * frame that yields is dropped unless that repeater named us next hop, the others
+		 * move out of its way. The originator sending it again leaves our copy alone. */
+		mt::Header h;
 		uint32_t hash = mesh::ContentionTracker::computeForeignHash32(raw, len);
 
-		if (mtYields(hash) && cancelForeignRelay(hash)) {
+		if (!mt::parseHeader(raw, (size_t)len, h) ||
+		    (h.hopStart() > 0 && h.hopStart() == h.hopLimit())) {
+			return true;
+		}
+		const bool asked = h.next_hop != 0 && h.next_hop == (uint8_t)_mt.self();
+
+		if (!asked && mtYields(hash) && cancelForeignRelay(hash)) {
 			_mt_stats.yielded++;
 		} else {
 			foreignDupeHeard(raw, len);

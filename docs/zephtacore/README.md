@@ -141,8 +141,15 @@ by the SNR; `router` waits a random slot of the first 2 x cw, before any client.
 traceroute are never dropped when another node repeats them first; the rest is (Meshtastic's client behaviour), unless the
 role is `router` or `router_late`.
 
-Size: the repeater grows by 10.9 KB of flash and 0.9 KB of RAM (`wio_tracker_l1`, 288080 vs 277168 B and 84828 vs 83932 B);
-the companion by 0.4 KB of flash and 64 B of RAM for the settings in `NodePrefs`. Not run on air.
+Next hop (Meshtastic 2.6+): a frame is repeated when it names no next hop or names this node (the last byte of its node
+number), has hops left, and is neither ours nor for us alone. The repeat clears `next_hop` (this node keeps no routes, so it
+floods on) and sets `relay_node`. A frame first heard while it named another node is repeated if it comes again as a flood
+fallback, and the originator sending a frame again (`hop_start == hop_limit`, nobody ACKed) is repeated again, once per retry.
+A repeat heard from another repeater is not dropped if that repeater named this node.
+
+Size: the repeater grows by 11.2 KB of flash and 1.2 KB of RAM (`wio_tracker_l1`, 288384 vs 277168 B and 85084 vs 83932 B);
+the companion by 0.8 KB of flash and 0.3 KB of RAM (settings in `NodePrefs`, the dedup table's relayed flag).
+Not run on air.
 
 ## Verification
 

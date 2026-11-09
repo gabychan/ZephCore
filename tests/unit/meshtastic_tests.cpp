@@ -904,6 +904,8 @@ TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is
     CHECK(parseHeader(frame, n, h) && relay_len == n && parseHeader(relay, relay_len, hr));
     CHECK(hr.hopLimit() == h.hopLimit() - 1 && hr.relay == 0xD4 && hr.id == h.id && hr.from == h.from);
     CHECK(cls == RelayClass::CancelOnEcho && cap.texts.empty());
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_DUPLICATE && relay_len == n);  // the originator again
+    frame[12] = (uint8_t)((frame[12] & ~0x07) | 1);  // a copy through a repeater
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_DUPLICATE && relay_len == 0);
 }
 
@@ -1019,4 +1021,52 @@ TEST(mt_router_delay, "UNIT-MT-036", "A router waits at most 2 x cw slots, befor
     size_t relay_len = 0;
     CHECK(c.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.users.size() == 1);
     CHECK(cap.users[0].second.role == ROLE_ROUTER);
+}
+
+// Node numbers whose last byte is the relay id Meshtastic puts in next_hop.
+TEST(mt_next_hop, "UNIT-MT-037", "A frame is repeated when it names no next hop or names us; a fallback flood and an originator retry are repeated again") {
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 1);
+    Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);
+    r.setRelay(true);
+    uint8_t frame[kMaxFrame], heard[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len = 0;
+    Capture cap;
+    size_t n = a.buildText(3, kBroadcast, "uno", 3, frame, sizeof(frame));
+    Header h;
+
+    // Named for another node: not repeated, delivered once.
+    std::memcpy(heard, frame, n);
+    heard[14] = 0x77;
+    heard[12] = (uint8_t)((heard[12] & ~0x07) | 2);  // came through a relay, one hop spent
+    CHECK(r.handleFrame(heard, n, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == 0);
+    // The same frame as a flood fallback is repeated, without delivering it twice.
+    heard[14] = 0;
+    CHECK(r.handleFrame(heard, n, 0, cap, relay, &relay_len) == RX_DUPLICATE && relay_len == n);
+    CHECK(parseHeader(relay, relay_len, h) && h.hopLimit() == 1 && h.next_hop == 0 && h.relay == 0xD4);
+    CHECK(cap.texts.size() == 1);
+    // A third copy from a relay is not repeated again.
+    CHECK(r.handleFrame(heard, n, 0, cap, relay, &relay_len) == RX_DUPLICATE && relay_len == 0);
+
+    // Named for us: repeated, and the next hop is cleared (no route is kept).
+    Bridge r2 = makeNode(0xE5E5E5E5u, "eps", 3);
+    r2.setRelay(true);
+    size_t n2 = a.buildText(3, kBroadcast, "dos", 3, frame, sizeof(frame));
+    frame[14] = 0xE5;
+    CHECK(r2.handleFrame(frame, n2, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == n2);
+    CHECK(parseHeader(relay, relay_len, h) && h.next_hop == 0 && h.relay == 0xE5);
+    // The originator sends it again (hop_start == hop_limit): repeated again, once per retry.
+    frame[14] = 0;
+    CHECK(r2.handleFrame(frame, n2, 0, cap, relay, &relay_len) == RX_DUPLICATE && relay_len == n2);
+    // A copy from a relay, not the originator, is not.
+    frame[12] = (uint8_t)((frame[12] & ~0x07) | 1);
+    CHECK(r2.handleFrame(frame, n2, 0, cap, relay, &relay_len) == RX_DUPLICATE && relay_len == 0);
+
+    // Never repeated: no hops left, our own frame, a frame for us alone.
+    Bridge r3 = makeNode(0xF6F6F6F6u, "zeta", 4);
+    r3.setRelay(true);
+    size_t n3 = a.buildText(3, kBroadcast, "tres", 4, frame, sizeof(frame));
+    frame[12] = (uint8_t)(frame[12] & ~0x07);
+    CHECK(r3.handleFrame(frame, n3, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == 0);
+    n3 = a.buildText(3, 0xF6F6F6F6u, "solo", 4, frame, sizeof(frame));
+    CHECK(r3.handleFrame(frame, n3, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == 0);
 }

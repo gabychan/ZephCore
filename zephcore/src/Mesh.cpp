@@ -67,7 +67,13 @@ void Mesh::foreignDupeHeard(const uint8_t* raw, int len) {
 }
 
 bool Mesh::relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms) {
-  _contention.trackRetransmit(ContentionTracker::computeForeignHash32(frame, (int)len), (uint32_t)_ms->getMillis());
+  uint32_t hash = ContentionTracker::computeForeignHash32(frame, (int)len);
+  int total = _mgr->getOutboundTotal();
+  for (int i = 0; i < total; i++) {
+    Packet* pkt = _mgr->getOutboundByIdx(i);
+    if (pkt && pkt->isForeign() && ContentionTracker::computePacketHash32(pkt) == hash) return true;  // already waiting
+  }
+  _contention.trackRetransmit(hash, (uint32_t)_ms->getMillis());
   return sendForeign(frame, (int)len, 1, delay_ms);
 }
 

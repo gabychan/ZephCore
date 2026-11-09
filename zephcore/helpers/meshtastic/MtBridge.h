@@ -145,6 +145,7 @@ private:
 	struct Seen {
 		uint32_t from;
 		uint32_t id;
+		bool relayed;
 	};
 
 	AesBlockFn _aes;
@@ -162,8 +163,16 @@ private:
 	uint8_t _pki_priv[32] = {};
 
 	const Channel *find(uint8_t channel_id) const;
-	bool seen(uint32_t from, uint32_t id) const;
-	void remember(uint32_t from, uint32_t id);
+	Seen *findSeen(uint32_t from, uint32_t id);
+	Seen *remember(uint32_t from, uint32_t id);
+	/* True when the frame was heard before (or is ours). Its repeat is then
+	 * still filled in when we were not asked to the first time, or when the
+	 * originator sends it again. */
+	bool heardBefore(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,
+			 size_t *relay_len);
+	/* We repeat a flood when it has hops left, is not ours or for us alone, and
+	 * names no next hop or names us. */
+	bool eligible(const Header &h) const;
 	uint32_t nextId();
 	/* Floods repeat once: next_hop 0, hops left, not for us alone. */
 	bool fillRelay(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,

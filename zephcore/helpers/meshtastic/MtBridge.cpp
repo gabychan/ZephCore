@@ -104,20 +104,48 @@ bool Bridge::hasChannel(uint8_t channel_id) const
 	return find(channel_id) != nullptr;
 }
 
-bool Bridge::seen(uint32_t from, uint32_t id) const
+Bridge::Seen *Bridge::findSeen(uint32_t from, uint32_t id)
 {
 	for (auto &s : _seen) {
 		if (s.from == from && s.id == id) {
-			return true;
+			return &s;
 		}
 	}
-	return false;
+	return nullptr;
 }
 
-void Bridge::remember(uint32_t from, uint32_t id)
+Bridge::Seen *Bridge::remember(uint32_t from, uint32_t id)
 {
-	_seen[_seen_next] = {from, id};
+	Seen *s = &_seen[_seen_next];
+
+	*s = {from, id, false};
 	_seen_next = (uint8_t)((_seen_next + 1) % kDedupSize);
+	return s;
+}
+
+bool Bridge::eligible(const Header &h) const
+{
+	return _relay && h.id != 0 && h.hopLimit() > 0 && h.from != _self && h.to != _self &&
+	       (h.next_hop == 0 || h.next_hop == (uint8_t)_self);
+}
+
+bool Bridge::heardBefore(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,
+			 size_t *relay_len)
+{
+	if (h.from == _self) {
+		return true;
+	}
+	Seen *s = findSeen(h.from, h.id);
+
+	if (!s) {
+		return false;
+	}
+	const bool originator = h.hopStart() > 0 && h.hopStart() == h.hopLimit();
+
+	if ((!s->relayed || originator) && fillRelay(h, raw, len, relay_out, relay_len)) {
+		s->relayed = true;
+	}
+	return true;
 }
 
 uint32_t Bridge::nextId()
@@ -186,7 +214,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 	 * channel whose hash is 0. */
 	if (_pki && h.channel == 0 && h.to == _self && plen > kPkiOverhead &&
 	    openPki(h, raw, plen, sink, buf, d)) {
-		if (h.from == _self || seen(h.from, h.id)) {
+		if (h.from == _self || findSeen(h.from, h.id)) {
 			return RX_DUPLICATE;
 		}
 		remember(h.from, h.id);
@@ -211,22 +239,31 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		if (!_relay || !_relay_opaque || looksLikeMeshCore(raw, len, _self)) {
 			return RX_NOT_MESHTASTIC;
 		}
-		if (h.from == _self || seen(h.from, h.id)) {
+		/* Channel 0 to one node is a PKI direct message or its ACK. */
+		const RelayClass cls = h.channel == 0 && h.to != kBroadcast ? RelayClass::Always
+									    : RelayClass::CancelOnEcho;
+
+		if (relay_class) {
+			*relay_class = cls;
+		}
+		if (heardBefore(h, raw, len, relay_out, relay_len)) {
 			return RX_DUPLICATE;
 		}
-		remember(h.from, h.id);
-		if (fillRelay(h, raw, len, relay_out, relay_len) && relay_class &&
-		    h.channel == 0 && h.to != kBroadcast) {
-			/* Channel 0 to one node is a PKI direct message or its ACK. */
-			*relay_class = RelayClass::Always;
+		Seen *s = remember(h.from, h.id);
+
+		if (fillRelay(h, raw, len, relay_out, relay_len)) {
+			s->relayed = true;
 		}
 		return RX_OPAQUE;
 	}
 
-	if (h.from == _self || seen(h.from, h.id)) {
+	if (relay_class) {
+		*relay_class = relayClassOf(d.portnum);
+	}
+	if (heardBefore(h, raw, len, relay_out, relay_len)) {
 		return RX_DUPLICATE;
 	}
-	remember(h.from, h.id);
+	Seen *seen_now = remember(h.from, h.id);
 
 	uint8_t hops = h.hopStart() > h.hopLimit() ? (uint8_t)(h.hopStart() - h.hopLimit()) : 0;
 
@@ -239,8 +276,8 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		deliverData(h, d, match->id, snr_x4, sink);
 	}
 
-	if (fillRelay(h, raw, len, relay_out, relay_len) && relay_class) {
-		*relay_class = relayClassOf(d.portnum);
+	if (fillRelay(h, raw, len, relay_out, relay_len)) {
+		seen_now->relayed = true;
 	}
 	return RX_HANDLED;
 }
@@ -248,11 +285,12 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 bool Bridge::fillRelay(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,
 		       size_t *relay_len) const
 {
-	if (!_relay || h.next_hop != 0 || h.hopLimit() == 0 || h.to == _self) {
+	if (!eligible(h)) {
 		return false;
 	}
 	memcpy(relay_out, raw, len);
 	relay_out[12] = (uint8_t)((h.flags & ~0x07) | (h.hopLimit() - 1));
+	relay_out[14] = 0;  /* no route learned: flood on */
 	relay_out[15] = (uint8_t)_self;
 	*relay_len = len;
 	return true;
