@@ -303,8 +303,9 @@ private:
 	struct MtSink : mt::Sink {
 		CompanionMesh &m;
 		explicit MtSink(CompanionMesh &mesh) : m(mesh) {}
-		void onText(uint8_t channel_id, uint32_t from, uint32_t to, const char *text,
-			    size_t len, int8_t snr_x4, uint8_t hops) override;
+		void onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
+			    uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
+			    uint8_t hops) override;
 		void onNodeInfo(uint32_t from, const mt::User &user) override;
 		void onPosition(uint32_t from, const mt::Position &pos) override;
 	};
@@ -334,6 +335,16 @@ private:
 	static constexpr int MT_RELAYS_KEEP = 8;
 	MtSent _mt_sent[MT_SENT_KEEP] = {};
 	uint8_t _mt_sent_next = 0;
+	/* Who wrote the last texts on MT: channels (ours included), by Meshtastic
+	 * packet id: a reply names its target by id in Meshtastic and by "@[name] "
+	 * in MeshCore. */
+	struct MtRecent {
+		uint32_t id;
+		char name[32];
+	};
+	static constexpr int MT_RECENT_KEEP = 8;
+	MtRecent _mt_recent[MT_RECENT_KEEP] = {};
+	uint8_t _mt_recent_next = 0;
 
 	static bool mtIsChannelName(const char *name);
 	bool mtHasChannelNamed(const char *name);
@@ -345,6 +356,9 @@ private:
 	void mtQueue(const uint8_t *frame, size_t len, uint32_t delay_ms);
 	int mtFirstChannel() const;
 	void mtNodeInfoTick();
+	void mtNoteText(uint32_t id, const char *name);
+	const char *mtRecentName(uint32_t id) const;
+	uint32_t mtReplyTarget(const char *text, size_t len, const char **body, size_t *body_len) const;
 	/* App commands; false when the channel or contact is not a Meshtastic one. */
 	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent);
 	void mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rssi);

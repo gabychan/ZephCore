@@ -154,8 +154,8 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 
 	if (d.portnum == PORT_TEXT) {
 		if ((h.to == kBroadcast || h.to == _self) && d.payload_len > 0) {
-			sink.onText(match->id, h.from, h.to, (const char *)d.payload, d.payload_len,
-				    snr_x4, hops);
+			sink.onText(match->id, h.from, h.to, h.id, d.reply_id,
+				    (const char *)d.payload, d.payload_len, snr_x4, hops);
 		}
 	} else if (d.portnum == PORT_NODEINFO) {
 		User u;
@@ -182,7 +182,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 }
 
 size_t Bridge::buildFrame(const Channel &ch, uint32_t to, uint32_t port, const uint8_t *payload,
-			  size_t payload_len, uint8_t *out, size_t cap)
+			  size_t payload_len, uint8_t *out, size_t cap, uint32_t reply_id)
 {
 	if (_self == 0 || cap < kHeaderLen) {
 		return 0;
@@ -192,6 +192,7 @@ size_t Bridge::buildFrame(const Channel &ch, uint32_t to, uint32_t port, const u
 	d.portnum = port;
 	d.payload = payload;
 	d.payload_len = payload_len;
+	d.reply_id = reply_id;
 
 	size_t room = (cap < kMaxTxFrame ? cap : kMaxTxFrame) - kHeaderLen;
 	size_t n = encodeData(d, out + kHeaderLen, room);
@@ -218,14 +219,14 @@ size_t Bridge::buildFrame(const Channel &ch, uint32_t to, uint32_t port, const u
 }
 
 size_t Bridge::buildText(uint8_t channel_id, uint32_t to, const char *text, size_t len,
-			 uint8_t *out, size_t cap)
+			 uint8_t *out, size_t cap, uint32_t reply_id)
 {
 	const Channel *ch = find(channel_id);
 
 	if (!ch || len == 0) {
 		return 0;
 	}
-	return buildFrame(*ch, to, PORT_TEXT, (const uint8_t *)text, len, out, cap);
+	return buildFrame(*ch, to, PORT_TEXT, (const uint8_t *)text, len, out, cap, reply_id);
 }
 
 size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)

@@ -21,8 +21,9 @@ class Sink {
 public:
 	virtual ~Sink() {}
 	/* text is not NUL terminated. hops is 0 when the sender did not set hop_start. */
-	virtual void onText(uint8_t channel_id, uint32_t from, uint32_t to,
-			    const char *text, size_t len, int8_t snr_x4, uint8_t hops) = 0;
+	virtual void onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
+			    uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
+			    uint8_t hops) = 0;
 	virtual void onNodeInfo(uint32_t from, const User &user) = 0;
 	virtual void onPosition(uint32_t from, const Position &pos) = 0;
 };
@@ -62,7 +63,7 @@ public:
 	 * text too long for kMaxTxFrame, cap too small). to is a node number or
 	 * kBroadcast. */
 	size_t buildText(uint8_t channel_id, uint32_t to, const char *text, size_t len,
-			 uint8_t *out, size_t cap);
+			 uint8_t *out, size_t cap, uint32_t reply_id = 0);
 	size_t buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap);
 	size_t buildPosition(uint8_t channel_id, const Position &pos, uint8_t *out, size_t cap);
 
@@ -95,7 +96,7 @@ private:
 	void remember(uint32_t from, uint32_t id);
 	uint32_t nextId();
 	size_t buildFrame(const Channel &ch, uint32_t to, uint32_t port, const uint8_t *payload,
-			  size_t payload_len, uint8_t *out, size_t cap);
+			  size_t payload_len, uint8_t *out, size_t cap, uint32_t reply_id = 0);
 };
 
 } /* namespace mt */

@@ -327,8 +327,9 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 	return true;
 }
 
-void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to,
-				   const char *text, size_t len, int8_t snr_x4, uint8_t hops)
+void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
+				   uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
+				   uint8_t hops)
 {
 	(void)to;
 
@@ -349,8 +350,15 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 		snprintf(sender, sizeof(sender), "!%08x", (unsigned)from);
 	}
 
+	/* A reply opens with "@[name] ", naming the author of the text it answers. */
+	const char *replied = reply_id ? m.mtRecentName(reply_id) : nullptr;
 	char line[MAX_TEXT_LEN + 1];
 	int n = snprintf(line, sizeof(line), "%s: ", sender);
+
+	if (replied && n > 0 && (size_t)n < sizeof(line)) {
+		n += snprintf(line + n, sizeof(line) - n, "@[%s] ", replied);
+	}
+	m.mtNoteText(id, sender);
 
 	if (n < 0 || (size_t)n >= sizeof(line)) {
 		return;
@@ -392,6 +400,59 @@ void CompanionMesh::MtSink::onPosition(uint32_t from, const mt::Position &pos)
 
 /* ── TX ───────────────────────────────────────────────────────────────── */
 
+/* The text may open with "@[name] ", the MeshCore form of a reply: the id of
+ * the newest text by that name goes out as Meshtastic's reply_id and the tag
+ * is dropped, as Meshtastic clients show the quoted text themselves. */
+uint32_t CompanionMesh::mtReplyTarget(const char *text, size_t len, const char **body,
+				      size_t *body_len) const
+{
+	*body = text;
+	*body_len = len;
+	if (len < 5 || text[0] != '@' || text[1] != '[') {
+		return 0;
+	}
+	size_t close = 2;
+
+	while (close < len && text[close] != ']') {
+		close++;
+	}
+	size_t name_len = close - 2;
+
+	if (close + 2 >= len || text[close + 1] != ' ' || name_len == 0 ||
+	    name_len >= sizeof(_mt_recent[0].name)) {
+		return 0;
+	}
+	for (int i = 1; i <= MT_RECENT_KEEP; i++) {
+		const MtRecent &r = _mt_recent[(_mt_recent_next + MT_RECENT_KEEP - i) % MT_RECENT_KEEP];
+
+		if (r.id != 0 && strlen(r.name) == name_len && memcmp(r.name, text + 2, name_len) == 0) {
+			*body = text + close + 2;
+			*body_len = len - close - 2;
+			return r.id;
+		}
+	}
+	return 0;
+}
+
+void CompanionMesh::mtNoteText(uint32_t id, const char *name)
+{
+	MtRecent &r = _mt_recent[_mt_recent_next];
+
+	_mt_recent_next = (uint8_t)((_mt_recent_next + 1) % MT_RECENT_KEEP);
+	r.id = id;
+	snprintf(r.name, sizeof(r.name), "%s", name);
+}
+
+const char *CompanionMesh::mtRecentName(uint32_t id) const
+{
+	for (const MtRecent &r : _mt_recent) {
+		if (r.id == id && r.id != 0) {
+			return r.name;
+		}
+	}
+	return nullptr;
+}
+
 bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len,
 				      bool &sent)
 {
@@ -405,7 +466,11 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 		mtSetup();
 	}
 	uint8_t frame[mt::kMaxTxFrame];
-	size_t n = _mt.buildText((uint8_t)ch_idx, mt::kBroadcast, text, len, frame, sizeof(frame));
+	const char *body;
+	size_t body_len;
+	uint32_t reply = mtReplyTarget(text, len, &body, &body_len);
+	size_t n = _mt.buildText((uint8_t)ch_idx, mt::kBroadcast, body, body_len, frame,
+				 sizeof(frame), reply);
 
 	mt::Header h;
 
@@ -417,6 +482,7 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 		s.timestamp = timestamp;
 		s.channel = (uint8_t)ch_idx;
 		s.n_relays = 0;
+		mtNoteText(h.id, prefs.node_name);
 		s.len = (uint8_t)(len < sizeof(s.text) ? len : sizeof(s.text));
 		memcpy(s.text, text, s.len);
 		mtQueue(frame, n, 0);

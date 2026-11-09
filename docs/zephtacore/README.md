@@ -11,6 +11,7 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Receive text | Text heard on an `MT:` channel reaches the app as a channel message, `<sender>: <text>`. |
 | Send text | A message the app sends on an `MT:` channel leaves as a Meshtastic broadcast. |
 | Repeats heard | When a Meshtastic node repeats a text we sent, the app gets the same message as a MeshCore group packet, which it counts as a heard repeat. The packet carries the repeater's `relay_node` byte as a 1-byte path, so each repeater is one heard (up to 8 per text). Incoming texts carry their real hop count (`hop_start - hop_limit`). The last 3 sent texts are kept for this. |
+| Replies | A reply written in the app (`@[name] text`) leaves as a Meshtastic text with `reply_id` set to the newest text by that name, tag dropped. A Meshtastic reply or reaction reaches the app as `@[name] text`, `name` being the author of the answered text. Authors are known for the last 8 texts on `MT:` channels (ours included); older targets lose the tag on the way in and leave the reply unlinked on the way out. |
 | Direct messages | A message to a Meshtastic contact leaves as a channel-encrypted text addressed to that node, on the first `MT:` channel. No ACK is tracked. |
 | Nodes in the contact list | NodeInfo creates a contact `<long name> (MT)`. |
 | Nodes on the map | Position packets set the contact's coordinates. |

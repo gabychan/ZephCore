@@ -303,7 +303,7 @@ bool decodeData(const uint8_t *buf, size_t len, Data &d)
 				return false;
 			}
 			d.want_response = v != 0;
-		} else if ((num == 4 || num == 5 || num == 6) && wt == WT_I32) {
+		} else if ((num >= 4 && num <= 8) && wt == WT_I32) {
 			uint32_t f;
 
 			if (!r.fixed32(f)) {
@@ -313,8 +313,12 @@ bool decodeData(const uint8_t *buf, size_t len, Data &d)
 				d.dest = f;
 			} else if (num == 5) {
 				d.source = f;
-			} else {
+			} else if (num == 6) {
 				d.request_id = f;
+			} else if (num == 7) {
+				d.reply_id = f;
+			} else {
+				d.emoji = f;
 			}
 		} else if (!r.skip(wt)) {
 			return false;
@@ -342,6 +346,12 @@ size_t encodeData(const Data &d, uint8_t *out, size_t cap)
 	}
 	if (d.request_id) {
 		w.fixed32(6, d.request_id);
+	}
+	if (d.reply_id) {
+		w.fixed32(7, d.reply_id);
+	}
+	if (d.emoji) {
+		w.fixed32(8, d.emoji);
 	}
 	return w.ok ? (size_t)(w.p - out) : 0;
 }

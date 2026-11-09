@@ -64,6 +64,8 @@ struct Data {
 	uint32_t dest;
 	uint32_t source;
 	uint32_t request_id;
+	uint32_t reply_id;  /* packet id of the text this one answers (or reacts to) */
+	uint32_t emoji;     /* non zero: the payload is a reaction to reply_id */
 	bool want_response;
 };
 

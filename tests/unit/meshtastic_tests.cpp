@@ -72,9 +72,11 @@ const uint8_t kDefaultKey[16] = {0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59,
 struct Capture : Sink {
     struct Text { uint8_t ch; uint32_t from, to; std::string text; uint8_t hops; };
     std::vector<Text> texts;
+    std::vector<std::pair<uint32_t, uint32_t>> ids;  // (packet id, reply id) per text
     std::vector<std::pair<uint32_t, User>> users;
     std::vector<std::pair<uint32_t, Position>> positions;
-    void onText(uint8_t ch, uint32_t from, uint32_t to, const char* t, size_t n, int8_t, uint8_t hops) override {
+    void onText(uint8_t ch, uint32_t from, uint32_t to, uint32_t id, uint32_t reply, const char* t, size_t n, int8_t, uint8_t hops) override {
+        ids.push_back({id, reply});
         texts.push_back({ch, from, to, std::string(t, n), hops});
     }
     void onNodeInfo(uint32_t from, const User& u) override { users.push_back({from, u}); }
@@ -165,6 +167,14 @@ TEST(mt_protobuf_data, "UNIT-MT-005", "Data golden bytes, round trip and malform
     CHECK(decodeData(buf, n, g) && g.portnum == 300 && g.dest == 0x01020304 && g.source == 5 &&
           g.request_id == 0xFFFFFFFFu && g.want_response);
 
+    // Reply (field 7) and reaction (field 8) are fixed32, after request_id.
+    Data rep = {};
+    rep.portnum = PORT_TEXT; rep.payload = hi; rep.payload_len = 2; rep.reply_id = 0xAABBCCDDu; rep.emoji = 1;
+    n = encodeData(rep, buf, sizeof(buf));
+    const uint8_t golden_rep[] = {0x08, 0x01, 0x12, 0x02, 'h', 'i', 0x3D, 0xDD, 0xCC, 0xBB, 0xAA, 0x45, 0x01, 0, 0, 0};
+    CHECK(n == sizeof(golden_rep) && std::memcmp(buf, golden_rep, n) == 0);
+    CHECK(decodeData(buf, n, g) && g.reply_id == 0xAABBCCDDu && g.emoji == 1);
+
     CHECK(!decodeData(golden, 5, g));                       // payload runs past the end
     const uint8_t no_port[4] = {0x12, 0x02, 'h', 'i'};
     CHECK(!decodeData(no_port, 4, g));
@@ -248,6 +258,19 @@ TEST(mt_bridge_text, "UNIT-MT-007", "Text sent by one node is delivered once on 
     CHECK(a.buildText(3, kBroadcast, "", 0, f2, sizeof(f2)) == 0);
     std::string big(200, 'z');
     CHECK(a.buildText(3, kBroadcast, big.data(), big.size(), f2, sizeof(f2)) == 0);
+
+    // A reply carries the id of the text it answers, and the receiver sees both ids.
+    Bridge r = makeNode(0xD4D4D4D4u, "delta", 11);
+    size_t n4 = a.buildText(3, kBroadcast, "re", 2, f2, sizeof(f2), 0x12345678u);
+    Capture cr;
+    Header h4;
+    CHECK(parseHeader(f2, n4, h4) && r.handleFrame(f2, n4, 0, cr, relay, &relay_len) == RX_HANDLED);
+    CHECK(cr.ids.size() == 1 && cr.ids[0].first == h4.id && cr.ids[0].second == 0x12345678u);
+    // A plain text has no reply id.
+    Bridge r2 = makeNode(0xE5E5E5E5u, "eps", 12);
+    Capture cp;
+    CHECK(r2.handleFrame(frame, n, 0, cp, relay, &relay_len) == RX_HANDLED);
+    CHECK(cp.ids.size() == 1 && cp.ids[0].second == 0);
 }
 
 TEST(mt_bridge_direct, "UNIT-MT-008", "Direct text reaches only its addressee") {
