@@ -94,6 +94,9 @@ public:
 	virtual uint32_t getDutyCycleTimeoutRestarts() const { return 0; }
 	virtual void resetDutyCycleTimeoutRestarts() {}
 
+	// Times TX was blocked for getCADFailMaxDuration(), per cause
+	virtual int formatTxStallStatus(char* buf, int cap) { (void)buf; (void)cap; return 0; }
+
 	// Adaptive CAD (LBT detPeak calibration)
 	virtual int formatCadStatus(char* buf, int cap) { (void)buf; (void)cap; return 0; }
 	/* Carrier frequency error of received packets; 0 = not measurable (only

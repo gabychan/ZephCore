@@ -676,6 +676,11 @@
       "id": "UNIT-DISPATCH-019",
       "name": "A foreign frame goes out as its payload alone, flagged for the radio",
       "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-020",
+      "name": "TX stalls are counted per cause with age and longest streak",
+      "source": "tests/unit/dispatcher_tests.cpp"
     }
   ]
 }

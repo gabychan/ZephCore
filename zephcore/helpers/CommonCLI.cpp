@@ -1213,6 +1213,12 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, const char* command, cha
 	} else if (memcmp(config, "loop.wakes", 10) == 0) {
 		loopWakeFormat(reply, replyCap(sender_timestamp));
 #endif
+	} else if (memcmp(config, "tx.stalls", 9) == 0) {
+		size_t cap = replyCap(sender_timestamp);
+		int n = snprintf(reply, cap, "> ");
+		if (_callbacks->formatTxStallStatus(reply + n, (int)cap - n) == 0) {
+			strcpy(reply, "not available");
+		}
 	} else if (memcmp(config, "dc.restarts", 11) == 0) {
 		snprintf(reply, CLI_REPLY_SIZE, "> %u",
 			 (uint32_t)_callbacks->getDutyCycleTimeoutRestarts());

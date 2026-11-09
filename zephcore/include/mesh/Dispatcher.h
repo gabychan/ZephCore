@@ -5,6 +5,7 @@
 #include <mesh/Packet.h>
 #include <mesh/Utils.h>
 #include <mesh/Maintenance.h>  // ZEPHCORE: deadline-driven maintenance
+#include <mesh/TxStall.h>  // ZEPHCORE: per-cause TX stalls
 #include <string.h>
 
 namespace mesh {
@@ -201,6 +202,7 @@ class Dispatcher {
   uint8_t outbound_priority;
   uint32_t lbt_busy_start;
   uint32_t lbt_next_warn;
+  TxStall stall_lbt, stall_rx;  // ZEPHCORE: what ERR_EVENT_CAD_TIMEOUT stands for
   int8_t cad_offset_shadow;
   bool cad_offset_shadow_valid;
   tx_queued_callback_t _tx_queued_cb;
@@ -276,10 +278,14 @@ public:
   void resetStats() {
     n_sent_flood = n_sent_direct = n_recv_flood = n_recv_direct = 0;
     _err_flags = 0;
+    stall_lbt = stall_rx = TxStall();  // ZEPHCORE
   }
 
   // ZEPHCORE: error flags and event-loop callbacks.
   uint16_t getErrFlags() const { return _err_flags; }
+  int formatTxStalls(char* buf, int cap) const {
+    return mesh::formatTxStalls(buf, cap, stall_lbt, stall_rx, (uint32_t)_ms->getMillis());
+  }
   void setTxQueuedCallback(tx_queued_callback_t cb, void* user_data) {
     _tx_queued_cb = cb;
     _tx_queued_user_data = user_data;

@@ -361,6 +361,7 @@ void Dispatcher::onLbtRefused(uint32_t now, int len) {
 
     if ((int32_t)(now - lbt_next_warn) >= 0) {
       _err_flags |= ERR_EVENT_CAD_TIMEOUT;
+      stall_lbt.record(now, streak);
       LOG_WRN("checkSend: LBT has refused TX for %ums (len=%d, noise=%d) — channel busy or CAD too sensitive",
               (unsigned)streak, len, _radio->getNoiseFloor());
       lbt_next_warn = now + getCADFailMaxDuration();
@@ -411,6 +412,7 @@ void Dispatcher::checkSend() {
 
     if (now - cad_busy_start > getCADFailMaxDuration()) {
       _err_flags |= ERR_EVENT_CAD_TIMEOUT;
+      stall_rx.record(now, now - cad_busy_start);  // ZEPHCORE
 
       LOG_ERR("checkSend: CAD timeout exceeded (isReceiving=%d, isRadioReady=%d, inRecvMode=%d, rssi=%.1f, snr=%.1f, noise=%d, rx_ok=%u, rx_err=%u)",
               (int)is_receiving, (int)is_radio_ready, (int)_radio->isInRecvMode(),

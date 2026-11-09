@@ -217,3 +217,18 @@ TEST(dispatch_foreign_tx, "UNIT-DISPATCH-019", "A foreign frame goes out as its 
           f.radio.sent[1] == std::vector<uint8_t>({9, 0, 0xAA}));
     f.complete();
 }
+
+TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause with age and longest streak") {
+    mesh::TxStall lbt, rx;
+    char buf[96];
+    mesh::formatTxStalls(buf, sizeof(buf), lbt, rx, 5000);
+    CHECK(std::string(buf) == "lbt n=0 | rx n=0");
+    lbt.record(10000, 4100);
+    lbt.record(20000, 8200);
+    lbt.record(30000, 4100);
+    rx.record(0, 4050);  // uptime 0 still reads as "happened"
+    mesh::formatTxStalls(buf, sizeof(buf), lbt, rx, 95000);
+    CHECK(std::string(buf) == "lbt n=3 ago=65s max=8200ms | rx n=1 ago=94s max=4050ms");
+    CHECK(mesh::formatTxStalls(buf, 8, lbt, rx, 95000) > 8);  // truncated, never overrun
+    CHECK(std::strlen(buf) == 7);
+}

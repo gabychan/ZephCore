@@ -151,6 +151,9 @@ protected:
   int formatCadStatus(char* buf, int cap) override {
     return _radio->formatCadStatus(buf, cap);
   }
+  int formatTxStallStatus(char* buf, int cap) override {
+    return formatTxStalls(buf, cap);
+  }
   void applyCadPrefs() override {
     _radio->setCadParams(_prefs.cad_auto != 0, _prefs.cad_offset,
                          _prefs.probe_interval, _prefs.cad_busycap,
