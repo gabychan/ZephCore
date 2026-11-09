@@ -2022,7 +2022,7 @@ bool CompanionMesh::handleCmdSendChannelTxtMsg(const uint8_t *data, size_t len)
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 				bool mt_sent = false;
 
-				if (mtSendChannelText(ch_idx, text, text_len, mt_sent)) {
+				if (mtSendChannelText(ch_idx, msg_timestamp, text, text_len, mt_sent)) {
 					if (mt_sent) {
 						writeOKFrame();
 					} else {

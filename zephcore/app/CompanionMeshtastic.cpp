@@ -246,7 +246,6 @@ void CompanionMesh::mtQueue(const uint8_t *frame, size_t len, uint32_t delay_ms)
 
 bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
-	(void)rssi;
 	if (getNumChannels() == 0) {
 		return false;
 	}
@@ -264,6 +263,11 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 
 	if (r == mt::RX_NOT_MESHTASTIC) {
 		return false;
+	}
+	mt::Header h;
+
+	if (r == mt::RX_DUPLICATE && mt::parseHeader(raw, (size_t)len, h) && h.from == _mt.self()) {
+		mtEchoHeard(h.id, snr, rssi);
 	}
 	if (relay_len > 0 && relay_len <= mt::kMaxTxFrame) {
 		mtQueue(relay, relay_len, 50 + getRNG()->nextInt(0, 351));
@@ -328,7 +332,8 @@ void CompanionMesh::MtSink::onPosition(uint32_t from, const mt::Position &pos)
 
 /* ── TX ───────────────────────────────────────────────────────────────── */
 
-bool CompanionMesh::mtSendChannelText(int ch_idx, const char *text, size_t len, bool &sent)
+bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len,
+				      bool &sent)
 {
 	ChannelDetails ch;
 
@@ -342,11 +347,53 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, const char *text, size_t len, 
 	uint8_t frame[mt::kMaxTxFrame];
 	size_t n = _mt.buildText((uint8_t)ch_idx, mt::kBroadcast, text, len, frame, sizeof(frame));
 
-	if (n > 0) {
+	mt::Header h;
+
+	if (n > 0 && mt::parseHeader(frame, n, h)) {
+		MtSent &s = _mt_sent[_mt_sent_next];
+
+		_mt_sent_next = (uint8_t)((_mt_sent_next + 1) % MT_SENT_KEEP);
+		s.id = h.id;
+		s.timestamp = timestamp;
+		s.channel = (uint8_t)ch_idx;
+		s.len = (uint8_t)(len < sizeof(s.text) ? len : sizeof(s.text));
+		memcpy(s.text, text, s.len);
 		mtQueue(frame, n, 0);
 		sent = true;
 	}
 	return true;
+}
+
+/* A node repeated our frame: hand the app the MeshCore group message it would
+ * have heard had MeshCore carried it, which is what it counts as a repeat. */
+void CompanionMesh::mtEchoHeard(uint32_t id, float snr, float rssi)
+{
+	for (const MtSent &s : _mt_sent) {
+		ChannelDetails ch;
+
+		if (s.id != id || s.len == 0 || !getChannel(s.channel, ch)) {
+			continue;
+		}
+		uint8_t body[5 + MAX_TEXT_LEN + 32];
+
+		memcpy(body, &s.timestamp, 4);
+		body[4] = 0;  /* TXT_TYPE_PLAIN */
+		int n = snprintf((char *)&body[5], sizeof(body) - 5, "%s: ", prefs.node_name);
+		size_t room = sizeof(body) - 5 - (size_t)n;
+		size_t t = s.len < room ? s.len : room;
+
+		memcpy(&body[5 + n], s.text, t);
+		mesh::Packet *pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_TXT, ch.channel, body,
+							5 + (size_t)n + t);
+
+		if (pkt) {
+			uint8_t raw[MAX_TRANS_UNIT + 1];
+
+			logRxRaw(snr, rssi, raw, pkt->writeTo(raw));
+			releasePacket(pkt);
+		}
+		return;
+	}
 }
 
 bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *text, size_t len,

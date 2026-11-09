@@ -10,6 +10,7 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Meshtastic channels in the MeshCore app | A group channel named `MT:<name>` with the Meshtastic PSK as its 16 byte secret. |
 | Receive text | Text heard on an `MT:` channel reaches the app as a channel message, `<sender>: <text>`. |
 | Send text | A message the app sends on an `MT:` channel leaves as a Meshtastic broadcast. |
+| Repeats heard | When a Meshtastic node repeats a text we sent, the app gets the same message as a MeshCore group packet, which it counts as a heard repeat. The last 3 sent texts are kept for this. |
 | Direct messages | A message to a Meshtastic contact leaves as a channel-encrypted text addressed to that node, on the first `MT:` channel. No ACK is tracked. |
 | Nodes in the contact list | NodeInfo creates a contact `MT:<long name>`. |
 | Nodes on the map | Position packets set the contact's coordinates. |

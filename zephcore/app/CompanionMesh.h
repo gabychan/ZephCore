@@ -319,6 +319,18 @@ private:
 	uint8_t _mt_key_next = 0;
 	bool _mt_ready = false;
 	uint32_t _mt_nodeinfo_next_s = 0;
+	/* Text sent on an MT: channel, kept so that hearing a node repeat the frame
+	 * can be shown to the app as a MeshCore repeat of the same message. */
+	struct MtSent {
+		uint32_t id;
+		uint32_t timestamp;
+		uint8_t channel;
+		uint8_t len;
+		char text[MAX_TEXT_LEN];
+	};
+	static constexpr int MT_SENT_KEEP = 3;
+	MtSent _mt_sent[MT_SENT_KEEP] = {};
+	uint8_t _mt_sent_next = 0;
 
 	static bool mtIsChannelName(const char *name);
 	void mtSyncChannels();
@@ -330,7 +342,8 @@ private:
 	int mtFirstChannel() const;
 	void mtNodeInfoTick();
 	/* App commands; false when the channel or contact is not a Meshtastic one. */
-	bool mtSendChannelText(int ch_idx, const char *text, size_t len, bool &sent);
+	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent);
+	void mtEchoHeard(uint32_t id, float snr, float rssi);
 	bool mtSendDirectText(const ContactInfo &contact, const char *text, size_t len, bool &sent);
 public:
 	/* First boot: the channels of the Spanish SFNarrow community. */
