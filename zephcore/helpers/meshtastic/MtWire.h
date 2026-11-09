@@ -22,6 +22,7 @@ enum : uint32_t {
 	PORT_POSITION = 3,
 	PORT_NODEINFO = 4,
 	PORT_ROUTING = 5,
+	PORT_TELEMETRY = 67,
 	PORT_TRACEROUTE = 70,
 };
 
@@ -103,5 +104,17 @@ struct User {
 };
 bool decodeUser(const uint8_t *buf, size_t len, User &u);
 size_t encodeUser(const User &u, uint8_t *out, size_t cap);
+
+/* Telemetry.device_metrics. battery_level above 100 means powered. */
+struct DeviceMetrics {
+	uint32_t battery_level;
+	bool has_voltage;
+	float voltage;
+	float channel_utilization;  /* percent */
+	float air_util_tx;          /* percent */
+	uint32_t uptime_s;
+	uint32_t time;              /* unix seconds, 0 when the clock is not set */
+};
+size_t encodeTelemetry(const DeviceMetrics &m, uint8_t *out, size_t cap);
 
 } /* namespace mt */

@@ -129,9 +129,12 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   uint32_t _mt_yield[MT_YIELD_KEEP] = {};  // hashes of queued relays that give way to an echo
   uint8_t _mt_yield_next = 0;
   uint32_t _mt_next_nodeinfo = 0;          // millis; 0 = none planned
+  uint32_t _mt_next_telemetry = 0;         // millis; 0 = none planned
+  uint32_t _mt_tele_at = 0, _mt_tele_tx = 0, _mt_tele_rx = 0;  // millis and air times at the last telemetry
   bool _mt_ready = false;
   void mtApplyPrefs();
   void mtNodeInfoTick();
+  void mtTelemetryTick();
   bool mtHandleCommand(char* command, char* reply);
   void mtQueueRelay(const uint8_t* relay, size_t len, int8_t snr_x4, mt::RelayClass cls);
   bool mtYields(uint32_t hash) const;

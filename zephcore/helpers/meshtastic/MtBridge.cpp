@@ -484,4 +484,17 @@ size_t Bridge::buildPosition(uint8_t channel_id, const Position &pos, uint8_t *o
 	return n ? buildFrame(ch, nullptr, kBroadcast, PORT_POSITION, pb, n, out, cap) : 0;
 }
 
+size_t Bridge::buildTelemetry(uint8_t channel_id, const DeviceMetrics &m, uint8_t *out, size_t cap)
+{
+	const Channel *ch = find(channel_id);
+	uint8_t pb[48];
+
+	if (!ch) {
+		return 0;
+	}
+	size_t n = encodeTelemetry(m, pb, sizeof(pb));
+
+	return n ? buildFrame(ch, nullptr, kBroadcast, PORT_TELEMETRY, pb, n, out, cap) : 0;
+}
+
 } /* namespace mt */

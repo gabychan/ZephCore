@@ -1070,3 +1070,31 @@ TEST(mt_next_hop, "UNIT-MT-037", "A frame is repeated when it names no next hop 
     n3 = a.buildText(3, 0xF6F6F6F6u, "solo", 4, frame, sizeof(frame));
     CHECK(r3.handleFrame(frame, n3, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == 0);
 }
+
+TEST(mt_telemetry, "UNIT-MT-038", "Device metrics encode as Meshtastic's Telemetry and travel as a TELEMETRY_APP frame") {
+    DeviceMetrics m = {};
+    m.battery_level = 50; m.has_voltage = true; m.voltage = 3.7f;
+    m.channel_utilization = 10.0f; m.air_util_tx = 1.0f; m.uptime_s = 300;
+    uint8_t pb[48];
+    size_t n = encodeTelemetry(m, pb, sizeof(pb));
+    const uint8_t golden[] = {0x12, 0x14, 0x08, 0x32, 0x15, 0xCD, 0xCC, 0x6C, 0x40, 0x1D, 0x00, 0x00, 0x20, 0x41,
+                              0x25, 0x00, 0x00, 0x80, 0x3F, 0x28, 0xAC, 0x02};
+    CHECK(n == sizeof(golden) && std::memcmp(pb, golden, n) == 0);
+    m.time = 0x01020304u;
+    size_t nt = encodeTelemetry(m, pb, sizeof(pb));
+    CHECK(nt == n + 5 && pb[0] == 0x0D && pb[1] == 0x04 && pb[4] == 0x01);  // time, fixed32 field 1
+    m.has_voltage = false;                                                  // powered, no battery
+    m.battery_level = 101;
+    CHECK(encodeTelemetry(m, pb, sizeof(pb)) > 0 && encodeTelemetry(m, pb, 5) == 0);
+
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 1), b = makeNode(0xB2B2B2B2u, "beta", 2);
+    uint8_t frame[kMaxFrame], plain[kMaxFrame];
+    size_t fn = a.buildTelemetry(3, m, frame, sizeof(frame));
+    Header h;
+    CHECK(fn > kHeaderLen && parseHeader(frame, fn, h) && h.to == kBroadcast);
+    std::memcpy(plain, frame + kHeaderLen, fn - kHeaderLen);
+    ctrCrypt(refAes, kDefaultKey, h.from, h.id, plain, fn - kHeaderLen);
+    Data d;
+    CHECK(decodeData(plain, fn - kHeaderLen, d) && d.portnum == PORT_TELEMETRY && d.payload_len > 0);
+    CHECK(a.buildTelemetry(9, m, frame, sizeof(frame)) == 0);  // unknown channel
+}

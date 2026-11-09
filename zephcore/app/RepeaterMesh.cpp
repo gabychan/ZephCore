@@ -1470,6 +1470,7 @@ void RepeaterMesh::loop() {
 
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   mtNodeInfoTick();
+  mtTelemetryTick();
 #endif
   timeSyncTick();
 
@@ -1594,6 +1595,9 @@ uint32_t RepeaterMesh::msUntilNextMaintenance() {
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   if (_mt_next_nodeinfo) {
     next = mesh::maintenanceSooner(next, mesh::maintenanceUntil(now, _mt_next_nodeinfo));
+  }
+  if (_mt_next_telemetry) {
+    next = mesh::maintenanceSooner(next, mesh::maintenanceUntil(now, _mt_next_telemetry));
   }
 #endif
 

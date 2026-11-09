@@ -125,6 +125,7 @@ public:
 			 uint8_t *out, size_t cap, uint32_t reply_id = 0);
 	size_t buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap);
 	size_t buildPosition(uint8_t channel_id, const Position &pos, uint8_t *out, size_t cap);
+	size_t buildTelemetry(uint8_t channel_id, const DeviceMetrics &m, uint8_t *out, size_t cap);
 	/* Our NodeInfo to one node, asking for theirs when want_response. */
 	size_t buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_response, uint8_t *out,
 			       size_t cap);

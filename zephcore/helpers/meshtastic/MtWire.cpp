@@ -503,4 +503,36 @@ size_t encodeUser(const User &u, uint8_t *out, size_t cap)
 	return w.ok ? (size_t)(w.p - out) : 0;
 }
 
+static uint32_t floatBits(float f)
+{
+	uint32_t v;
+
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+
+size_t encodeTelemetry(const DeviceMetrics &m, uint8_t *out, size_t cap)
+{
+	uint8_t dm[24];
+	Writer d{dm, dm + sizeof(dm)};
+
+	d.uint(1, m.battery_level);
+	if (m.has_voltage) {
+		d.fixed32(2, floatBits(m.voltage));
+	}
+	d.fixed32(3, floatBits(m.channel_utilization));
+	d.fixed32(4, floatBits(m.air_util_tx));
+	d.uint(5, m.uptime_s);
+	if (!d.ok) {
+		return 0;
+	}
+	Writer w{out, out + cap};
+
+	if (m.time) {
+		w.fixed32(1, m.time);
+	}
+	w.bytes(2, dm, (size_t)(d.p - dm));
+	return w.ok ? (size_t)(w.p - out) : 0;
+}
+
 } /* namespace mt */

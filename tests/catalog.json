@@ -788,6 +788,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-038",
+      "name": "Device metrics encode as Meshtastic's Telemetry and travel as a TELEMETRY_APP frame",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

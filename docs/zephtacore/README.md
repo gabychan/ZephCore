@@ -147,7 +147,9 @@ floods on) and sets `relay_node`. A frame first heard while it named another nod
 fallback, and the originator sending a frame again (`hop_start == hop_limit`, nobody ACKed) is repeated again, once per retry.
 A repeat heard from another repeater is not dropped if that repeater named this node.
 
-Size: the repeater grows by 11.2 KB of flash and 1.2 KB of RAM (`wio_tracker_l1`, 288384 vs 277168 B and 85084 vs 83932 B);
+Our NodeInfo, and our fixed position and device metrics when enabled, go out on the primary channel only.
+
+Size: the repeater grows by 12.2 KB of flash and 1.2 KB of RAM (`wio_tracker_l1`, 289392 vs 277168 B and 85148 vs 83932 B);
 the companion by 0.8 KB of flash and 0.3 KB of RAM (settings in `NodePrefs`, the dedup table's relayed flag).
 Not run on air.
 
