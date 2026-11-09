@@ -101,6 +101,8 @@ struct lr20xx_data {
 	bool rx_boost_enabled;
 	/* LoRa sync word to program; 0 derives it from public_network. */
 	uint8_t sync_word;
+	/* Preamble of the next TX in symbols; 0 uses modem_cfg.preamble_len. */
+	uint16_t tx_preamble_len;
 	bool rx_boost_applied;
 
 
@@ -896,6 +898,12 @@ static void lr20xx_apply_side_detectors(struct lr20xx_data *data, bool enable)
 		data->side_det_sf[0],
 		n > 1 ? data->side_det_sf[1] : 0,
 		n > 2 ? data->side_det_sf[2] : 0);
+}
+
+/* Preamble of the next TX: the per-frame value when one is set. */
+static uint16_t lr20xx_tx_preamble(const struct lr20xx_data *data)
+{
+	return data->tx_preamble_len ? data->tx_preamble_len : data->modem_cfg.preamble_len;
 }
 
 static void lr20xx_apply_modem_config(struct lr20xx_data *data,
@@ -2094,7 +2102,7 @@ static int lr20xx_lora_send_cad_lbt(const struct device *dev,
 	lr20xx_apply_modem_config(data, cfg, true);
 
 	lr20xx_radio_lora_pkt_params_t pkt = {
-		.preamble_len_in_symb = data->modem_cfg.preamble_len,
+		.preamble_len_in_symb = lr20xx_tx_preamble(data),
 		.pkt_mode = LR20XX_RADIO_LORA_PKT_EXPLICIT,
 		.pld_len_in_bytes = (uint8_t)data_len,
 		.crc = data->modem_cfg.packet_crc_disable
@@ -2264,7 +2272,7 @@ static int lr20xx_lora_send_async(const struct device *dev,
 
 	/* Set TX-specific packet length */
 	lr20xx_radio_lora_pkt_params_t pkt = {
-		.preamble_len_in_symb = data->modem_cfg.preamble_len,
+		.preamble_len_in_symb = lr20xx_tx_preamble(data),
 		.pkt_mode = LR20XX_RADIO_LORA_PKT_EXPLICIT,
 		.pld_len_in_bytes = (uint8_t)data_len,
 		.crc = data->modem_cfg.packet_crc_disable
@@ -2822,6 +2830,16 @@ int lr20xx_configure_side_detectors(const struct device *dev,
 
 	LOG_INF("side detectors configured: %u", num);
 	return 0;
+}
+
+void lr20xx_set_tx_preamble_len(const struct device *dev, uint16_t len)
+{
+	struct lr20xx_data *data = dev->data;
+
+	/* Read by the next TX start, which programs the TX packet parameters. */
+	k_mutex_lock(&data->spi_mutex, K_FOREVER);
+	data->tx_preamble_len = len;
+	k_mutex_unlock(&data->spi_mutex);
 }
 
 void lr20xx_set_sync_word(const struct device *dev, uint8_t word)

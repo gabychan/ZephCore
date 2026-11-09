@@ -658,6 +658,16 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-013",
+      "name": "Meshtastic slot, SNR-weighted window and client rebroadcast delay",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-014",
+      "name": "Queued Meshtastic relay hashes by sender and id, as the frame heard",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

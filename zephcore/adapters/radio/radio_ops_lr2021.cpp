@@ -64,6 +64,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.reset_stats = lr20xx_reset_freq_offset,
 	.format_freq_error = lr2021_format_freq_error,
 	.set_sync_word = lr20xx_set_sync_word_kind,
+	.set_tx_preamble_len = lr20xx_set_tx_preamble_len,
 };
 
 } /* namespace mesh */

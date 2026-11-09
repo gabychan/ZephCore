@@ -18,8 +18,20 @@ ContentionTracker::ContentionTracker()
 }
 
 /* FNV-1a over payload_type + first 8 payload bytes */
+uint32_t ContentionTracker::computeForeignHash32(const uint8_t *frame, int len)
+{
+	uint32_t h = 0x811c9dc5u;
+	for (int i = 4; i < 12 && i < len; i++) {
+		h = (h ^ frame[i]) * 0x01000193u;
+	}
+	return h;
+}
+
 uint32_t ContentionTracker::computePacketHash32(const Packet *pkt)
 {
+	if (pkt->isForeign()) {
+		return computeForeignHash32(pkt->payload, pkt->payload_len);
+	}
 	uint32_t h = 0x811c9dc5u; /* FNV-1a offset basis */
 	uint8_t t = pkt->getPayloadType();
 	h = (h ^ t) * 0x01000193u;

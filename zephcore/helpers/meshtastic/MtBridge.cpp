@@ -111,6 +111,37 @@ uint32_t Bridge::nextId()
 	return _id_prefix | _id_counter;
 }
 
+static constexpr int kSnrMin = -20;
+static constexpr int kSnrMax = 10;
+static constexpr uint8_t kCwMin = 3;
+static constexpr uint8_t kCwMax = 8;
+
+uint32_t slotTimeMs(uint8_t sf, float bw_khz)
+{
+	if (bw_khz <= 0.0f) {
+		return 0;
+	}
+	float symbol_ms = (float)(1UL << sf) / bw_khz;
+
+	return (uint32_t)(2.5f * symbol_ms + 7.6f);
+}
+
+uint8_t rebroadcastCw(int8_t snr_x4)
+{
+	int snr = snr_x4 / 4;
+	int cw = (snr - kSnrMin) * (kCwMax - kCwMin) / (kSnrMax - kSnrMin) + kCwMin;
+
+	if (cw < kCwMin) {
+		return kCwMin;
+	}
+	return cw > kCwMax ? kCwMax : (uint8_t)cw;
+}
+
+uint32_t rebroadcastDelayMs(uint32_t slot_ms, uint32_t r)
+{
+	return (2U * kCwMax + r) * slot_ms;
+}
+
 RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink &sink,
 			     uint8_t *relay_out, size_t *relay_len)
 {

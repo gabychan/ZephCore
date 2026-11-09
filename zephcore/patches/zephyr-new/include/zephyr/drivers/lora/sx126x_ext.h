@@ -64,6 +64,17 @@ void sx126x_set_rx_boost(const struct device *dev, bool enable);
 int sx126x_set_sync_word_reg(const struct device *dev, uint16_t reg);
 
 /**
+ * @brief Preamble length of the next transmissions.
+ *
+ * Applies to TX only; RX keeps the configured preamble. Lets a build send
+ * frames of another network with that network's preamble.
+ *
+ * @param dev LoRa device
+ * @param len Preamble in symbols, 0 to use the configured one
+ */
+void sx126x_set_tx_preamble_len(const struct device *dev, uint16_t len);
+
+/**
  * @brief Select an external FEM's LNA or its bypass path for RX
  *
  * Acts on lna-bypass-gpios, the FEM's receive-path select -- KCT8103L CTX on

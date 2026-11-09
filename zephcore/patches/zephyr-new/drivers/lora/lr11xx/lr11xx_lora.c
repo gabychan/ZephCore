@@ -105,6 +105,8 @@ struct lr11xx_data {
 	bool rx_boost_enabled;
 	/* LoRa sync word to program; 0 derives it from public_network. */
 	uint8_t sync_word;
+	/* Preamble of the next TX in symbols; 0 uses modem_cfg.preamble_len. */
+	uint16_t tx_preamble_len;
 	bool rx_boost_applied;  /* RX boost register written to hardware */
 
 	/* Stored duty-cycle timing from recv_duty_cycle() — the re-arm paths
@@ -298,6 +300,12 @@ static uint8_t lr11xx_ldro(const struct lora_modem_config *mc)
 	uint32_t bw_hz = lr11xx_radio_get_lora_bw_in_hz(bw_enum_to_lr11xx(mc->bandwidth));
 	uint32_t symbol_time_us = ((1U << (uint8_t)mc->datarate) * 1000000U) / bw_hz;
 	return symbol_time_us > 16380;
+}
+
+/* Preamble of the next TX: the per-frame value when one is set. */
+static uint16_t lr11xx_tx_preamble(const struct lr11xx_data *data)
+{
+	return data->tx_preamble_len ? data->tx_preamble_len : data->modem_cfg.preamble_len;
 }
 
 static void lr11xx_apply_modem_config(struct lr11xx_data *data,
@@ -1045,7 +1053,7 @@ static int lr11xx_lora_send_async(const struct device *dev,
 
 	/* Set TX packet length */
 	lr11xx_radio_pkt_params_lora_t pkt = {
-		.preamble_len_in_symb = data->modem_cfg.preamble_len,
+		.preamble_len_in_symb = lr11xx_tx_preamble(data),
 		.header_type = LR11XX_RADIO_LORA_PKT_EXPLICIT,
 		.pld_len_in_bytes = (uint8_t)data_len,
 		.crc = data->modem_cfg.packet_crc_disable
@@ -1568,6 +1576,16 @@ uint32_t lr11xx_get_wakeup_time_us(const struct device *dev)
 		us += cfg->tcxo_startup_delay_ms * 1000U;
 	}
 	return us;
+}
+
+void lr11xx_set_tx_preamble_len(const struct device *dev, uint16_t len)
+{
+	struct lr11xx_data *data = dev->data;
+
+	/* Read by the next TX start, which programs the TX packet parameters. */
+	k_mutex_lock(&data->spi_mutex, K_FOREVER);
+	data->tx_preamble_len = len;
+	k_mutex_unlock(&data->spi_mutex);
 }
 
 void lr11xx_set_sync_word(const struct device *dev, uint8_t word)

@@ -38,6 +38,9 @@ static uint16_t rxDutyDetectSymbols(uint8_t sf)
 	return (sf >= 7) ? d : (uint16_t)(d + 4);
 }
 
+/* Meshtastic's sub-GHz preamble (RadioInterface::preambleLengthDefault). */
+static constexpr uint16_t kMeshtasticPreambleLen = 16;
+
 void LoRaRadio::applySyncWord(SyncKind kind)
 {
 	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_sync_word) {
@@ -48,6 +51,14 @@ void LoRaRadio::applySyncWord(SyncKind kind)
 	if (ret < 0) {
 		LOG_ERR("sync word %d write failed: %d", (int)kind, ret);
 	}
+}
+
+void LoRaRadio::applyTxPreamble()
+{
+	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_tx_preamble_len) {
+		return;
+	}
+	_ops.set_tx_preamble_len(_dev, _tx_foreign ? kMeshtasticPreambleLen : 0);
 }
 
 /* ── Constructor ─────────────────────────────────────────────── */
@@ -583,7 +594,8 @@ void LoRaRadio::startReceive()
 		const uint32_t bw_hz = bandwidth_to_hz(cfg.bandwidth);
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 		/* Meshtastic frames carry 16 preamble symbols whatever the SF. */
-		const uint16_t P = cfg.preamble_len < 16 ? cfg.preamble_len : 16;
+		const uint16_t P = cfg.preamble_len < kMeshtasticPreambleLen ? cfg.preamble_len
+									     : kMeshtasticPreambleLen;
 #else
 		const uint16_t P = cfg.preamble_len;
 #endif
@@ -724,6 +736,7 @@ bool LoRaRadio::startSendRaw(const uint8_t *bytes, int len)
 	 * RX->TX entry and restores RX itself on CAD-busy. */
 	configureTx();
 	applySyncWord(_tx_foreign ? SyncKind::Meshtastic : SyncKind::MeshCore);
+	applyTxPreamble();
 
 	memcpy(_tx_buf, bytes, len);
 	/* Published before the _tx_start_sem handoff below so txWaitBudgetMs()

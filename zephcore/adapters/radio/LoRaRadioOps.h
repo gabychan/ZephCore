@@ -71,6 +71,8 @@ struct LoRaRadioOps {
 	/* Sync word of the next RX or TX start. Non-NULL means the family can
 	 * receive MeshCore and Meshtastic at once and pick the word per frame. */
 	int (*set_sync_word)(const struct device *dev, SyncKind kind);
+	/* Preamble in symbols of the next TX starts, 0 for the configured one. */
+	void (*set_tx_preamble_len)(const struct device *dev, uint16_t len);
 };
 
 extern const LoRaRadioOps kLoRaRadioOps;

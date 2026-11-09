@@ -36,6 +36,9 @@ void lr11xx_set_rx_boost(const struct device *dev, bool enable);
  * public/private word of the modem config). */
 void lr11xx_set_sync_word(const struct device *dev, uint8_t word);
 
+/* Preamble in symbols of the next TX starts (0 restores the configured one). */
+void lr11xx_set_tx_preamble_len(const struct device *dev, uint16_t len);
+
 /* Deaf time per duty-cycle wake (context restore + PLL + TCXO start), in us. */
 uint32_t lr11xx_get_wakeup_time_us(const struct device *dev);
 

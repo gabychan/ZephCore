@@ -21,6 +21,9 @@ public:
 
 	/* FNV-1a 32-bit hash for ring buffer correlation (not dedup SHA256). */
 	static uint32_t computePacketHash32(const Packet *pkt);
+	/* A foreign (Meshtastic) frame: FNV-1a over sender and packet id, bytes 4..11.
+	 * computePacketHash32() of the queued frame gives the same value. */
+	static uint32_t computeForeignHash32(const uint8_t *frame, int len);
 
 	void trackRetransmit(uint32_t hash32, uint32_t now_ms);
 

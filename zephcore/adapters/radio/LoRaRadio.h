@@ -346,6 +346,8 @@ private:
 	bool _tx_foreign = false;
 	/* Writes one SX126x sync word register; a no-op unless the family has the op. */
 	void applySyncWord(SyncKind kind);
+	/* Meshtastic frames go out with Meshtastic's 16 symbols, MeshCore ones with ours. */
+	void applyTxPreamble();
 
 	/* Radio param override — when set, buildModemConfig() uses these
 	 * for freq/bw/sf/cr instead of _prefs.  Everything else (tx_power,

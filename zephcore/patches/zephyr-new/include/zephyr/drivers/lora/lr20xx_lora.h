@@ -62,6 +62,9 @@ void lr20xx_set_rx_boost(const struct device *dev, bool enable);
  * public/private word of the modem config). */
 void lr20xx_set_sync_word(const struct device *dev, uint8_t word);
 
+/* Preamble in symbols of the next TX starts (0 restores the configured one). */
+void lr20xx_set_tx_preamble_len(const struct device *dev, uint16_t len);
+
 /* Up to 3 extra SFs demodulated alongside the configured one, same bandwidth
  * (num = 0 disables). Datasheet constraints, enforced: every side SF above the
  * main SF, all distinct, highest - lowest <= 4, and at BW >= 500 kHz at most 2

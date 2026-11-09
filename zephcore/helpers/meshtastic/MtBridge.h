@@ -17,6 +17,20 @@ static constexpr int kDedupSize = 64;
 /* Largest frame we queue: MeshCore's payload limit (MAX_PACKET_PAYLOAD). */
 static constexpr size_t kMaxTxFrame = 184;
 
+/* Meshtastic's contention slot on sub-GHz LoRa (RadioInterface::computeSlotTimeMsec):
+ * a 2-symbol CAD plus half a symbol, plus 7.6 ms of propagation, TX/RX
+ * turnaround and processing. */
+uint32_t slotTimeMs(uint8_t sf, float bw_khz);
+
+/* Contention window exponent of a rebroadcast (RadioInterface::getCWsize): the
+ * SNR it was heard at, -20..+10 dB, maps to 3..8, clamped. A faint frame gets a
+ * small window, so the node farthest from the sender repeats first. */
+uint8_t rebroadcastCw(int8_t snr_x4);
+
+/* Rebroadcast delay of a client node (RadioInterface::getTxDelayMsecWeighted):
+ * 2 x 8 slots left to routers, then slot r of the window, r < 2^cw. */
+uint32_t rebroadcastDelayMs(uint32_t slot_ms, uint32_t r);
+
 class Sink {
 public:
 	virtual ~Sink() {}

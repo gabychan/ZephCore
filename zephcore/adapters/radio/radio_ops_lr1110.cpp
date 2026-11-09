@@ -48,6 +48,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.reset_stats = nullptr,
 	.format_freq_error = nullptr,
 	.set_sync_word = lr11xx_set_sync_word_kind,
+	.set_tx_preamble_len = lr11xx_set_tx_preamble_len,
 };
 
 } /* namespace mesh */

@@ -74,7 +74,11 @@ only when a firmware raises the revision. Existing channels and radio settings a
 - A frame we send or repeat is at most 184 bytes (MeshCore's payload limit), about 164 characters of text.
 - Our position is not broadcast.
 - Text sent from the device UI (joystick) still goes out as MeshCore; only app messages are bridged.
-- A repeated frame is sent after a random 50-400 ms delay; a duplicate heard meanwhile does not cancel it.
+- A repeated frame waits as a Meshtastic client does: 16 slots left to routers, then a random slot in a window of
+  2^3 to 2^8 slots chosen by the SNR it was heard at (fainter: smaller window). A duplicate heard meanwhile pushes it
+  back by the reactive backoff (`backoff.multiplier` x airtime, capped as for MeshCore floods) and never cancels it.
+  Why: [CAD.md](CAD.md).
+- Frames we send to Meshtastic carry Meshtastic's 16-symbol preamble whatever the SF (SX126x, LR11xx, LR20xx).
 - The contact list holds Meshtastic nodes as ordinary contacts, so they count against `CONFIG_ZEPHCORE_MAX_CONTACTS`.
 
 ## How it works
@@ -109,7 +113,7 @@ derived from it matches.
 
 | Check | Result |
 | --- | --- |
-| Host tests (`python3 tests/run.py run --profile quick`) | 142 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, false-positive bound, Dispatcher RX hook and foreign TX |
+| Host tests (`python3 tests/run.py run --profile quick`) | 144 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX |
 | Field numbers and nonce layout | Read against `mesh.proto` and `CryptoEngine.cpp` of the Meshtastic firmware |
 | Firmware build `wio_tracker_l1` (SX1262) | OK. Flash +4.6 KB (476724 vs 472084 B), RAM +1.3 KB (227168 vs 225824 B) |
 | Firmware build `t1000_e` (LR1110) | OK. Flash 377388 B |

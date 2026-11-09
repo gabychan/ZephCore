@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <helpers/meshtastic/MtBridge.h>
+#include <mesh/ContentionTracker.h>
+#include <mesh/Packet.h>
 
 using namespace mt;
 
@@ -386,4 +388,35 @@ TEST(mt_bridge_not_meshtastic, "UNIT-MT-012", "MeshCore-like and random frames a
     CHECK(b.handleFrame(oversized, 300, 0, cap, out, &out_len) == RX_NOT_MESHTASTIC);
     Bridge unset(refAes);
     CHECK(unset.handleFrame(oversized, 40, 0, cap, out, &out_len) == RX_NOT_MESHTASTIC);
+}
+
+TEST(mt_rebroadcast_timing, "UNIT-MT-013", "Meshtastic slot, SNR-weighted window and client rebroadcast delay") {
+    CHECK(slotTimeMs(11, 250.0f) == 28);  // 2.5 x 8.192 ms + 7.6 ms
+    CHECK(slotTimeMs(7, 125.0f) == 10);   // 2.5 x 1.024 ms + 7.6 ms
+    CHECK(slotTimeMs(9, 0.0f) == 0);
+    CHECK(rebroadcastCw(-20 * 4) == 3);
+    CHECK(rebroadcastCw(10 * 4) == 8);
+    CHECK(rebroadcastCw(-5 * 4) == 5);
+    CHECK(rebroadcastCw(-30 * 4) == 3);  // clamped
+    CHECK(rebroadcastCw(20 * 4) == 8);   // clamped
+    CHECK(rebroadcastDelayMs(28, 0) == 16 * 28);
+    CHECK(rebroadcastDelayMs(28, 255) == 271 * 28);
+}
+
+TEST(mt_foreign_hash, "UNIT-MT-014", "Queued Meshtastic relay hashes by sender and id, as the frame heard") {
+    uint8_t frame[24];
+    for (int i = 0; i < 24; i++) frame[i] = (uint8_t)(i * 7 + 1);
+    mesh::Packet pkt;
+    pkt.header = mesh::Packet::FOREIGN_HEADER;
+    pkt.path_len = 0;
+    pkt.payload_len = sizeof(frame);
+    std::memcpy(pkt.payload, frame, sizeof(frame));
+    const uint32_t h = mesh::ContentionTracker::computeForeignHash32(frame, sizeof(frame));
+    CHECK(mesh::ContentionTracker::computePacketHash32(&pkt) == h);
+    pkt.payload[12] ^= 0x07;  // hop_limit
+    pkt.payload[15] ^= 0xFF;  // relay byte
+    pkt.payload[0] ^= 0xFF;   // destination
+    CHECK(mesh::ContentionTracker::computePacketHash32(&pkt) == h);
+    pkt.payload[8] ^= 0x01;   // packet id
+    CHECK(mesh::ContentionTracker::computePacketHash32(&pkt) != h);
 }
