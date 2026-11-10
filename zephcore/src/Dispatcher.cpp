@@ -526,6 +526,15 @@ bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, ui
   return true;
 }
 
+int Dispatcher::getForeignQueued() const {
+  int n = 0, total = _mgr->getOutboundTotal();
+  for (int i = 0; i < total; i++) {
+    Packet* pkt = _mgr->getOutboundByIdx(i);
+    if (pkt && pkt->isForeign()) n++;
+  }
+  return n;
+}
+
 // Utility function -- handles the case where millis() wraps around back to zero
 //   2's complement arithmetic will handle any unsigned subtraction up to HALF the word size (32-bits in this case)
 bool Dispatcher::millisHasNowPassed(uint32_t timestamp) const {

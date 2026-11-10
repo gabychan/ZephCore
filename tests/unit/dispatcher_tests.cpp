@@ -240,6 +240,21 @@ TEST(dispatch_foreign_rx_airtime, "UNIT-DISPATCH-022", "A consumed foreign frame
     CHECK(f.dispatcher.getReceiveAirTime() == 160);
 }
 
+TEST(dispatch_foreign_queue, "UNIT-DISPATCH-023", "Foreign frames in the queue are counted, and the lowest priority leaves after a due MeshCore packet") {
+    Fixture f; f.begin();
+    CHECK(f.dispatcher.getForeignQueued() == 0);
+    std::vector<uint8_t> frame(30, 9);
+    for (int i = 0; i < 3; i++) CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 0xFE, 0));
+    f.dispatcher.sendPacket(f.packet(), 5, 0);
+    CHECK(f.dispatcher.getForeignQueued() == 3);
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 1 && !f.radio.sent_foreign[0]);   // the MeshCore packet first
+    f.complete();
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 2 && f.radio.sent_foreign[1]);     // then the foreign ones
+    CHECK(f.dispatcher.getForeignQueued() == 2);
+}
+
 TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause with age and longest streak") {
     mesh::TxStall lbt, rx;
     char buf[96];

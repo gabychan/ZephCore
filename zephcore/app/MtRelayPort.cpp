@@ -161,9 +161,9 @@ bool MtRelayPort::nextAt(uint32_t &at_ms) const
 
 void MtRelayPort::formatStats(char *out, size_t cap) const
 {
-	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u",
+	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u shed=%u",
 		 (unsigned)_stats.heard, (unsigned)_stats.relayed, (unsigned)_stats.opaque,
-		 (unsigned)_stats.yielded, (unsigned)_stats.dropped);
+		 (unsigned)_stats.yielded, (unsigned)_stats.dropped, (unsigned)_stats.shed);
 }
 
 bool MtRelayPort::send(const uint8_t *frame, size_t len, uint8_t sf, float bw)
@@ -200,6 +200,7 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::Rel
 
 	if (!_mesh.relayForeign(relay, len, mt::relayDelayMs(slot, policy.early, r))) {
 		LOG_WRN("mt: relay not queued (len=%u)", (unsigned)len);
+		_stats.shed++;
 		return;
 	}
 	_stats.relayed++;

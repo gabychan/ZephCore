@@ -22,7 +22,7 @@ public:
 		bool early;      /* router timing: before every client */
 	};
 	struct Stats {
-		uint32_t heard, relayed, opaque, yielded, dropped;
+		uint32_t heard, relayed, opaque, yielded, dropped, shed;
 	};
 	/* What a role adds to the NodeInfo: its position and its metrics, if it has them. */
 	struct Source {

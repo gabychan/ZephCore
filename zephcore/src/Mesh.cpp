@@ -73,8 +73,9 @@ bool Mesh::relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms) {
     Packet* pkt = _mgr->getOutboundByIdx(i);
     if (pkt && pkt->isForeign() && ContentionTracker::computePacketHash32(pkt) == hash) return true;  // already waiting
   }
+  if (getForeignQueued() >= FOREIGN_RELAY_MAX) return false;
   _contention.trackRetransmit(hash, (uint32_t)_ms->getMillis());
-  return sendForeign(frame, (int)len, 1, delay_ms);
+  return sendForeign(frame, (int)len, FOREIGN_RELAY_PRIORITY, delay_ms);
 }
 
 bool Mesh::cancelForeignRelay(uint32_t hash32) {

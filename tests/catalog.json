@@ -833,6 +833,11 @@
       "source": "tests/unit/dispatcher_tests.cpp"
     },
     {
+      "id": "UNIT-DISPATCH-023",
+      "name": "Foreign frames in the queue are counted, and the lowest priority leaves after a due MeshCore packet",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
       "id": "UNIT-PING-001",
       "name": "A direct ping is answered with the SNR alone by default, and with the RSSI when it is on",
       "source": "tests/unit/ping_tests.cpp"
