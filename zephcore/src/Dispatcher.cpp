@@ -130,7 +130,9 @@ void Dispatcher::loop() {
     if (_radio->isSendComplete()) {
       // ZEPHCORE: charge the COMPUTED airtime, not the wall-clock send time,
       // which includes blocking LBT and event latency (up to 8x in the field).
-      uint32_t t = _radio->getEstAirtimeFor(outbound->getRawLength());
+      // A foreign frame is its payload alone, with Meshtastic's preamble.
+      uint32_t t = outbound->isForeign() ? _radio->getEstForeignAirtimeFor(outbound->payload_len)
+                                         : _radio->getEstAirtimeFor(outbound->getRawLength());
       MESH_DEBUG_PRINTLN("TX complete: air=%ums wall=%ums", t, (uint32_t)_ms->getMillis() - outbound_start);
       total_air_time += t;
 
@@ -144,7 +146,9 @@ void Dispatcher::loop() {
 
       _radio->onSendFinished();
       logTx(outbound, 2 + outbound->getPathByteLen() + outbound->payload_len);
-      if (outbound->isRouteFlood()) {
+      if (outbound->isForeign()) {
+        // ZEPHCORE: not a MeshCore packet; neither counter is its.
+      } else if (outbound->isRouteFlood()) {
         n_sent_flood++;
       } else {
         n_sent_direct++;

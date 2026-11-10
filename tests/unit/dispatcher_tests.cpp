@@ -218,6 +218,17 @@ TEST(dispatch_foreign_tx, "UNIT-DISPATCH-019", "A foreign frame goes out as its 
     f.complete();
 }
 
+TEST(dispatch_foreign_airtime, "UNIT-DISPATCH-021", "A foreign TX is charged its own airtime on its payload length and is not a MeshCore flood") {
+    Fixture f; f.begin();
+    std::vector<uint8_t> frame(40, 7);
+    CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
+    f.dispatcher.loop(); f.complete();
+    CHECK(f.radio.foreign_airtime_len == 40 && f.dispatcher.getTotalAirTime() == 60);
+    CHECK(f.dispatcher.getNumSentFlood() == 0 && f.dispatcher.getNumSentDirect() == 0);
+    f.dispatcher.sendPacket(f.packet(), 2, 0); f.dispatcher.loop(); f.complete();
+    CHECK(f.dispatcher.getTotalAirTime() == 160 && f.dispatcher.getNumSentFlood() == 1);
+}
+
 TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause with age and longest streak") {
     mesh::TxStall lbt, rx;
     char buf[96];

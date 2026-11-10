@@ -830,6 +830,16 @@ bool LoRaRadio::isRadioReady()
 
 uint32_t LoRaRadio::getEstAirtimeFor(int len_bytes)
 {
+	return estAirtime(len_bytes, false);
+}
+
+uint32_t LoRaRadio::getEstForeignAirtimeFor(int len_bytes)
+{
+	return estAirtime(len_bytes, true);
+}
+
+uint32_t LoRaRadio::estAirtime(int len_bytes, bool foreign)
+{
 	/* The params the radio is actually running (a tempradio override
 	 * included), resolved through the same BW enum as buildModemConfig(). */
 	uint8_t sf = getActiveSpreadingFactor();
@@ -851,7 +861,8 @@ uint32_t LoRaRadio::getEstAirtimeFor(int len_bytes)
 	 * Treating SF5 as SF6 charged 397 ms for a 126-byte SF5/BW62.5 CR4/8
 	 * packet whose Semtech airtime is 237 ms (confirmed by TX timing). */
 	float fine_sync = (!_ops.loramac_node && sf <= 6) ? 1.0f : 0.0f;
-	float t_preamble = (preambleLengthForSF(sf) + 4.25f + 2.0f * fine_sync) * t_sym;
+	const uint16_t preamble = foreign ? kMeshtasticPreambleLen : preambleLengthForSF(sf);
+	float t_preamble = (preamble + 4.25f + 2.0f * fine_sync) * t_sym;
 
 	/* LDRO threshold must track the SX126x driver's should_enable_ldro()
 	 * exactly (symbol time > 16.38 ms) so this estimate's DE matches the

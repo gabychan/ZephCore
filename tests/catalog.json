@@ -818,6 +818,11 @@
       "source": "tests/unit/dispatcher_tests.cpp"
     },
     {
+      "id": "UNIT-DISPATCH-021",
+      "name": "A foreign TX is charged its own airtime on its payload length and is not a MeshCore flood",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
       "id": "UNIT-PING-001",
       "name": "A direct ping is answered with the SNR alone by default, and with the RSSI when it is on",
       "source": "tests/unit/ping_tests.cpp"

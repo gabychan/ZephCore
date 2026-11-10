@@ -50,6 +50,7 @@ public:
 	bool hasRadioOverride() const { return _has_radio_override; }
 	int recvRaw(uint8_t *bytes, int sz) override;
 	uint32_t getEstAirtimeFor(int len_bytes) override;
+	uint32_t getEstForeignAirtimeFor(int len_bytes) override;
 	float packetScore(float snr, int packet_len) override;
 	bool startSendRaw(const uint8_t *bytes, int len) override;
 	void setNextTxForeign(bool foreign) override { _tx_foreign = foreign; }
@@ -348,6 +349,8 @@ private:
 	void applySyncWord(SyncKind kind);
 	/* Meshtastic frames go out with Meshtastic's 16 symbols, MeshCore ones with ours. */
 	void applyTxPreamble();
+	/* Airtime of len_bytes with the preamble of the given protocol. */
+	uint32_t estAirtime(int len_bytes, bool foreign);
 
 	/* Radio param override — when set, buildModemConfig() uses these
 	 * for freq/bw/sf/cr instead of _prefs.  Everything else (tx_power,

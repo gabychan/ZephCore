@@ -15,7 +15,8 @@ struct Radio : mesh::Radio {
     bool accept = true, completion = false, block_final_gate = false;
     unsigned receiving_queries = 0, attempts = 0, finished = 0, recoveries = 0;
     unsigned completion_queries = 0, relaxations = 0, cad_ticks = 0, radio_ticks = 0;
-    uint32_t airtime = 100, maintenance = mesh::MAINTENANCE_IDLE;
+    uint32_t airtime = 100, foreign_airtime = 60, maintenance = mesh::MAINTENANCE_IDLE;
+    int foreign_airtime_len = -1;
     int8_t cad_offset = 0;
     std::deque<std::vector<uint8_t>> incoming;
     std::vector<std::vector<uint8_t>> sent;
@@ -29,6 +30,7 @@ struct Radio : mesh::Radio {
         std::copy(raw.begin(), raw.end(), bytes); return int(raw.size());
     }
     uint32_t getEstAirtimeFor(int) override { return airtime; }
+    uint32_t getEstForeignAirtimeFor(int len) override { foreign_airtime_len = len; return foreign_airtime; }
     float packetScore(float, int) override { return 0.5f; }
     bool startSendRaw(const uint8_t *bytes, int len) override {
         ++attempts;

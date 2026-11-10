@@ -37,6 +37,8 @@ public:
    * \returns  estimated transmit air-time needed for packet of 'len_bytes', in milliseconds.
   */
   virtual uint32_t getEstAirtimeFor(int len_bytes) = 0;
+  // ZEPHCORE: the same for a Meshtastic frame, which carries its own preamble length.
+  virtual uint32_t getEstForeignAirtimeFor(int len_bytes) { return getEstAirtimeFor(len_bytes); }
 
   virtual float packetScore(float snr, int packet_len) = 0;
 
