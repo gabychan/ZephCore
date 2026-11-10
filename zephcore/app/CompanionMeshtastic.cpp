@@ -396,10 +396,12 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 		m.releasePacket(pkt);
 	}
 	if (strcmp(ch.name, "MT:" PING_MT_CHANNEL) == 0) {
+		/* hops is 0 when the sender set no hop_start; a relay that is not the sender says it was relayed. */
+		const bool relayed = hops == 0 && (uint8_t)from != relay;
 		const ping::Heard heard = {hops, snr_x4, (int16_t)m._radio->getLastRSSI(),
-					   {&relay, 1, (uint8_t)(hops ? 1 : 0)}};
+					   {&relay, 1, (uint8_t)(hops || relayed ? 1 : 0)}, relayed};
 
-		m.pingReply(ping::PROTO_MT, channel_id, heard, line);
+		m.pingReply(ping::PROTO_MT, channel_id, ch, heard, line);
 	}
 }
 
@@ -407,11 +409,13 @@ int CompanionMesh::mtNameOfRelay(uint8_t relay, char *out, size_t cap)
 {
 	ContactInfo c;
 	char base[32];
+	uint32_t node;
 	int found = 0;
 
 	for (int i = 0; i < getNumContacts(); i++) {
+		/* The cheap tests first: mtNodeOf derives a key when it is not cached. */
 		if (getContactByIdx(i, c) && c.sync_since != 0 && (uint8_t)c.sync_since == relay &&
-		    mtContactBase(c.name, base, sizeof(base))) {
+		    mtContactBase(c.name, base, sizeof(base)) && mtNodeOf(c, node)) {
 			if (found++ == 0) {
 				snprintf(out, cap, "%s", base);
 			}

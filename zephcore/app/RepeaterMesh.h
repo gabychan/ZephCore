@@ -136,7 +136,7 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   bool _mt_ready = false;
   void mtApplyPrefs();
   void mtSetChannels();
-  void mtPing(const char* text, size_t len, uint32_t id, int8_t snr_x4, uint8_t hops, uint8_t relay);
+  void mtPing(const char* text, size_t len, uint32_t id, int8_t snr_x4, uint8_t hops, uint8_t relay, bool relayed);
   void mtTick();
   void mtFormatStats(char* reply, size_t cap) const;
 #endif

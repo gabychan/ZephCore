@@ -106,6 +106,7 @@ app message to a Meshtastic contact -> mt::Bridge::buildDirectText (PKI) -> same
 | Channels, dedupe, delivery, relay, frame builders | `zephcore/helpers/meshtastic/MtBridge.*` |
 | PKI: X25519, shared key, AES-CCM seal/open | `zephcore/helpers/meshtastic/MtPki.*` |
 | Companion glue (channels, contacts, keys, app commands) | `zephcore/app/CompanionMeshtastic.cpp` |
+| Ping bot: trigger, route, answer, `z.*ping.*` commands | `zephcore/helpers/PingBot.h` (companion: `CompanionMesh::pingReply`; repeater: `RepeaterMesh::onGroupDataRecv`, `mtPing`) |
 | Node key file | `ZephyrDataStore::getMtKey/putMtKey/removeMtKey` (`zephcore/adapters/datastore`) |
 | RX hook and foreign TX frames | `Dispatcher::onRecvForeign`, `Dispatcher::sendForeign`, `Packet::isForeign` |
 | Sync word per frame | `LoRaRadio::applySyncWord`, `sx126x_set_sync_word_reg` in `patches/zephyr/0003-lora-sx126x-native.patch` |

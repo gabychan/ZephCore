@@ -861,6 +861,31 @@
       "id": "UNIT-PING-010",
       "name": "A prefs blob out of range comes back valid; a protocol without a trigger is off",
       "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-011",
+      "name": "enable takes exactly on or off: offline, off junk and a command that is too long are errors",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-012",
+      "name": "A line flagged plain has no sender, so a colon in the text is not one",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-013",
+      "name": "No hop_start but a relay: not direct, so ignore.direct keeps it and ignore.remote drops it",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-014",
+      "name": "A ping within 10 s of the last answer of its protocol is turned away and counted; the other protocol is not held",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-011",
+      "name": "The ping bot's settings survive prefs.json in both roles; an invalid command comes back off",
+      "source": "tests/unit/prefs_json_tests.cpp"
     }
   ]
 }

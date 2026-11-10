@@ -105,25 +105,27 @@ void RepeaterMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to
 				  uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
 				  uint8_t hops, uint8_t relay)
 {
-	(void)from; (void)to; (void)reply_id;
+	(void)to; (void)reply_id;
 	if (channel_id == kBotChannel) {
-		m.mtPing(text, len, id, snr_x4, hops, relay);
+		m.mtPing(text, len, id, snr_x4, hops, relay, hops == 0 && (uint8_t)from != relay);
 	}
 }
 
-/* Answers as a reply to the message, on the channel it came on. The text has no sender, so no "@[name]". */
-void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_x4, uint8_t hops, uint8_t relay)
+/* Answers as a reply to the message, on the channel it came on. The text has no sender, so no "@[name]", whatever it contains. */
+void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_x4, uint8_t hops, uint8_t relay, bool relayed)
 {
 	char line[ping::kTriggerMax + 2];
 	char out[96];
-	const ping::Heard heard = {hops, snr_x4, (int16_t)_radio->getLastRSSI(), {&relay, 1, (uint8_t)(hops ? 1 : 0)}};
+	const ping::Heard heard = {hops, snr_x4, (int16_t)_radio->getLastRSSI(),
+				   {&relay, 1, (uint8_t)(hops || relayed ? 1 : 0)}, relayed, true};
 
 	if (!_prefs.mt.enable || len >= sizeof(line)) {
 		return;
 	}
 	memcpy(line, text, len);
 	line[len] = '\0';
-	size_t n = ping::reply(_prefs.ping, _ping_stats.mt, ping::PROTO_MT, line, heard, nullptr, nullptr, out, sizeof(out));
+	size_t n = ping::reply(_prefs.ping, _ping_stats.mt, ping::PROTO_MT, line, heard, nullptr, nullptr,
+			       (uint32_t)_ms->getMillis(), out, sizeof(out));
 	uint8_t frame[mt::kMaxTxFrame];
 
 	n = n ? _mt.buildText(kBotChannel, mt::kBroadcast, out, n, frame, sizeof(frame), id) : 0;

@@ -1138,30 +1138,26 @@ void CompanionMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh
 		const ping::Heard heard = {hops, pkt->_snr, (int16_t)_radio->getLastRSSI(),
 					   {pkt->path, pkt->getPathHashSize(), hops}};
 
-		pingReply(ping::PROTO_MC, channel_idx, heard, text);
+		pingReply(ping::PROTO_MC, channel_idx, ch, heard, text);
 	}
 }
 
 /* The ping bot's answer goes out the way the app's own channel text does. */
-void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, const ping::Heard &heard, const char *text)
+void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDetails &ch,
+			      const ping::Heard &heard, const char *text)
 {
-	ChannelDetails ch;
 	char out[MAX_TEXT_LEN + 1];
-
-	if (!getChannel(channel_idx, ch)) {
-		return;
-	}
-	size_t n = ping::reply(prefs.ping, ping::countersOf(_ping_stats, w), w, text, heard, pingName, this, out,
-			       sizeof(out) - 32);
+	size_t n = ping::reply(prefs.ping, ping::countersOf(_ping_stats, w), w, text, heard, pingName, this,
+			       (uint32_t)_ms->getMillis(), out, sizeof(out) - 32);
 
 	if (n == 0) {
 		return;
 	}
 	const uint32_t ts = getRTCClock()->getCurrentTimeUnique();
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-	bool mt_sent = false;
-
 	if (w == ping::PROTO_MT) {
+		bool mt_sent;
+
 		mtSendChannelText(channel_idx, ts, out, n, mt_sent);
 		return;
 	}
@@ -1179,6 +1175,8 @@ int CompanionMesh::pingName(void *ctx, ping::Protocol w, const uint8_t *hash, ui
 	if (w == ping::PROTO_MT) {
 		return m.mtNameOfRelay(hash[0], out, cap);
 	}
+#else
+	(void)w;
 #endif
 	ContactInfo c;
 
@@ -1189,7 +1187,6 @@ int CompanionMesh::pingName(void *ctx, ping::Protocol w, const uint8_t *hash, ui
 			}
 		}
 	}
-	(void)w;
 	return found > 1 ? 2 : found;
 }
 

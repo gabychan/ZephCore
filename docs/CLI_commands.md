@@ -260,20 +260,20 @@ The companion and the repeater answer a ping with how the frame was heard and th
 @[Ana] 2 hops, last Montjuic RPT, SNR 7.5 dB                  (Meshtastic: the last relay only)
 ```
 
-MeshCore flood packets carry the hash of every repeater they crossed, first repeater after the sender first; Meshtastic frames carry only the last byte of the node that relayed them, so only that hop is shown. A hop is shown by name when the node is among the contacts (a repeater, for MeshCore; a Meshtastic node, for Meshtastic), with a `?` when several contacts share the hash, and in hex otherwise. The repeater keeps no names, so its routes are always in hex. A name is cut to 14 bytes. A route that does not fit ends in `..`. On Meshtastic the answer is a reply to the ping and has no `@[name]`.
+MeshCore flood packets carry the hash of every repeater they crossed, first repeater after the sender first; Meshtastic frames carry only the last byte of the node that relayed them, so only that hop is shown. A hop is shown by name when the node is among the contacts (a repeater, for MeshCore; a Meshtastic node, for Meshtastic), with a `?` when several contacts share the hash, and in hex otherwise. The repeater keeps no names, so its routes are always in hex. A name is cut to 14 bytes. A route that does not fit ends in `..`. A Meshtastic frame whose sender set no `hop_start` has no hop count: if a relay other than the sender passed it, the answer says `relayed` and the hop filters treat it as not direct. On Meshtastic the answer is a reply to the ping and has no `@[name]`.
 
 | Command | Description |
 |---------|-------------|
 | `set z.mc.ping.enable on <command>` / `set z.mt.ping.enable on <command>` | Answer `<command>` on that protocol and turn its bot on. `<command>` is 1 to 15 characters, no spaces (for example `/ping`). Without it, `on` works only when a command is already set. |
 | `get z.mc.ping.enable` / `set z.mc.ping.enable off` (same for `z.mt.ping.enable`) | Whether the bot answers (default off). Off keeps the command. |
 | `get z.mc.ping.trigger` / `set z.mc.ping.trigger <command>` (same for `z.mt.ping.trigger`) | The command, changed without touching on or off. The whole message must equal it, without regard to case. Empty until set. |
-| `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters turned away since boot. |
+| `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters or the 10 s gap turned away since boot. |
 | `get z.ping.snr` / `set z.ping.snr on\|off` | Show the SNR (default on). Shared by both protocols. |
 | `get z.ping.rssi` / `set z.ping.rssi on\|off` | Show the RSSI (default off). Shared. |
 | `get z.ping.ignore.direct` / `set z.ping.ignore.direct on\|off` | Do not answer a ping heard with 0 hops (default off). Shared. |
 | `get z.ping.ignore.remote` / `set z.ping.ignore.remote on\|off` | Do not answer a ping heard with 1 or more hops (default off). Shared. |
 
-Anyone on the channel can trigger an answer, and nothing limits how often. On the repeater, while the Meshtastic bot is on, frames on `Bots` follow the normal repeat policy instead of `z.mt.relay.opaque`. `z.mt.ping.*` does not exist in builds without Meshtastic.
+Anyone on the channel can trigger an answer; a protocol answers at most once every 10 s, and a ping inside that gap counts as ignored in `status`. On the repeater, while the Meshtastic bot is on, frames on `Bots` follow the normal repeat policy instead of `z.mt.relay.opaque`. `z.mt.ping.*` does not exist in builds without Meshtastic.
 
 ---
 

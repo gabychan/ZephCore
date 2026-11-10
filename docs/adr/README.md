@@ -17,3 +17,4 @@ restructure; most describe decisions taken earlier. The system view is in [../DE
 | [0011](0011-esp32-companion-ble-ota.md) | ESP32 companions update over BLE with MCUmgr (sysbuild builds; `ble_ota: false` opts a board out) |
 | [0012](0012-meshtastic-pki-direct-messages.md) | Zephtacore: Meshtastic PKI direct messages, our key derived from the identity, node keys in `mtkeys` |
 | [0013](0013-meshtastic-settings-in-prefs-json.md) | Zephtacore: Meshtastic settings in `prefs.json` `mt{}`, only in builds with the bridge |
+| [0014](0014-cli-z-namespace.md) | Zephtacore: the commands this fork adds hang from `z.` (`z.mt.*`, `z.mc.ping.*`, `z.tx.stalls`, ...) |

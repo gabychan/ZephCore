@@ -21,7 +21,7 @@ default channels and node name in order.
 - New ping bot on the companion and the repeater: it answers a command of your choice on MeshCore `#bot` and on
   Meshtastic `Bots` with the hops, the SNR and the route (all of it in MeshCore, the last relay in Meshtastic).
   Off until you pick the command: `set z.mc.ping.enable on /ping`, `set z.mt.ping.enable on /ping`; `get z.mc.ping.status`
-  shows the counters.
+  shows the counters. A protocol answers at most once every 10 s.
 - Commands of the Meshtastic side and the new ones hang from `z.`: `z.mt.*`, `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`;
   `get tx.stalls` is now `get z.tx.stalls`.
 

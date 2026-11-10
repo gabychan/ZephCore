@@ -795,6 +795,15 @@ Sensors: `sensor get/set/list` (upstream's `SensorManager` settings: `gps`)
 Companion extras: `get|set autoshutdown`, `get|set v.contact`, `get|set v.batteryalert`, `help`
 Stats: `stats-core/stats-radio/stats-packets`, `clear stats`
 Time: `clock`, `clock sync`, `time <epoch>`, `set meshtimesync on/off`
+Zephtacore (`z.` namespace, ADR 0014): `get|set z.mt.*` (Meshtastic side, `MtConfig`), `get z.tx.stalls`, and the ping bot `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`.
+
+The ping bot (`helpers/PingBot.h`, pure code, host tested) answers a command of the operator's choice on two fixed channels,
+MeshCore `#bot` and Meshtastic `Bots`, in the companion and the repeater (not the room server). Each protocol has its own enable and
+command and cannot be turned on without one; SNR, RSSI and the hop filters are shared. The reply carries the hops, the SNR and the route:
+MeshCore's path hashes in full, Meshtastic's last relay byte. Names come from the contacts on the companion; the repeater keeps none and
+answers in hex. A protocol answers at most once every 10 s. The repeater opens group packets only for a protocol whose bot is on, so with
+both off its receive path is unchanged. The bot adds the `ping` field to `NodePrefs` (prefs.json `zc{}`, `ping_*`) and a `ping::Stats` of 24 bytes
+per role.
 
 Full command reference with constraints and remote-admin restrictions: `CLI_commands.md`.
 

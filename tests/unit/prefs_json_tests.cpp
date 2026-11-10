@@ -244,3 +244,34 @@ TEST(pjson_server_mt, "UNIT-PJSON-010", "The repeater's Meshtastic settings surv
     CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT && d.mt.relay == mt::RELAY_ESSENTIAL);
     CHECK(std::string(d.mt.channel) == "SFNarrow" && d.mt.psk_len == 1 && d.mt.psk[0] == 1);
 }
+
+TEST(pjson_ping, "UNIT-PJSON-011", "The ping bot's settings survive prefs.json in both roles; an invalid command comes back off") {
+    NodePrefs p = defaults();
+    CHECK(p.ping.mc.enable == 0 && p.ping.mt.enable == 0 && p.ping.snr == 1 && p.ping.rssi == 0);
+    ping::setTrigger(p.ping.mc, "/ping");
+    p.ping.mc.enable = 1;
+    ping::setTrigger(p.ping.mt, "!eco");
+    p.ping.rssi = 1;
+    p.ping.snr = 0;
+    p.ping.ignore_direct = 1;
+    p.ping.ignore_remote = 1;
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.ping.mc.enable == 1 && std::string(q.ping.mc.trigger) == "/ping");
+    CHECK(q.ping.mt.enable == 0 && std::string(q.ping.mt.trigger) == "!eco");
+    CHECK(q.ping.rssi == 1 && q.ping.snr == 0 && q.ping.ignore_direct == 1 && q.ping.ignore_remote == 1);
+
+    MemStream c;
+    CHECK(companionPrefsToJson(p, c));
+    NodePrefs r = defaults();
+    CHECK(companionPrefsFromJson(r, c));
+    CHECK(r.ping.mc.enable == 1 && std::string(r.ping.mt.trigger) == "!eco" && r.ping.snr == 0);
+
+    MemStream bad("{zc:{ping_mc_en:1,ping_mc_trig:\"two words\",ping_snr:7}}");
+    NodePrefs b = defaults();
+    CHECK(serverPrefsFromJson(b, bad));
+    sanitizeNodePrefs(&b);
+    CHECK(b.ping.mc.enable == 0 && std::string(b.ping.mc.trigger) == "" && b.ping.snr == 1);
+}

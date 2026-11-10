@@ -17,6 +17,7 @@ namespace ping {
 
 static constexpr size_t kTriggerMax = 15;
 static constexpr size_t kNameMax = 14;  /* bytes of a node name in an answer */
+static constexpr uint32_t kMinGapMs = 10000;  /* between two answers of one protocol */
 
 /* The only channels the bot answers on. MeshCore: a hashtag channel, whose key is the
  * first 16 bytes of SHA256 of its name. Meshtastic: this name with its default key
@@ -46,7 +47,9 @@ struct Prefs {
 /* Since boot; not persisted. */
 struct Counters {
 	uint16_t answered;
-	uint16_t ignored;  /* a ping the hop filters turned away */
+	uint16_t ignored;  /* a ping the hop filters or the minimum gap turned away */
+	uint32_t last_ms;  /* of the last answer */
+	uint8_t has_last;
 };
 struct Stats {
 	Counters mc;
@@ -120,6 +123,8 @@ struct Heard {
 	int8_t snr_x4;
 	int16_t rssi;
 	Route route;
+	bool relayed = false;  /* hops is 0 only because the sender set no hop_start; the frame came through a relay */
+	bool plain = false;    /* the line is the bare text, with no "<sender>: " */
 };
 
 /* The name of the node behind a hash: 0 unknown, 1 known, 2 known among several that share it. */
@@ -213,11 +218,12 @@ inline void bump(uint16_t &c)
 }
 
 /* The answer to a line heard on the bot's channel for protocol w, or 0 when it is not a ping this node answers.
+ * now_ms: a ping within kMinGapMs of the last answer of the protocol is turned away.
  *   @[Ana] direct, SNR 7.5 dB
  *   @[Ana] 2 hops: Montjuic > 3f9a, SNR 7.5 dB     (MeshCore: the whole route)
  *   @[Ana] 2 hops, last Montjuic, SNR 7.5 dB       (Meshtastic: the last relay) */
 inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, const Heard &h, NameFn names,
-		    void *ctx, char *out, size_t cap)
+		    void *ctx, uint32_t now_ms, char *out, size_t cap)
 {
 	const Proto &x = protoOf(p, w);
 
@@ -225,12 +231,19 @@ inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, c
 		return 0;
 	}
 	char sender[32];
-	const char *msg = messageOf(line, sender, sizeof(sender));
+	const char *msg = line;
 
+	sender[0] = '\0';
+	if (!h.plain) {
+		msg = messageOf(line, sender, sizeof(sender));
+	}
 	if (!sameText(msg, x.trigger)) {
 		return 0;
 	}
-	if ((h.hops == 0 && p.ignore_direct) || (h.hops > 0 && p.ignore_remote)) {
+	const bool direct = h.hops == 0 && !h.relayed;
+
+	if ((direct && p.ignore_direct) || (!direct && p.ignore_remote) ||
+	    (c.has_last && now_ms - c.last_ms < kMinGapMs)) {
 		bump(c.ignored);
 		return 0;
 	}
@@ -253,10 +266,14 @@ inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, c
 	if (sender[0]) {
 		append(out, cap, n, "@[%s] ", sender);
 	}
-	if (h.hops == 0) {
+	if (direct) {
 		append(out, cap, n, "direct");
 	} else {
-		append(out, cap, n, "%u hop%s", h.hops, h.hops == 1 ? "" : "s");
+		if (h.hops == 0) {
+			append(out, cap, n, "relayed");
+		} else {
+			append(out, cap, n, "%u hop%s", h.hops, h.hops == 1 ? "" : "s");
+		}
 		if (h.route.hash && h.route.count > 0 && h.route.size > 0) {
 			if (w == PROTO_MT) {
 				char label[48];
@@ -283,6 +300,8 @@ inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, c
 	}
 	append(out, cap, n, "%s", tail);
 	bump(c.answered);
+	c.last_ms = now_ms;
+	c.has_last = 1;
 	return n;
 }
 
@@ -390,20 +409,25 @@ inline CmdResult handleCommand(Prefs &p, const Stats &st, const char *command, c
 			snprintf(reply, cap, "> %s", x.enable ? "on" : "off");
 			return {true, false};
 		}
-		char state[4];
-		char trig[kTriggerMax + 2];
-		char extra[2];
-		int got = sscanf(val, "%3s %16s %1s", state, trig, extra);
+		const char *sp = strchr(val, ' ');
+		const size_t sn = sp ? (size_t)(sp - val) : strlen(val);
+		const char *trig = sp ? sp + 1 : "";
+		const bool is_on = sn == 2 && strncmp(val, "on", 2) == 0;
+		const bool is_off = sn == 3 && strncmp(val, "off", 3) == 0;
 
-		if (got < 1 || got > 2 || !boolOf(state, b)) {
+		while (*trig == ' ') {
+			trig++;
+		}
+		if ((!is_on && !is_off) || (is_off && *trig)) {
 			snprintf(reply, cap, "Error: on <command> or off");
-		} else if (b && got == 2 && !validTrigger(trig)) {
+		} else if (is_on && *trig && !validTrigger(trig)) {
 			snprintf(reply, cap, "Error: command is 1 to %u characters, no spaces", (unsigned)kTriggerMax);
-		} else if (b && got == 1 && !validTrigger(x.trigger)) {
+		} else if (is_on && !*trig && !validTrigger(x.trigger)) {
 			snprintf(reply, cap, "Error: say the command to answer to: set z.%s.ping.enable on <command>",
 				 w == PROTO_MC ? "mc" : "mt");
 		} else {
-			if (b && got == 2) {
+			b = is_on ? 1 : 0;
+			if (is_on && *trig) {
 				changed = strcmp(x.trigger, trig) != 0;
 				setTrigger(x, trig);
 			}

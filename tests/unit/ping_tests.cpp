@@ -25,11 +25,18 @@ int names(void *, ping::Protocol, const uint8_t *hash, uint8_t size, char *out, 
     return 0;
 }
 
+/* Each call is well past the minimum gap of the one before. */
+uint32_t tick()
+{
+    static uint32_t t = 0;
+    return t += 20000;
+}
+
 std::string answer(const ping::Prefs &p, ping::Counters &c, ping::Protocol w, const char *line, ping::Heard h,
                    bool named = true, size_t cap = 120)
 {
     char out[200];
-    size_t n = ping::reply(p, c, w, line, h, named ? names : nullptr, nullptr, out, cap);
+    size_t n = ping::reply(p, c, w, line, h, named ? names : nullptr, nullptr, tick(), out, cap);
     return std::string(out, n);
 }
 
@@ -111,14 +118,14 @@ TEST(ping_filters_counters, "UNIT-PING-006", "ignore.direct and ignore.remote tu
     ping::Stats st = {};
     char out[120];
     p.ignore_direct = 1;
-    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) == 0);
-    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", {1, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) == 0);
+    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", {1, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) > 0);
     p.ignore_direct = 0;
     p.ignore_remote = 1;
-    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) > 0);
-    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", {3, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) == 0);
+    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", {3, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) == 0);
     CHECK(st.mc.answered == 1 && st.mc.ignored == 1 && st.mt.answered == 1 && st.mt.ignored == 1);
-    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: other", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) == 0);
+    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: other", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) == 0);
     CHECK(st.mt.answered == 1 && st.mt.ignored == 1);
 }
 
@@ -132,7 +139,7 @@ TEST(ping_truncation, "UNIT-PING-007", "A long route is cut with .. keeping the 
     CHECK(a.find(" > ..") != std::string::npos);
     CHECK(a.size() >= 12 && a.substr(a.size() - 12) == ", SNR 7.5 dB");
     char out[12];
-    size_t n = ping::reply(p, c, ping::PROTO_MC, "Ana: /ping", {2, 30, -92, {path, 1, 2}}, nullptr, nullptr, out, sizeof(out));
+    size_t n = ping::reply(p, c, ping::PROTO_MC, "Ana: /ping", {2, 30, -92, {path, 1, 2}}, nullptr, nullptr, tick(), out, sizeof(out));
     CHECK(n < sizeof(out));
     CHECK(out[n] == '\0');
 }
@@ -201,4 +208,63 @@ TEST(ping_sanitize, "UNIT-PING-010", "A prefs blob out of range comes back valid
     p.mt.enable = 1;
     ping::sanitize(p);
     CHECK(p.mt.enable == 1 && std::string(p.mt.trigger) == "/ping" && p.mc.enable == 0);
+}
+
+TEST(ping_enable_strict, "UNIT-PING-011", "enable takes exactly on or off: offline, off junk and a command that is too long are errors") {
+    ping::Prefs p;
+    ping::setDefaults(p);
+    bool changed = false;
+    CHECK(cmd(p, "set z.mc.ping.enable on /ping", &changed) == "OK" && p.mc.enable == 1);
+    CHECK(cmd(p, "set z.mc.ping.enable offline", &changed).rfind("Error", 0) == 0 && p.mc.enable == 1 && !changed);
+    CHECK(cmd(p, "set z.mc.ping.enable offf", &changed).rfind("Error", 0) == 0 && p.mc.enable == 1);
+    CHECK(cmd(p, "set z.mc.ping.enable off junk", &changed).rfind("Error", 0) == 0 && p.mc.enable == 1);
+    CHECK(cmd(p, "set z.mc.ping.enable onward", &changed).rfind("Error", 0) == 0);
+    CHECK(cmd(p, "set z.mc.ping.enable on 0123456789abcdef").find("1 to 15 characters") != std::string::npos);
+    CHECK(cmd(p, "set z.mc.ping.enable on 0123456789abcdefg").find("1 to 15 characters") != std::string::npos);
+    CHECK(cmd(p, "set z.mc.ping.enable off", &changed) == "OK" && p.mc.enable == 0 && changed);
+}
+
+TEST(ping_plain_text, "UNIT-PING-012", "A line flagged plain has no sender, so a colon in the text is not one") {
+    ping::Prefs p = on();
+    ping::Counters c = {};
+    ping::Heard h = {1, 30, -92, {nullptr, 1, 0}};
+    h.plain = true;
+    CHECK(answer(p, c, ping::PROTO_MT, "foo: /ping", h) == "");
+    CHECK(answer(p, c, ping::PROTO_MT, "/ping", h) == "1 hop, SNR 7.5 dB");
+    h.plain = false;
+    CHECK(answer(p, c, ping::PROTO_MT, "foo: /ping", h) == "@[foo] 1 hop, SNR 7.5 dB");
+}
+
+TEST(ping_relayed_unknown_hops, "UNIT-PING-013", "No hop_start but a relay: not direct, so ignore.direct keeps it and ignore.remote drops it") {
+    ping::Prefs p = on();
+    ping::Counters c = {};
+    const uint8_t relay = 0x3f;
+    ping::Heard h = {0, 30, -92, {&relay, 1, 1}};
+    h.relayed = true;
+    CHECK(answer(p, c, ping::PROTO_MT, "Ana: /ping", h) == "@[Ana] relayed, last Montjuic RPT, SNR 7.5 dB");
+    p.ignore_direct = 1;
+    CHECK(answer(p, c, ping::PROTO_MT, "Ana: /ping", h) != "");
+    p.ignore_direct = 0;
+    p.ignore_remote = 1;
+    CHECK(answer(p, c, ping::PROTO_MT, "Ana: /ping", h) == "");
+}
+
+TEST(ping_min_gap, "UNIT-PING-014", "A ping within 10 s of the last answer of its protocol is turned away and counted; the other protocol is not held") {
+    ping::Prefs p = on();
+    ping::Stats st = {};
+    char out[120];
+    const ping::Heard h = {1, 4, -90, {nullptr, 1, 0}};
+    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 5000, out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 14999, out, sizeof(out)) == 0);
+    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", h, nullptr, nullptr, 6000, out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 15000, out, sizeof(out)) > 0);
+    CHECK(st.mc.answered == 2 && st.mc.ignored == 1 && st.mt.answered == 1);
+    /* The millisecond clock wraps. */
+    ping::Counters w = {};
+    CHECK(ping::reply(p, w, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 0xFFFFFFF0u, out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, w, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 100, out, sizeof(out)) == 0);
+    CHECK(ping::reply(p, w, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 20000, out, sizeof(out)) > 0);
+    /* Words that are not the command never count. */
+    CHECK(ping::reply(p, w, ping::PROTO_MC, "Ana: hello", h, nullptr, nullptr, 20001, out, sizeof(out)) == 0);
+    CHECK(w.ignored == 1);
 }
