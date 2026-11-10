@@ -76,6 +76,9 @@ public:
 	virtual bool onMtChannelAdded(const char* slot) { (void)slot; return true; }
 	virtual void onMtChannelRemoved(const char* slot) { (void)slot; }
 	virtual void formatMtStatsReply(char* reply, size_t cap) { (void)cap; strcpy(reply, "not available"); }
+	/* "get z.mc.neighbors [page]" and "get z.mt.neighbors [page]": nodes heard directly, best SNR first. */
+	virtual void formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) { (void)cap; (void)page; (void)recent; strcpy(reply, "not available"); }
+	virtual void formatMtNeighbours(char* reply, size_t cap, size_t page, bool recent) { (void)cap; (void)page; (void)recent; strcpy(reply, "not available"); }
 	virtual mesh::LocalIdentity& getSelfId() = 0;
 	virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
 	virtual void clearStats() = 0;

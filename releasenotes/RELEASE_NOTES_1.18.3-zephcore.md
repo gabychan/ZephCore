@@ -27,9 +27,13 @@ default channels and node name in order.
 - Renaming the node changes the name in its Meshtastic NodeInfo too, without a restart.
 - Settings of the Meshtastic side live in `prefs.json` only in builds that include it.
 - New ping bot on the companion and the repeater: it answers a command of your choice on MeshCore `#bot` and on
-  Meshtastic `Bots` with the hops, the SNR and the route (all of it in MeshCore, the last relay in Meshtastic).
+  Meshtastic `Bots` with the hops, the SNR and the route (all of it in MeshCore, one hop per line with the RSSI/SNR after the last, the
+  last relay in Meshtastic). Every ping is answered, and the companion shows its answer in the app.
   Off until you pick the command: `set z.mc.ping.enable on /ping`, `set z.mt.ping.enable on /ping`; `get z.mc.ping.status`
-  shows the counters. A protocol answers at most once every 10 s.
+  shows the counters.
+- New `get z.mc.neighbors` and `get z.mt.neighbors` (alias `vecinos`) on the companion and the repeater: the nodes heard directly,
+  best SNR first, as `name (SNR, age)`, 4 to a page (`get z.mt.neighbors 2`), or the latest heard first with `recent` (`get z.mt.neighbors recent`). MeshCore lists repeaters heard with no hops, Meshtastic nodes heard with no relay
+  in between. Kept in RAM, so a reboot empties them.
 - Commands of the Meshtastic side and the new ones hang from `z.`: `z.mt.*`, `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`;
   `get tx.stalls` is now `get z.tx.stalls`.
 

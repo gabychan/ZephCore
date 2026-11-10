@@ -147,6 +147,36 @@ void CompanionMesh::mtPrefsChanged()
 	}
 }
 
+struct CompanionMesh::MtNeighbours : public neighbours::TableList {
+	MtNeighbours(const neighbours::Table &t, uint32_t now, CompanionMesh &mesh)
+		: TableList(t, now), _mesh(mesh) {}
+
+protected:
+	void label(const neighbours::Entry &e, neighbours::Row &r) const override
+	{
+		uint8_t key[PUB_KEY_SIZE];
+		ContactInfo *c = _mesh.mtKeyFor(e.id, key) ? _mesh.lookupContactByPubKey(key, PUB_KEY_SIZE) : nullptr;
+		char base[32];
+
+		if (c && mtContactBase(c->name, base, sizeof(base)) && base[0] != '!') {
+			neighbours::setRowName(r, base);
+		} else if (e.name[0]) {
+			snprintf(r.name, sizeof(r.name), "%s", e.name);
+		} else {
+			neighbours::nodeLabel(r.name, sizeof(r.name), e.id);
+		}
+	}
+
+private:
+	CompanionMesh &_mesh;
+};
+
+void CompanionMesh::mtFormatNeighbours(char *reply, size_t cap, size_t page, bool recent)
+{
+	neighbours::format(reply, cap, "Meshtastic neighbors",
+			   MtNeighbours(_mtport.neighbours(), (uint32_t)(k_uptime_get() / 1000), *this), page, recent);
+}
+
 void CompanionMesh::mtFormatStats(char *reply, size_t cap) const
 {
 	_mtport.formatStats(reply, cap);
@@ -563,6 +593,7 @@ void CompanionMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
 {
 	const char *name = user.long_name[0] ? user.long_name : user.short_name;
 
+	m._mtport.neighbours().setName(from, user.short_name);
 	m.mtUpsertContact(from, name, false, 0, 0);
 	if (user.has_public_key) {
 		m.mtStoreKey(from, user.public_key);

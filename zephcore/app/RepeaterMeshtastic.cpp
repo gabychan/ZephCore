@@ -102,6 +102,11 @@ void RepeaterMesh::mtSetChannels()
 	}
 }
 
+void RepeaterMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
+{
+	m._mtport.neighbours().setName(from, user.short_name);
+}
+
 void RepeaterMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
 				  uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
 				  uint8_t hops, uint8_t relay)
@@ -127,7 +132,7 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 	line[len] = '\0';
 	const ping::Counters before = _ping_stats.mt;
 	size_t n = ping::reply(_prefs.ping, _ping_stats.mt, ping::PROTO_MT, line, heard, nullptr, nullptr,
-			       (uint32_t)_ms->getMillis(), out, sizeof(out));
+			       out, sizeof(out));
 	uint8_t frame[mt::kMaxTxFrame];
 
 	if (n == 0) {
@@ -149,6 +154,29 @@ bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float 
 void RepeaterMesh::mtTick()
 {
 	_mtport.tick((uint32_t)_ms->getMillis(), _prefs.mt, kPrimaryChannel, _mt_source);
+}
+
+namespace {
+class MtNeighbours : public neighbours::TableList {
+public:
+	using TableList::TableList;
+
+protected:
+	void label(const neighbours::Entry &e, neighbours::Row &r) const override
+	{
+		if (e.name[0]) {
+			snprintf(r.name, sizeof(r.name), "%s", e.name);
+		} else {
+			neighbours::nodeLabel(r.name, sizeof(r.name), e.id);
+		}
+	}
+};
+} /* namespace */
+
+void RepeaterMesh::mtFormatNeighbours(char *reply, size_t cap, size_t page, bool recent) const
+{
+	neighbours::format(reply, cap, "Meshtastic neighbors",
+			   MtNeighbours(_mtport.neighbours(), (uint32_t)(k_uptime_get() / 1000)), page, recent);
 }
 
 void RepeaterMesh::mtFormatStats(char *reply, size_t cap) const

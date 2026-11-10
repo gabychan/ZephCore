@@ -590,7 +590,7 @@ void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
 
   /* No names: a repeater keeps only the keys of its neighbours, so the route is in hex. */
   if (ping::reply(_prefs.ping, _ping_stats.mc, ping::PROTO_MC, (const char*)&data[5], heard, nullptr, nullptr,
-                  (uint32_t)_ms->getMillis(), out, sizeof(out)) == 0) {
+                  out, sizeof(out)) == 0) {
     return;
   }
   uint8_t temp[5 + sizeof(_prefs.node_name) + 2 + sizeof(out)];
@@ -1300,6 +1300,38 @@ void RepeaterMesh::formatNeighborsReply(char* reply) {
     dp += 6;
   }
   *dp = 0;
+}
+
+// ZEPHCORE: ours. "get z.mc.neighbors".
+#if MAX_NEIGHBOURS > 0
+namespace {
+class McNeighbours : public neighbours::List {
+public:
+  McNeighbours(const NeighbourInfo* n, uint32_t now) : _n(n), _now(now) {}
+  size_t size() const override { return MAX_NEIGHBOURS; }
+  bool key(size_t i, int8_t& snr_x4, uint32_t& age_s) const override {
+    snr_x4 = _n[i].snr;
+    age_s = _now > _n[i].heard_timestamp ? _now - _n[i].heard_timestamp : 0;
+    return _n[i].heard_timestamp != 0;
+  }
+  void row(size_t i, neighbours::Row& r) const override {
+    mesh::Utils::toHex(r.name, _n[i].id.pub_key, 4);
+    r.snr_x4 = _n[i].snr;
+    r.age_s = _now > _n[i].heard_timestamp ? _now - _n[i].heard_timestamp : 0;
+  }
+private:
+  const NeighbourInfo* _n;
+  uint32_t _now;
+};
+}
+#endif
+
+void RepeaterMesh::formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) {
+#if MAX_NEIGHBOURS > 0
+  neighbours::format(reply, cap, "MeshCore neighbors", McNeighbours(neighbours, getRTCClock()->getCurrentTime()), page, recent);
+#else
+  snprintf(reply, cap, "MeshCore neighbors: -none-");
+#endif
 }
 
 // ZEPHCORE: ours. NeighbourInfo::clear().

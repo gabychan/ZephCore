@@ -8,6 +8,7 @@
 #include <mesh/StaticPoolPacketManager.h>
 #include <mesh/SimpleMeshTables.h>
 #include <helpers/MeshTimeSync.h>
+#include <helpers/NeighbourList.h>
 #include <helpers/NodePrefs.h>
 #include "RepeaterDataStore.h"
 #if IS_ENABLED(CONFIG_ZEPHCORE_REPEATER_UPLINK)
@@ -119,7 +120,7 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
     void onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id, uint32_t reply_id, const char* text,
                 size_t len, int8_t snr_x4, uint8_t hops, uint8_t relay) override;
     RepeaterMesh& m;
-    void onNodeInfo(uint32_t, const mt::User&) override {}
+    void onNodeInfo(uint32_t from, const mt::User& user) override;
     void onPosition(uint32_t, const mt::Position&) override {}
   };
   mt::Bridge _mt{MtRelayPort::aesBlock};
@@ -139,6 +140,7 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   void mtPing(const char* text, size_t len, uint32_t id, int8_t snr_x4, uint8_t hops, uint8_t relay, bool relayed);
   void mtTick();
   void mtFormatStats(char* reply, size_t cap) const;
+  void mtFormatNeighbours(char* reply, size_t cap, size_t page, bool recent) const;
 #endif
   mesh::GroupChannel _ping_channel;  // PING_MC_CHANNEL
   ping::Stats _ping_stats = {};
@@ -330,7 +332,9 @@ public:
   bool mtStandalone() const override { return true; }
   void onMtPrefsChanged() override { mtApplyPrefs(); }
   void formatMtStatsReply(char* reply, size_t cap) override { mtFormatStats(reply, cap); }
+  void formatMtNeighbours(char* reply, size_t cap, size_t page, bool recent) override { mtFormatNeighbours(reply, cap, page, recent); }
 #endif
+  void formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) override;
   ping::Stats* pingStats() override { return &_ping_stats; }
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   void onPingPrefsChanged() override { mtSetChannels(); }

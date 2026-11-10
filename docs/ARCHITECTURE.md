@@ -795,16 +795,18 @@ Sensors: `sensor get/set/list` (upstream's `SensorManager` settings: `gps`)
 Companion extras: `get|set autoshutdown`, `get|set v.contact`, `get|set v.batteryalert`, `help`
 Stats: `stats-core/stats-radio/stats-packets`, `clear stats`
 Time: `clock`, `clock sync`, `time <epoch>`, `set meshtimesync on/off`
-Zephtacore (`z.` namespace, ADR 0014): `get|set z.mt.*` (Meshtastic side, `MtConfig`), `get z.tx.stalls`, and the ping bot `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`.
+Zephtacore (`z.` namespace, ADR 0014): `get|set z.mt.*` (Meshtastic side, `MtConfig`), `get z.tx.stalls`, the ping bot `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`, and `get z.mc.neighbors` / `get z.mt.neighbors` (alias `vecinos`).
 The companion's Meshtastic channels (ADR 0015) are a table of up to 8 entries in `prefs.json` `mt{}` (`chs`, one `c0`..`c7` object each: name, key length, key), made and removed by `z.mt.channel.add` / `.remove`. Each has a slot in the app's channel list named `#mt-<name>` with the secret `SHA256("#mt-<name>")[0:16]`; `CompanionMesh::mtEntryOfSlot` ties a slot to its entry only while that secret matches, and the bridge decrypts with the table's key and delivers to the slot's index.
 
 The ping bot (`helpers/PingBot.h`, pure code, host tested) answers a command of the operator's choice on two fixed channels,
 MeshCore `#bot` and Meshtastic `Bots`, in the companion and the repeater (not the room server). Each protocol has its own enable and
 command and cannot be turned on without one; SNR, RSSI and the hop filters are shared. The reply carries the hops, the SNR and the route:
-MeshCore's path hashes in full, Meshtastic's last relay byte. Names come from the contacts on the companion; the repeater keeps none and
-answers in hex. A protocol answers at most once every 10 s. The repeater opens group packets only for a protocol whose bot is on, so with
-both off its receive path is unchanged. The bot adds the `ping` field to `NodePrefs` (prefs.json `zc{}`, `ping_*`) and a `ping::Stats` of 24 bytes
+MeshCore's path hashes in full, one hop per line with the RSSI/SNR after the last, Meshtastic's last relay byte. Names come from the contacts on the companion; the repeater keeps none and
+answers in hex. Every ping is answered; the companion also queues the answer for the app, which does not hear its own sends. The repeater opens group packets only for a protocol whose bot is on, so with
+both off its receive path is unchanged. The bot adds the `ping` field to `NodePrefs` (prefs.json `zc{}`, `ping_*`) and a `ping::Stats` of 8 bytes
 per role.
+
+The neighbour lists (`helpers/NeighbourList.h`, pure code, host tested) answer `get z.mc.neighbors [page] [recent]` and `get z.mt.neighbors [page] [recent]` with a title (`(total) page/pages`) and one `name (snr, age)` line per node heard directly, best SNR first or heard last first with `recent`, 4 lines to a page (up to 64 nodes ranked). All in RAM, lost on reboot. MeshCore: the repeater lists its existing `neighbours[]` (zero-hop repeater adverts, names in hex because it keeps none); the companion keeps a 16-entry table of zero-hop repeater adverts keyed by the first 4 bytes of the key, named from the contacts. Meshtastic: `MtRelayPort::onFrame` notes every frame the bridge takes (opened, duplicate or opaque) whose sender is not us, with `hop_start` not above `hop_limit` and the relay byte equal to the sender's, into a 16-entry table (16 B each) in both roles; the name is the contact on the companion, else the short name of a NodeInfo heard, else `!<node number>`. A full table drops the node heard longest ago. Ages count from uptime.
 
 Full command reference with constraints and remote-admin restrictions: `CLI_commands.md`.
 

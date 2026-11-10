@@ -9,6 +9,7 @@
 #include <helpers/BaseChatMesh.h>
 #include <helpers/BaseSerialInterface.h>
 #include <helpers/MeshTimeSync.h>
+#include <helpers/NeighbourList.h>
 #include <helpers/TransportKeyStore.h>
 #include <ZephyrDataStore.h>
 #include <NodePrefs.h>
@@ -113,6 +114,8 @@ public:
 	 * advert honours the location policy, path-hash mode and default scope.
 	 * False if the packet pool was full. */
 	bool sendSelfAdvert(bool flood) override;
+	/* "get z.mc.neighbors": repeaters heard with no hops, best SNR first. */
+	void formatMcNeighbours(char *reply, size_t cap, size_t page, bool recent);
 
 	/* One companion-protocol frame from the app; true if handled. */
 	bool handleCmdFrame(const uint8_t *data, size_t len);
@@ -419,6 +422,7 @@ public:
 	/* The receiver takes Meshtastic frames while z.mt.enable is on. */
 	void mtApplyListen();
 	void mtFormatStats(char *reply, size_t cap) const;
+	void mtFormatNeighbours(char *reply, size_t cap, size_t page, bool recent);
 private:
 #endif
 	ZephyrDataStore *_store;
@@ -496,6 +500,9 @@ private:
 	 * type, position) from a re-advert. Set by onAdvertRecv() around the
 	 * base class call. */
 	ContactSnapshot _advert_prev;
+	struct McNeighbours;
+	struct MtNeighbours;
+	neighbours::Table _mc_neighbours;  /* repeaters heard with no hops, by the first 4 bytes of the key */
 	void snapshotAdvertPrev(const ContactInfo *c);
 
 	/* Forward-only: our clock stamps outgoing DMs, and peers keep per-sender

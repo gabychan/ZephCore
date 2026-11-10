@@ -5,6 +5,7 @@
 
 #include "CompanionMesh.h"
 #include <mesh/Utils.h>
+#include <helpers/AdvertDataHelpers.h>
 #include <helpers/TxtDataHelpers.h>
 #include <string.h>
 #include <stdio.h>
@@ -694,6 +695,11 @@ bool CompanionMesh::putBlobByKey(const uint8_t key[], int key_len, const uint8_t
 	return _store->putBlobByKey(key, key_len, src_buf, len);
 }
 
+static uint32_t neighbourKey(const uint8_t pub_key[PUB_KEY_SIZE])
+{
+	return ((uint32_t)pub_key[0] << 24) | ((uint32_t)pub_key[1] << 16) | ((uint32_t)pub_key[2] << 8) | pub_key[3];
+}
+
 /* Snapshot the contact record before the base class updates it, for the
  * dirty decision in onDiscoveredContact(). */
 void CompanionMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32_t timestamp,
@@ -702,6 +708,39 @@ void CompanionMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id,
 	snapshotAdvertPrev(lookupContactByPubKey(id.pub_key, PUB_KEY_SIZE));
 	BaseChatMesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
 	_advert_prev.known = false;
+	AdvertDataParser parser(app_data, app_data_len);
+
+	if (packet->getPathHashCount() == 0 && parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) {
+		_mc_neighbours.note(neighbourKey(id.pub_key), (int8_t)(packet->getSNR() * 4),
+				    (uint32_t)(k_uptime_get() / 1000));
+	}
+}
+
+struct CompanionMesh::McNeighbours : public neighbours::TableList {
+	McNeighbours(const neighbours::Table &t, uint32_t now, CompanionMesh &mesh)
+		: TableList(t, now), _mesh(mesh) {}
+
+protected:
+	void label(const neighbours::Entry &e, neighbours::Row &r) const override
+	{
+		const uint8_t prefix[4] = {(uint8_t)(e.id >> 24), (uint8_t)(e.id >> 16), (uint8_t)(e.id >> 8), (uint8_t)e.id};
+		ContactInfo *c = _mesh.lookupContactByPubKey(prefix, sizeof(prefix));
+
+		if (c && c->name[0]) {
+			neighbours::setRowName(r, c->name);
+		} else {
+			mesh::Utils::toHex(r.name, prefix, sizeof(prefix));
+		}
+	}
+
+private:
+	CompanionMesh &_mesh;
+};
+
+void CompanionMesh::formatMcNeighbours(char *reply, size_t cap, size_t page, bool recent)
+{
+	neighbours::format(reply, cap, "MeshCore neighbors",
+			   McNeighbours(_mc_neighbours, (uint32_t)(k_uptime_get() / 1000), *this), page, recent);
 }
 
 void CompanionMesh::snapshotAdvertPrev(const ContactInfo *c)
@@ -1149,7 +1188,7 @@ void CompanionMesh::deliverChannelMessage(uint8_t channel_idx, mesh::Packet *pkt
 	}
 }
 
-/* The ping bot's answer goes out the way the app's own channel text does. */
+/* The ping bot's answer goes out the way the app's own channel text does, and the app is shown it as a message from this node. */
 void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDetails &ch,
 			      const ping::Heard &heard, const char *text)
 {
@@ -1157,25 +1196,32 @@ void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDeta
 	ping::Counters &counters = ping::countersOf(_ping_stats, w);
 	const ping::Counters before = counters;
 	size_t n = ping::reply(prefs.ping, counters, w, text, heard, pingName, this,
-			       (uint32_t)_ms->getMillis(), out, sizeof(out) - 32);
+			       out, sizeof(out) - 32);
 
 	if (n == 0) {
 		return;
 	}
 	const uint32_t ts = getRTCClock()->getCurrentTimeUnique();
+	bool sent;
+
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 	if (w == ping::PROTO_MT) {
 		bool mt_sent = false;
 
-		if (!mtSendChannelText(channel_idx, ts, out, n, mt_sent) || !mt_sent) {
-			counters = before;
-		}
+		sent = mtSendChannelText(channel_idx, ts, out, n, mt_sent) && mt_sent;
+	} else
+#endif
+	{
+		sent = sendGroupMessage(ts, ch.channel, prefs.node_name, out, n);
+	}
+	if (!sent) {
+		counters = before;
 		return;
 	}
-#endif
-	if (!sendGroupMessage(ts, ch.channel, prefs.node_name, out, n)) {
-		counters = before;
-	}
+	char shown[sizeof(prefs.node_name) + sizeof(out) + 2];
+
+	snprintf(shown, sizeof(shown), "%s: %s", prefs.node_name, out);
+	deliverChannelMessage(channel_idx, nullptr, ts, shown);
 }
 
 /* A repeater of that hash among the contacts (MeshCore), or a Meshtastic node ending in that byte. */

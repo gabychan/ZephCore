@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <helpers/NeighbourList.h>
 #include <helpers/meshtastic/MtBridge.h>
 #include <helpers/meshtastic/MtConfig.h>
 #include <helpers/meshtastic/MtPolicy.h>
@@ -67,6 +68,9 @@ public:
 	bool send(const uint8_t *frame, size_t len);
 
 	const Stats &stats() const { return _stats; }
+	/* The nodes heard directly: hop_start equal to hop_limit and the relay byte the sender's own. */
+	neighbours::Table &neighbours() { return _neighbours; }
+	const neighbours::Table &neighbours() const { return _neighbours; }
 	/* "heard=.. relayed=.." for get z.mt.stats. */
 	void formatStats(char *out, size_t cap) const;
 
@@ -76,11 +80,13 @@ private:
 	mesh::Mesh &_mesh;
 	mt::Bridge &_bridge;
 	Stats _stats = {};
+	neighbours::Table _neighbours;
 	uint32_t _yield[kYieldKeep] = {};  /* hashes of queued repeats that give way to an echo */
 	uint8_t _yield_next = 0;
 	mt::Timer _nodeinfo, _telemetry;
 
 	uint32_t slotMs() const;
+	void noteDirect(const uint8_t raw[], int len, int8_t snr_x4);
 	bool yields(uint32_t hash) const;
 	void echoHeard(const uint8_t raw[], int len, bool yields);
 	void queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::RelayClass cls,

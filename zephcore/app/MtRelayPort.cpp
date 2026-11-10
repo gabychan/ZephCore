@@ -13,6 +13,7 @@
 #include <mesh/ContentionTracker.h>
 #include <mesh/Utils.h>
 #include <psa/crypto.h>
+#include <zephyr/kernel.h>
 #include <string.h>
 
 #include <zephyr/logging/log.h>
@@ -241,6 +242,16 @@ mt::RxResult MtRelayPort::unopened(const uint8_t raw[], int len, uint32_t self)
 	return mt::looksLikeMeshCore(raw, (size_t)len, self) ? mt::RX_NOT_MESHTASTIC : mt::RX_IGNORED;
 }
 
+void MtRelayPort::noteDirect(const uint8_t raw[], int len, int8_t snr_x4)
+{
+	mt::Header h;
+
+	if (mt::parseHeader(raw, (size_t)len, h) && h.from != _bridge.self() && h.hopStart() <= h.hopLimit() &&
+	    h.relay == (uint8_t)h.from) {
+		_neighbours.note(h.from, snr_x4, (uint32_t)(k_uptime_get() / 1000));
+	}
+}
+
 mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::Sink &sink,
 				  const Policy &policy)
 {
@@ -268,6 +279,7 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		return r;
 	}
 	_stats.heard++;
+	noteDirect(raw, len, snr_x4);
 	if (r == mt::RX_OPAQUE) {
 		_stats.opaque++;
 	}

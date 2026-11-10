@@ -17,7 +17,6 @@ namespace ping {
 
 static constexpr size_t kTriggerMax = 15;
 static constexpr size_t kNameMax = 14;  /* bytes of a node name in an answer */
-static constexpr uint32_t kMinGapMs = 10000;  /* between two answers of one protocol */
 
 /* The only channels the bot answers on. MeshCore: a hashtag channel, whose key is the
  * first 16 bytes of SHA256 of its name. Meshtastic: this name with its default key
@@ -25,6 +24,9 @@ static constexpr uint32_t kMinGapMs = 10000;  /* between two answers of one prot
 #define PING_MC_CHANNEL "#bot"
 #define PING_MT_CHANNEL "Bots"
 static constexpr uint8_t kMtPskIndex = 2;
+
+/* Before each hop of a MeshCore route (U+2193). */
+static constexpr const char *kArrow = "\xE2\x86\x93";
 
 enum Protocol : uint8_t { PROTO_MC = 0, PROTO_MT = 1 };
 
@@ -47,9 +49,7 @@ struct Prefs {
 /* Since boot; not persisted. */
 struct Counters {
 	uint16_t answered;
-	uint16_t ignored;  /* a ping the hop filters or the minimum gap turned away */
-	uint32_t last_ms;  /* of the last answer */
-	uint8_t has_last;
+	uint16_t ignored;  /* a ping the hop filters turned away */
 };
 struct Stats {
 	Counters mc;
@@ -218,12 +218,15 @@ inline void bump(uint16_t &c)
 }
 
 /* The answer to a line heard on the bot's channel for protocol w, or 0 when it is not a ping this node answers.
- * now_ms: a ping within kMinGapMs of the last answer of the protocol is turned away.
- *   @[Ana] direct, SNR 7.5 dB
- *   @[Ana] 2 hops: Montjuic > 3f9a, SNR 7.5 dB     (MeshCore: the whole route)
- *   @[Ana] 2 hops, last Montjuic, SNR 7.5 dB       (Meshtastic: the last relay) */
+ * MeshCore, one node per line, the signal (RSSI/SNR) stuck to the last one:
+ *   @[Ana] 2 hops
+ *   <arrow>Montjuic
+ *   <arrow>3f9a(-88/+3.3)
+ *   @[Ana] direct (-88/+3.3)
+ * Meshtastic, which carries only the last relay:
+ *   @[Ana] 2 hops, last Montjuic, SNR 7.5 dB */
 inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, const Heard &h, NameFn names,
-		    void *ctx, uint32_t now_ms, char *out, size_t cap)
+		    void *ctx, char *out, size_t cap)
 {
 	const Proto &x = protoOf(p, w);
 
@@ -242,25 +245,39 @@ inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, c
 	}
 	const bool direct = h.hops == 0 && !h.relayed;
 
-	if ((direct && p.ignore_direct) || (!direct && p.ignore_remote) ||
-	    (c.has_last && now_ms - c.last_ms < kMinGapMs)) {
+	if ((direct && p.ignore_direct) || (!direct && p.ignore_remote)) {
 		bump(c.ignored);
 		return 0;
 	}
+	const bool mc = w == PROTO_MC;
+	const int snr10 = h.snr_x4 * 10 / 4;  /* tenths of a dB, truncated toward zero */
+	const int snr_abs = snr10 < 0 ? -snr10 : snr10;
 	char tail[40];
 	size_t t = 0;
 
 	tail[0] = '\0';
-	if (p.snr) {
-		int snr10 = h.snr_x4 * 10 / 4;  /* tenths of a dB, truncated toward zero */
-
-		append(tail, sizeof(tail), t, ", SNR %s%d.%d dB", snr10 < 0 ? "-" : "", (snr10 < 0 ? -snr10 : snr10) / 10,
-		       (snr10 < 0 ? -snr10 : snr10) % 10);
-	}
-	if (p.rssi) {
-		append(tail, sizeof(tail), t, ", RSSI %d dBm", h.rssi);
+	if (mc && (p.snr || p.rssi)) {
+		append(tail, sizeof(tail), t, "(");
+		if (p.rssi) {
+			append(tail, sizeof(tail), t, "%d", h.rssi);
+		}
+		if (p.rssi && p.snr) {
+			append(tail, sizeof(tail), t, "/");
+		}
+		if (p.snr) {
+			append(tail, sizeof(tail), t, "%c%d.%d", snr10 < 0 ? '-' : '+', snr_abs / 10, snr_abs % 10);
+		}
+		append(tail, sizeof(tail), t, ")");
+	} else if (!mc) {
+		if (p.snr) {
+			append(tail, sizeof(tail), t, ", SNR %s%d.%d dB", snr10 < 0 ? "-" : "", snr_abs / 10, snr_abs % 10);
+		}
+		if (p.rssi) {
+			append(tail, sizeof(tail), t, ", RSSI %d dBm", h.rssi);
+		}
 	}
 	size_t n = 0;
+	bool listed = false;  /* the tail follows a hop, with no space */
 
 	out[0] = '\0';
 	if (sender[0]) {
@@ -275,33 +292,34 @@ inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, c
 			append(out, cap, n, "%u hop%s", h.hops, h.hops == 1 ? "" : "s");
 		}
 		if (h.route.hash && h.route.count > 0 && h.route.size > 0) {
-			if (w == PROTO_MT) {
+			if (!mc) {
 				char label[48];
 
 				hopLabel(h.route, (uint8_t)(h.route.count - 1), w, names, ctx, label, sizeof(label));
 				append(out, cap, n, ", last %s", label);
 			} else {
-				append(out, cap, n, ": ");
+				listed = true;
 				for (uint8_t i = 0; i < h.route.count; i++) {
 					char label[48];
 
 					hopLabel(h.route, i, w, names, ctx, label, sizeof(label));
-					const size_t need = (i ? 3 : 0) + strlen(label);
-					const size_t more = i + 1 < h.route.count ? 5 : 0;  /* room for " > .." */
+					const size_t need = 1 + strlen(kArrow) + strlen(label);
+					const size_t more = i + 1 < h.route.count ? 3 : 0;  /* room for "\n.." */
 
 					if (n + need + more + t >= cap) {
-						append(out, cap, n, i ? " > .." : "..");
+						append(out, cap, n, "\n..");
 						break;
 					}
-					append(out, cap, n, "%s%s", i ? " > " : "", label);
+					append(out, cap, n, "\n%s%s", kArrow, label);
 				}
 			}
 		}
 	}
+	if (mc && !listed && tail[0]) {
+		append(out, cap, n, " ");
+	}
 	append(out, cap, n, "%s", tail);
 	bump(c.answered);
-	c.last_ms = now_ms;
-	c.has_last = 1;
 	return n;
 }
 

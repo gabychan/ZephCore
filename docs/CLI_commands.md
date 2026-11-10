@@ -253,30 +253,46 @@ The repeater and the companion repeat Meshtastic floods on the radio they share 
 | `get z.mt.telemetry` / `set z.mt.telemetry <seconds>` | Device metrics (battery level and voltage, channel utilisation, TX air utilisation, uptime) on the primary channel. `0` never, otherwise 60 to 86400 (default 0). Without a battery reading the level is 101, which Meshtastic shows as powered. Utilisations are the share of the time since the previous telemetry that the radio spent receiving and sending (the first one counts from boot), not Meshtastic's sliding windows. The first goes out 60 s after boot or after a change. |
 | `get z.mt.stats` | `heard` Meshtastic frames, `relayed` repeats queued, `opaque` frames of unknown channels, `yielded` repeats dropped because another node sent them first, `dropped` frames discarded because no Meshtastic channel opened them and they are not shaped like MeshCore, `shed` repeats not queued because 8 were waiting already (they go after every MeshCore packet, so Meshtastic traffic cannot take the packet pool from MeshCore). |
 
+### Neighbours
+
+`get z.mc.neighbors [page] [recent]` and `get z.mt.neighbors [page] [recent]` (also `get z.mc.vecinos`, `get z.mt.vecinos`, and `recientes` for `recent`; page and `recent` in any order) list the nodes heard directly, one line each, best SNR first or, with `recent`, heard last first (the title then ends in `recent`: `(10) 1/3 recent`), 4 lines to a page so a page fits one radio reply; the title carries the number heard and the page (`1/3`). Without a page, page 1; a page past the last says `page 4 of 3`:
+
+```
+MeshCore neighbors (3) 1/1
+Montjuic RPT (10.3, 4m)
+Tibidabo RPT (-2.0, 45s)
+Gracia RPT (-5.5, 3h)
+```
+
+Each line is `name (SNR in dB, time since the last frame)`. MeshCore: repeaters whose zero-hop advert was heard; on the repeater it is the table `neighbors` already shows, and since the repeater keeps no names the line carries the first 4 bytes of the key in hex, on the companion the name from the contacts. Meshtastic: nodes whose frame arrived with no relay in between (`hop_start` equal to `hop_limit` and the relay byte the sender's own), on a channel we hold or not; the name is the contact on the companion, else the short name of a NodeInfo heard, else `!<node number>`. 16 nodes are kept per protocol and a full table drops the one heard longest ago. Kept in RAM only: a reboot empties them. `-none-` when there are none; `not available` on the room server and, for `z.mt.neighbors`, in builds without Meshtastic.
+
 ## Ping bot (*ZephCore only*)
 
 The companion and the repeater answer a ping with how the frame was heard and the route it took. It listens only on two fixed channels, which cannot be changed: MeshCore `#bot` and Meshtastic `Bots` (default key variant 2). On the companion they are the channels with those names (`#bot` and `#mt-bots`, both added by default); the repeater holds them only while its protocol's bot is on, so with the bot off it opens no group packet it did not open before. Each protocol is switched on, and given the command it answers to, on its own, and it cannot be switched on without that command, which can be changed later. Settings persist in `prefs.json` (`zc{}`, keys `ping_*`). The room server and direct messages do not answer, and the frequency error is not reported.
 
 ```
-@[Ana] direct, SNR 7.5 dB
-@[Ana] 3 hops: Montjuic RPT > 77 > Tibidabo?, SNR 7.5 dB      (MeshCore: the whole route)
+@[Ana] direct (+7.5)
+@[Ana] 3 hops                                                 (MeshCore: the whole route, one hop per line)
+↓Montjuic RPT
+↓77
+↓Tibidabo?(-88/+7.5)                                          (RSSI/SNR stuck to the last hop)
 @[Ana] 2 hops, last Montjuic RPT, SNR 7.5 dB                  (Meshtastic: the last relay only)
 ```
 
-MeshCore flood packets carry the hash of every repeater they crossed, first repeater after the sender first; Meshtastic frames carry only the last byte of the node that relayed them, so only that hop is shown. A hop is shown by name when the node is among the contacts (a repeater, for MeshCore; a Meshtastic node, for Meshtastic), with a `?` when several contacts share the hash, and in hex otherwise. The repeater keeps no names, so its routes are always in hex. A name is cut to 14 bytes. A route that does not fit ends in `..`. A Meshtastic frame whose sender set no `hop_start` has no hop count: if a relay other than the sender passed it, the answer says `relayed` and the hop filters treat it as not direct. On Meshtastic the answer is a reply to the ping and has no `@[name]`.
+MeshCore flood packets carry the hash of every repeater they crossed, first repeater after the sender first; Meshtastic frames carry only the last byte of the node that relayed them, so only that hop is shown. A hop is shown by name when the node is among the contacts (a repeater, for MeshCore; a Meshtastic node, for Meshtastic), with a `?` when several contacts share the hash, and in hex otherwise. The repeater keeps no names, so its routes are always in hex. A name is cut to 14 bytes. A route that does not fit ends in a `..` line. In MeshCore the signal is `(RSSI/SNR)` in dBm and dB, or just the one that is on. A Meshtastic frame whose sender set no `hop_start` has no hop count: if a relay other than the sender passed it, the answer says `relayed` and the hop filters treat it as not direct. On Meshtastic the answer is a reply to the ping and has no `@[name]`.
 
 | Command | Description |
 |---------|-------------|
 | `set z.mc.ping.enable on <command>` / `set z.mt.ping.enable on <command>` | Answer `<command>` on that protocol and turn its bot on. `<command>` is 1 to 15 characters, no spaces (for example `/ping`). Without it, `on` works only when a command is already set. |
 | `get z.mc.ping.enable` / `set z.mc.ping.enable off` (same for `z.mt.ping.enable`) | Whether the bot answers (default off). Off keeps the command. |
 | `get z.mc.ping.trigger` / `set z.mc.ping.trigger <command>` (same for `z.mt.ping.trigger`) | The command, changed without touching on or off. The whole message must equal it, without regard to case. Empty until set. |
-| `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters or the 10 s gap turned away since boot. |
+| `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters turned away since boot. |
 | `get z.ping.snr` / `set z.ping.snr on\|off` | Show the SNR (default on). Shared by both protocols. |
 | `get z.ping.rssi` / `set z.ping.rssi on\|off` | Show the RSSI (default off). Shared. |
 | `get z.ping.ignore.direct` / `set z.ping.ignore.direct on\|off` | Do not answer a ping heard with 0 hops (default off). Shared. |
 | `get z.ping.ignore.remote` / `set z.ping.ignore.remote on\|off` | Do not answer a ping heard with 1 or more hops (default off). Shared. |
 
-Anyone on the channel can trigger an answer; a protocol answers at most once every 10 s, and a ping inside that gap counts as ignored in `status`. On the repeater, while the Meshtastic bot is on, frames on `Bots` follow the normal repeat policy instead of `z.mt.relay.opaque`. `z.mt.ping.*` does not exist in builds without Meshtastic. The Meshtastic bot answers only while `z.mt.enable` is on.
+Anyone on the channel can trigger an answer, and every ping is answered. On the companion the answer is also shown to the app as a message from this node. On the repeater, while the Meshtastic bot is on, frames on `Bots` follow the normal repeat policy instead of `z.mt.relay.opaque`. `z.mt.ping.*` does not exist in builds without Meshtastic. The Meshtastic bot answers only while `z.mt.enable` is on.
 
 ---
 

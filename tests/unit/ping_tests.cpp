@@ -5,6 +5,8 @@
 #include <string>
 
 namespace {
+#define ARROW "\xE2\x86\x93"
+
 ping::Prefs on()
 {
     ping::Prefs p;
@@ -25,18 +27,11 @@ int names(void *, ping::Protocol, const uint8_t *hash, uint8_t size, char *out, 
     return 0;
 }
 
-/* Each call is well past the minimum gap of the one before. */
-uint32_t tick()
-{
-    static uint32_t t = 0;
-    return t += 20000;
-}
-
 std::string answer(const ping::Prefs &p, ping::Counters &c, ping::Protocol w, const char *line, ping::Heard h,
                    bool named = true, size_t cap = 120)
 {
     char out[200];
-    size_t n = ping::reply(p, c, w, line, h, named ? names : nullptr, nullptr, tick(), out, cap);
+    size_t n = ping::reply(p, c, w, line, h, named ? names : nullptr, nullptr, out, cap);
     return std::string(out, n);
 }
 
@@ -58,24 +53,28 @@ std::string cmd(ping::Prefs &p, const char *c, bool *changed = nullptr, const pi
 
 TEST(ping_direct, "UNIT-PING-001", "A direct ping is answered with the SNR alone by default, and with the RSSI when it is on") {
     ping::Prefs p = on();
-    CHECK(mc(p, "Ana: /ping", 0, 30, -92) == "@[Ana] direct, SNR 7.5 dB");
+    CHECK(mc(p, "Ana: /ping", 0, 30, -92) == "@[Ana] direct (+7.5)");
     p.rssi = 1;
-    CHECK(mc(p, "Ana: /ping", 0, -10, -110) == "@[Ana] direct, SNR -2.5 dB, RSSI -110 dBm");
+    CHECK(mc(p, "Ana: /ping", 0, -10, -110) == "@[Ana] direct (-110/-2.5)");
     p.snr = 0;
-    CHECK(mc(p, "/ping", 0, 30, -92) == "direct, RSSI -92 dBm");
+    CHECK(mc(p, "/ping", 0, 30, -92) == "direct (-92)");
     p.snr = 1;
     p.rssi = 0;
-    CHECK(mc(p, "Ana: /ping", 0, -1, -92) == "@[Ana] direct, SNR -0.2 dB");
+    CHECK(mc(p, "Ana: /ping", 0, -1, -92) == "@[Ana] direct (-0.2)");
+    p.snr = 0;
+    CHECK(mc(p, "Ana: /ping", 0, 30, -92) == "@[Ana] direct");
 }
 
 TEST(ping_mc_route, "UNIT-PING-002", "MeshCore: the whole route, a name when the hash is known, its hex otherwise, ? when shared") {
     ping::Prefs p = on();
     const uint8_t path[] = {0x3f, 0x77, 0x40};
-    CHECK(mc(p, "Ana: /ping", 3, 30, -92, path) == "@[Ana] 3 hops: Montjuic RPT > 77 > Tibidabo?, SNR 7.5 dB");
+    CHECK(mc(p, "Ana: /ping", 3, 30, -92, path) == "@[Ana] 3 hops\n" ARROW "Montjuic RPT\n" ARROW "77\n" ARROW "Tibidabo?(+7.5)");
     const uint8_t two[] = {0x3f, 0x9a, 0x77, 0x01};
-    CHECK(mc(p, "Ana: /ping", 2, 30, -92, two, 2) == "@[Ana] 2 hops: 3f9a > 7701, SNR 7.5 dB");
-    CHECK(mc(p, "Ana: /ping", 1, 30, -92, path, 1, false) == "@[Ana] 1 hop: 3f, SNR 7.5 dB");
-    CHECK(mc(p, "Ana: /ping", 2, 30, -92, nullptr) == "@[Ana] 2 hops, SNR 7.5 dB");
+    CHECK(mc(p, "Ana: /ping", 2, 30, -92, two, 2) == "@[Ana] 2 hops\n" ARROW "3f9a\n" ARROW "7701(+7.5)");
+    CHECK(mc(p, "Ana: /ping", 1, 30, -92, path, 1, false) == "@[Ana] 1 hop\n" ARROW "3f(+7.5)");
+    CHECK(mc(p, "Ana: /ping", 2, 30, -92, nullptr) == "@[Ana] 2 hops (+7.5)");
+    p.rssi = 1;
+    CHECK(mc(p, "Ana: /ping", 1, 30, -88, path) == "@[Ana] 1 hop\n" ARROW "Montjuic RPT(-88/+7.5)");
 }
 
 TEST(ping_mt_route, "UNIT-PING-003", "Meshtastic: the last relay only, by name or in hex") {
@@ -92,7 +91,7 @@ TEST(ping_names_cut, "UNIT-PING-004", "A long name is cut to 14 bytes without sp
     ping::Prefs p = on();
     const uint8_t path[] = {0x41};
     std::string a = mc(p, "Ana: /ping", 1, 30, -92, path);
-    CHECK(a == "@[Ana] 1 hop: Gr\xC3\xA0" "cia\xC3\xA7\xC3\xA7\xC3\xA7, SNR 7.5 dB");
+    CHECK(a == "@[Ana] 1 hop\n" ARROW "Gr\xC3\xA0" "cia\xC3\xA7\xC3\xA7\xC3\xA7(+7.5)");
 }
 
 TEST(ping_trigger, "UNIT-PING-005", "Each protocol answers only its own exact command, without regard to case, and only when on") {
@@ -118,28 +117,28 @@ TEST(ping_filters_counters, "UNIT-PING-006", "ignore.direct and ignore.remote tu
     ping::Stats st = {};
     char out[120];
     p.ignore_direct = 1;
-    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) == 0);
-    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", {1, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) == 0);
+    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", {1, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) > 0);
     p.ignore_direct = 0;
     p.ignore_remote = 1;
-    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) > 0);
-    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", {3, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) == 0);
+    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", {3, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) == 0);
     CHECK(st.mc.answered == 1 && st.mc.ignored == 1 && st.mt.answered == 1 && st.mt.ignored == 1);
-    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: other", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, tick(), out, sizeof(out)) == 0);
+    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: other", {0, 4, -90, {nullptr, 1, 0}}, nullptr, nullptr, out, sizeof(out)) == 0);
     CHECK(st.mt.answered == 1 && st.mt.ignored == 1);
 }
 
-TEST(ping_truncation, "UNIT-PING-007", "A long route is cut with .. keeping the SNR; a small buffer is never overrun") {
+TEST(ping_truncation, "UNIT-PING-007", "A long route is cut with .. keeping the signal; a small buffer is never overrun") {
     ping::Prefs p = on();
     ping::Counters c = {};
     uint8_t path[20];
     for (int i = 0; i < 20; i++) path[i] = (uint8_t)(0x50 + i);
     std::string a = answer(p, c, ping::PROTO_MC, "Ana: /ping", {20, 30, -92, {path, 1, 20}}, false, 60);
     CHECK(a.size() < 60);
-    CHECK(a.find(" > ..") != std::string::npos);
-    CHECK(a.size() >= 12 && a.substr(a.size() - 12) == ", SNR 7.5 dB");
+    CHECK(a.find("\n..") != std::string::npos);
+    CHECK(a.size() >= 6 && a.substr(a.size() - 6) == "(+7.5)");
     char out[12];
-    size_t n = ping::reply(p, c, ping::PROTO_MC, "Ana: /ping", {2, 30, -92, {path, 1, 2}}, nullptr, nullptr, tick(), out, sizeof(out));
+    size_t n = ping::reply(p, c, ping::PROTO_MC, "Ana: /ping", {2, 30, -92, {path, 1, 2}}, nullptr, nullptr, out, sizeof(out));
     CHECK(n < sizeof(out));
     CHECK(out[n] == '\0');
 }
@@ -247,24 +246,4 @@ TEST(ping_relayed_unknown_hops, "UNIT-PING-013", "No hop_start but a relay: not 
     p.ignore_direct = 0;
     p.ignore_remote = 1;
     CHECK(answer(p, c, ping::PROTO_MT, "Ana: /ping", h) == "");
-}
-
-TEST(ping_min_gap, "UNIT-PING-014", "A ping within 10 s of the last answer of its protocol is turned away and counted; the other protocol is not held") {
-    ping::Prefs p = on();
-    ping::Stats st = {};
-    char out[120];
-    const ping::Heard h = {1, 4, -90, {nullptr, 1, 0}};
-    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 5000, out, sizeof(out)) > 0);
-    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 14999, out, sizeof(out)) == 0);
-    CHECK(ping::reply(p, st.mt, ping::PROTO_MT, "Ana: /ping", h, nullptr, nullptr, 6000, out, sizeof(out)) > 0);
-    CHECK(ping::reply(p, st.mc, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 15000, out, sizeof(out)) > 0);
-    CHECK(st.mc.answered == 2 && st.mc.ignored == 1 && st.mt.answered == 1);
-    /* The millisecond clock wraps. */
-    ping::Counters w = {};
-    CHECK(ping::reply(p, w, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 0xFFFFFFF0u, out, sizeof(out)) > 0);
-    CHECK(ping::reply(p, w, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 100, out, sizeof(out)) == 0);
-    CHECK(ping::reply(p, w, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, 20000, out, sizeof(out)) > 0);
-    /* Words that are not the command never count. */
-    CHECK(ping::reply(p, w, ping::PROTO_MC, "Ana: hello", h, nullptr, nullptr, 20001, out, sizeof(out)) == 0);
-    CHECK(w.ignored == 1);
 }

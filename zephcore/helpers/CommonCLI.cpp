@@ -365,8 +365,50 @@ bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char
 #endif
 }
 
+/* "<prefix>neighbors" or "<prefix>vecinos", then in any order a page number and "recent" ("recientes"):
+ * the page is 1 without one, 0 when it is not a number. */
+static bool neighbourArgs(const char* command, const char* prefix, size_t& page, bool& recent) {
+	const size_t plen = strlen(prefix);
+
+	if (strncmp(command, prefix, plen) != 0) return false;
+	const char* word = command + plen;
+	const size_t wlen = strncmp(word, "neighbors", 9) == 0 ? 9 : strncmp(word, "vecinos", 7) == 0 ? 7 : 0;
+
+	if (wlen == 0 || (word[wlen] != '\0' && word[wlen] != ' ')) return false;
+	page = 1;
+	recent = false;
+	for (const char* arg = word + wlen; *arg != '\0';) {
+		if (*arg == ' ') { arg++; continue; }
+		const char* end = strchr(arg, ' ');
+		const size_t len = end ? (size_t)(end - arg) : strlen(arg);
+
+		if ((len == 6 && strncmp(arg, "recent", 6) == 0) || (len == 9 && strncmp(arg, "recientes", 9) == 0)) {
+			recent = true;
+		} else {
+			page = (size_t)atoi(arg);
+		}
+		arg += len;
+	}
+	return true;
+}
+
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
 	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
+		return;
+	}
+	size_t page;
+	bool recent;
+
+	if (neighbourArgs(command, "get z.mc.", page, recent)) {
+		_callbacks->formatMcNeighbours(reply, replyCap(sender_timestamp), page, recent);
+		return;
+	}
+	if (neighbourArgs(command, "get z.mt.", page, recent)) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		_callbacks->formatMtNeighbours(reply, replyCap(sender_timestamp), page, recent);
+#else
+		strcpy(reply, "not available");
+#endif
 		return;
 	}
 	if (ping::isCommand(command)) {

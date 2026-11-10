@@ -156,7 +156,9 @@ public:
 	bool onMtChannelAdded(const char* slot) override { return _mesh.mtChannelAdded(slot); }
 	void onMtChannelRemoved(const char* slot) override { _mesh.mtChannelRemoved(slot); }
 	void formatMtStatsReply(char* reply, size_t cap) override { _mesh.mtFormatStats(reply, cap); }
+	void formatMtNeighbours(char* reply, size_t cap, size_t page, bool recent) override { _mesh.mtFormatNeighbours(reply, cap, page, recent); }
 #endif
+	void formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) override { _mesh.formatMcNeighbours(reply, cap, page, recent); }
 
 	/* stats-core / stats-radio / stats-packets, as the repeater prints them. */
 	void formatStatsReply(char* reply) override {

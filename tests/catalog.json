@@ -869,7 +869,7 @@
     },
     {
       "id": "UNIT-PING-007",
-      "name": "A long route is cut with .. keeping the SNR; a small buffer is never overrun",
+      "name": "A long route is cut with .. keeping the signal; a small buffer is never overrun",
       "source": "tests/unit/ping_tests.cpp"
     },
     {
@@ -903,11 +903,6 @@
       "source": "tests/unit/ping_tests.cpp"
     },
     {
-      "id": "UNIT-PING-014",
-      "name": "A ping within 10 s of the last answer of its protocol is turned away and counted; the other protocol is not held",
-      "source": "tests/unit/ping_tests.cpp"
-    },
-    {
       "id": "UNIT-MT-042",
       "name": "A channel's slot is #mt-<name> in lower case; its secret is the first 16 bytes of the SHA-256 of that name, as for a # channel",
       "source": "tests/unit/meshtastic_tests.cpp"
@@ -931,6 +926,56 @@
       "id": "UNIT-PJSON-012",
       "name": "A companion's Meshtastic channels survive prefs.json; a file without them has none",
       "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-001",
+      "name": "With no neighbour the reply is the title and -none-",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-002",
+      "name": "Lines come best SNR first, with SNR to a tenth and the age in the largest unit",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-003",
+      "name": "A page holds 4 lines of the ranking; a page past the last says so and a tie keeps list order",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-004",
+      "name": "A line that does not fit the reply is left out whole",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-005",
+      "name": "A long name is cut to 14 bytes without splitting a UTF-8 character",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-006",
+      "name": "A node heard again updates its entry; a full table drops the one heard longest ago",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-007",
+      "name": "A known node is never entered twice while the table has free entries",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-008",
+      "name": "A short name is set only for a node already in the table",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-009",
+      "name": "The longest page of 4 lines fits the room a remote reply has (161 bytes less a 4-byte header)",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-010",
+      "name": "With recent the lines come heard-last first, the title says so, and a tie keeps list order",
+      "source": "tests/unit/neighbour_tests.cpp"
     }
   ]
 }
