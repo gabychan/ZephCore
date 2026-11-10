@@ -234,25 +234,55 @@ void CompanionMesh::mtReconcileChannels()
 	}
 }
 
-void CompanionMesh::mtSlotRewritten(int idx, const ChannelDetails &next)
+/* True when the slot name has the "#mt-" form of a Meshtastic channel. */
+static bool mtIsSlotName(const char *name)
+{
+	return strncmp(name, "#mt-", 4) == 0;
+}
+
+bool CompanionMesh::mtSlotRewritten(int idx, const ChannelDetails &next)
 {
 	ChannelDetails cur;
-	mt::ChannelEntry *e;
+	uint8_t secret[16];
+	char slot[mt::kSlotNameMax];
+	mt::ChannelEntry *old = nullptr;
 
-	if (!mtEntryOfSlot(idx) || !getChannel(idx, cur)) {
-		return;
+	if (getChannel(idx, cur) && mtEntryOfSlot(idx)) {
+		old = mt::findChannel(prefs.mt, cur.name);
 	}
-	if (strcmp(cur.name, next.name) == 0 &&
-	    memcmp(cur.channel.secret, next.channel.secret, sizeof(cur.channel.secret)) == 0) {
-		return;
+	if (old && strcmp(cur.name, next.name) == 0 &&
+	    memcmp(cur.channel.secret, next.channel.secret, sizeof(secret)) == 0) {
+		return true;
 	}
-	e = mt::findChannel(prefs.mt, cur.name);
-	if (e) {
-		*e = mt::ChannelEntry{};
-		if (_store) {
-			_store->savePrefs(prefs);
+	if (mtIsSlotName(next.name)) {
+		/* Only a name the table knows, or a rename of an entry to a name that carries its own secret. */
+		mt::slotSecret(next.name, mtSha256, secret);
+		if (memcmp(next.channel.secret, secret, sizeof(secret)) != 0) {
+			return false;
 		}
+		const mt::ChannelEntry *known = mt::findChannel(prefs.mt, next.name);
+
+		if (known) {
+			return old == nullptr || known == old;
+		}
+		if (!old || !mt::validName(next.name + 4)) {
+			return false;
+		}
+		mt::slotName(next.name + 4, slot);
+		if (strcmp(slot, next.name) != 0) {
+			return false;
+		}
+		memset(old->name, 0, sizeof(old->name));
+		memcpy(old->name, next.name + 4, strlen(next.name + 4));
+	} else if (old) {
+		*old = mt::ChannelEntry{};
+	} else {
+		return true;
 	}
+	if (_store) {
+		_store->savePrefs(prefs);
+	}
+	return true;
 }
 
 void CompanionMesh::mtChannelRemoved(const char *slot)

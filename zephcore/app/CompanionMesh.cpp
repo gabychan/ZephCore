@@ -3070,7 +3070,10 @@ bool CompanionMesh::handleCmdSetChannel(const uint8_t *data, size_t len)
 		memset(ch.channel.secret, 0, sizeof(ch.channel.secret));
 		memcpy(ch.channel.secret, &data[2 + 32], 16);
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-		mtSlotRewritten(data[1], ch);
+		if (!mtSlotRewritten(data[1], ch)) {
+			writeErrFrame(ERR_ILLEGAL_ARG);  /* a Meshtastic channel is added with z.mt.channel.add */
+			return true;
+		}
 #endif
 		// setChannel computes the hash based on whether upper 16 bytes are zero
 		if (setChannel(data[1], ch)) {

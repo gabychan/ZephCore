@@ -23,8 +23,10 @@ Delivering to the right slot (`channel_idx`) is not enough: the frame is correct
 - The real name (Meshtastic tells `Bots` from `bots`) and the key live in a table in `prefs.json` `mt{}`. The bridge
   decrypts with the key and delivers to the slot named `#mt-<name>`. The table creates the slots at the first boot of
   a defaults revision and on `add`, and `remove` deletes slot and entry. The app can delete a channel too: when it empties or
-  rewrites a `#mt-` slot, the entry leaves the table. A `#mt-...` slot the app made, with no table entry, is an ordinary
-  MeshCore hashtag channel and is not bridged.
+  rewrites a `#mt-` slot, the entry leaves the table. Renaming it to another `#mt-<name>` (with that name's secret)
+  renames the entry and keeps its key; the name is then in lower case. The app cannot create a `#mt-` channel: the node
+  refuses it with `ERR_ILLEGAL_ARG`, because the protocol carries no message text, so a Meshtastic channel is added
+  only with `z.mt.channel.add`.
 - Commands, in the `z.` namespace (ADR 0014): `set z.mt.channel.add <name> [<key>]`, `set z.mt.channel.remove <name>`,
   `get z.mt.channels` (name, slot, key kind). `add` refuses a name whose slot name is already taken.
 - Later, in a second step: `z.mc.channel.add #<name>` and `z.mc.channel.add <name> <key>` (base64 or 32 hex digits)
