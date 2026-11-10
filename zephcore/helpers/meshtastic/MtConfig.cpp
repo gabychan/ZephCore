@@ -107,7 +107,7 @@ static void setChannel(RepeaterPrefs &p, const char *args, char *reply, size_t c
 	int n = sscanf(args, "%12s %39s", name, key);
 
 	if (n < 1 || !validName(name)) {
-		snprintf(reply, cap, "Error: set mt.channel <name up to %u chars> [default|<base64 key>]",
+		snprintf(reply, cap, "Error: set z.mt.channel <name up to %u chars> [default|<base64 key>]",
 			 (unsigned)kChannelNameMax);
 		return;
 	}
@@ -136,13 +136,13 @@ static void setChannel(RepeaterPrefs &p, const char *args, char *reply, size_t c
 CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap,
 			bool standalone)
 {
-	const bool get = strncmp(command, "get mt.", 7) == 0;
-	const bool set = strncmp(command, "set mt.", 7) == 0;
+	const bool get = strncmp(command, "get z.mt.", 9) == 0;
+	const bool set = strncmp(command, "set z.mt.", 9) == 0;
 
 	if (!get && !set) {
 		return {false, false};
 	}
-	const char *key = command + 7;
+	const char *key = command + 9;
 	char name[24];
 	size_t n = 0;
 
@@ -180,7 +180,7 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 			snprintf(reply, cap, "> %s (%s key)", p.channel,
 				 p.psk_len == 1 && p.psk[0] == 1 ? "default" : "custom");
 		} else {
-			snprintf(reply, cap, "Error: unknown mt. setting");
+			snprintf(reply, cap, "Error: unknown z.mt setting");
 		}
 		return {true, false};
 	}
@@ -215,7 +215,7 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 	} else if (strcmp(name, "channel") == 0) {
 		setChannel(p, val, reply, cap, changed);
 	} else {
-		snprintf(reply, cap, "Error: unknown mt. setting");
+		snprintf(reply, cap, "Error: unknown z.mt setting");
 	}
 	return {true, changed};
 }

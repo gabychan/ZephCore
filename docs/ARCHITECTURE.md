@@ -422,7 +422,7 @@ _config_cached = false;         // force full lora_config on the way back
 startReceive();                 // CAS(REST → RX) clears latch + IRQ
 ```
 
-Each such recovery, and each `getCADFailMaxDuration()` of continuous LBT refusals, is counted per cause (`TxStall`, `get tx.stalls`): `ERR_EVENT_CAD_TIMEOUT` alone only says one happened.
+Each such recovery, and each `getCADFailMaxDuration()` of continuous LBT refusals, is counted per cause (`TxStall`, `get z.tx.stalls`): `ERR_EVENT_CAD_TIMEOUT` alone only says one happened.
 
 This walks the chip through REST so the driver's `lora_recv_async` entry CAS (`REST_STATE → RX`) actually succeeds — a bare `startReceive()` from `state == RX` would fail with `-EBUSY` and set `_in_recv_mode = 0` while the driver still thinks it's in RX. After recovery, the dispatcher fires `_tx_queued_cb(1, ...)` to re-wake the loop promptly.
 

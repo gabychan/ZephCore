@@ -74,6 +74,14 @@ protected:
 		def("in_rot", _p->input_rotate);
 		def("pwr_sav_set", _p->powersaving_set);
 		def("gps_stby", _p->gps_standby_max);
+		def("ping_mc_en", _p->ping.mc.enable);
+		def("ping_mc_trig", _p->ping.mc.trigger, sizeof(_p->ping.mc.trigger));
+		def("ping_mt_en", _p->ping.mt.enable);
+		def("ping_mt_trig", _p->ping.mt.trigger, sizeof(_p->ping.mt.trigger));
+		def("ping_rssi", _p->ping.rssi);
+		def("ping_snr", _p->ping.snr);
+		def("ping_nd", _p->ping.ignore_direct);
+		def("ping_nr", _p->ping.ignore_remote);
 	}
 
 public:

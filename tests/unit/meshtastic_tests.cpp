@@ -128,7 +128,7 @@ struct Capture : Sink {
     std::vector<std::pair<uint32_t, uint32_t>> ids;  // (packet id, reply id) per text
     std::vector<std::pair<uint32_t, User>> users;
     std::vector<std::pair<uint32_t, Position>> positions;
-    void onText(uint8_t ch, uint32_t from, uint32_t to, uint32_t id, uint32_t reply, const char* t, size_t n, int8_t, uint8_t hops) override {
+    void onText(uint8_t ch, uint32_t from, uint32_t to, uint32_t id, uint32_t reply, const char* t, size_t n, int8_t, uint8_t hops, uint8_t) override {
         ids.push_back({id, reply});
         texts.push_back({ch, from, to, std::string(t, n), hops});
     }
@@ -948,40 +948,40 @@ TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, r
     RepeaterPrefs p;
     setDefaults(p, 3, RELAY_ALL);
     bool ch = false;
-    CHECK(mtCmd(p, "get mt.enable") == "> on" && mtCmd(p, "get mt.role") == "> client");
-    CHECK(mtCmd(p, "get mt.relay") == "> all" && mtCmd(p, "get mt.relay.opaque") == "> on");
-    CHECK(mtCmd(p, "get mt.channel") == "> SFNarrow (default key)");
+    CHECK(mtCmd(p, "get z.mt.enable") == "> on" && mtCmd(p, "get z.mt.role") == "> client");
+    CHECK(mtCmd(p, "get z.mt.relay") == "> all" && mtCmd(p, "get z.mt.relay.opaque") == "> on");
+    CHECK(mtCmd(p, "get z.mt.channel") == "> SFNarrow (default key)");
     CHECK(mtCmd(p, "get dutycycle") == "<not mine>" && mtCmd(p, "set freq 869") == "<not mine>");
-    CHECK(mtCmd(p, "get mt.nope").find("Error") == 0);
+    CHECK(mtCmd(p, "get z.mt.nope").find("Error") == 0);
 
-    CHECK(mtCmd(p, "set mt.role router_late", &ch) == "OK" && ch && p.role == ROLE_ROUTER_LATE);
-    CHECK(mtCmd(p, "set mt.role router_late", &ch) == "OK" && !ch);  // same value: nothing to save
-    CHECK(mtCmd(p, "set mt.role boss", &ch).find("Error") == 0 && !ch && p.role == ROLE_ROUTER_LATE);
-    CHECK(mtCmd(p, "set mt.relay essential", &ch) == "OK" && p.relay == RELAY_ESSENTIAL);
-    CHECK(mtCmd(p, "set mt.enable off", &ch) == "OK" && p.enable == 0);
-    CHECK(mtCmd(p, "set mt.hops 7", &ch) == "OK" && p.hops == 7);
-    CHECK(mtCmd(p, "set mt.hops 8", &ch).find("Error") == 0 && p.hops == 7);
-    CHECK(mtCmd(p, "set mt.hops x", &ch).find("Error") == 0);
-    CHECK(mtCmd(p, "set mt.nodeinfo 100", &ch) == "OK - 600 s" && p.nodeinfo_s == 600);  // raised to the floor
-    CHECK(mtCmd(p, "set mt.nodeinfo 0", &ch) == "OK - 0 s" && p.nodeinfo_s == 0);
-    CHECK(mtCmd(p, "set mt.telemetry 30", &ch) == "OK - 60 s");
+    CHECK(mtCmd(p, "set z.mt.role router_late", &ch) == "OK" && ch && p.role == ROLE_ROUTER_LATE);
+    CHECK(mtCmd(p, "set z.mt.role router_late", &ch) == "OK" && !ch);  // same value: nothing to save
+    CHECK(mtCmd(p, "set z.mt.role boss", &ch).find("Error") == 0 && !ch && p.role == ROLE_ROUTER_LATE);
+    CHECK(mtCmd(p, "set z.mt.relay essential", &ch) == "OK" && p.relay == RELAY_ESSENTIAL);
+    CHECK(mtCmd(p, "set z.mt.enable off", &ch) == "OK" && p.enable == 0);
+    CHECK(mtCmd(p, "set z.mt.hops 7", &ch) == "OK" && p.hops == 7);
+    CHECK(mtCmd(p, "set z.mt.hops 8", &ch).find("Error") == 0 && p.hops == 7);
+    CHECK(mtCmd(p, "set z.mt.hops x", &ch).find("Error") == 0);
+    CHECK(mtCmd(p, "set z.mt.nodeinfo 100", &ch) == "OK - 600 s" && p.nodeinfo_s == 600);  // raised to the floor
+    CHECK(mtCmd(p, "set z.mt.nodeinfo 0", &ch) == "OK - 0 s" && p.nodeinfo_s == 0);
+    CHECK(mtCmd(p, "set z.mt.telemetry 30", &ch) == "OK - 60 s");
 }
 
 TEST(mt_config_channel, "UNIT-MT-034", "The channel takes a name and an optional 1 or 16 byte base64 key; a bad key changes nothing") {
     RepeaterPrefs p;
     setDefaults(p, 3, RELAY_ALL);
     bool ch = false;
-    CHECK(mtCmd(p, "set mt.channel Mesh AQ==", &ch) == "OK" && ch);
+    CHECK(mtCmd(p, "set z.mt.channel Mesh AQ==", &ch) == "OK" && ch);
     CHECK(std::string(p.channel) == "Mesh" && p.psk_len == 1 && p.psk[0] == 1);
-    CHECK(mtCmd(p, "set mt.channel Mesh AAECAwQFBgcICQoLDA0ODw==", &ch) == "OK" && ch);
+    CHECK(mtCmd(p, "set z.mt.channel Mesh AAECAwQFBgcICQoLDA0ODw==", &ch) == "OK" && ch);
     CHECK(p.psk_len == 16 && p.psk[0] == 0 && p.psk[15] == 15);
-    CHECK(mtCmd(p, "get mt.channel") == "> Mesh (custom key)");
-    CHECK(mtCmd(p, "set mt.channel Other", &ch) == "OK" && ch && p.psk_len == 16);  // key kept
-    CHECK(mtCmd(p, "set mt.channel Other AAEC", &ch).find("Error") == 0 && !ch && p.psk_len == 16);
-    CHECK(mtCmd(p, "set mt.channel Other !!!!", &ch).find("Error") == 0);
-    CHECK(mtCmd(p, "set mt.channel TooLongChannelName", &ch).find("Error") == 0);
-    CHECK(mtCmd(p, "set mt.channel", &ch).find("Error") == 0);
-    CHECK(mtCmd(p, "set mt.channel Mesh default", &ch) == "OK" && ch && p.psk_len == 1 && p.psk[0] == 1);
+    CHECK(mtCmd(p, "get z.mt.channel") == "> Mesh (custom key)");
+    CHECK(mtCmd(p, "set z.mt.channel Other", &ch) == "OK" && ch && p.psk_len == 16);  // key kept
+    CHECK(mtCmd(p, "set z.mt.channel Other AAEC", &ch).find("Error") == 0 && !ch && p.psk_len == 16);
+    CHECK(mtCmd(p, "set z.mt.channel Other !!!!", &ch).find("Error") == 0);
+    CHECK(mtCmd(p, "set z.mt.channel TooLongChannelName", &ch).find("Error") == 0);
+    CHECK(mtCmd(p, "set z.mt.channel", &ch).find("Error") == 0);
+    CHECK(mtCmd(p, "set z.mt.channel Mesh default", &ch) == "OK" && ch && p.psk_len == 1 && p.psk[0] == 1);
     uint8_t out[4];
     CHECK(base64Decode("AQ==", out, sizeof(out)) == 1 && out[0] == 1);
     CHECK(base64Decode("AAECAwQ", out, 4) == -1);  // would overflow
@@ -1110,10 +1110,10 @@ TEST(mt_config_roles, "UNIT-MT-039", "A companion has no channel or telemetry se
     setDefaults(p, 7, RELAY_OFF);
     CHECK(p.relay == RELAY_OFF && p.hops == 7 && p.enable == 1);
     bool ch = true;
-    CHECK(mtCmd(p, "set mt.channel Mesh", &ch, false).find("Error") == 0 && !ch);
-    CHECK(mtCmd(p, "get mt.telemetry", &ch, false).find("Error") == 0);
-    CHECK(mtCmd(p, "set mt.relay all", &ch, false) == "OK" && ch && p.relay == RELAY_ALL);
-    CHECK(mtCmd(p, "set mt.hops 2", &ch, false) == "OK" && p.hops == 2);
+    CHECK(mtCmd(p, "set z.mt.channel Mesh", &ch, false).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "get z.mt.telemetry", &ch, false).find("Error") == 0);
+    CHECK(mtCmd(p, "set z.mt.relay all", &ch, false) == "OK" && ch && p.relay == RELAY_ALL);
+    CHECK(mtCmd(p, "set z.mt.hops 2", &ch, false) == "OK" && p.hops == 2);
     Timer t;
     CHECK(!t.armed() && !t.due(0));
     t.arm(0xFFFFFF00u, 0x200);          // crosses the wrap

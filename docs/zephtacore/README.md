@@ -17,8 +17,8 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Exchanging keys | Marking a Meshtastic contact as favourite, when it still has no name or no key, sends it our NodeInfo with `want_response`, once. We also send our NodeInfo, at most once per node per hour: when a node asks for ours (a unicast NodeInfo with `want_response`), when a node answers `PKI_UNKNOWN_PUBKEY`, and (asking for theirs too) when a PKI message for us arrives from a node whose key we do not hold. |
 | Nodes in the contact list | NodeInfo creates a contact `<long name> (MT)`. |
 | Nodes on the map | Position packets set the contact's coordinates. |
-| Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every `mt.nodeinfo` seconds (12 h), on the first `MT:` channel. |
-| Repeat Meshtastic floods | `mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. |
+| Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every `z.mt.nodeinfo` seconds (12 h), on the first `MT:` channel. |
+| Repeat Meshtastic floods | `z.mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. |
 
 MeshCore behaves as before. A frame that does not decrypt on one of our `MT:` channels is handled as MeshCore.
 
@@ -30,8 +30,8 @@ Companion role, SX126x, LR1110 and LR2021 boards. The feature is `CONFIG_ZEPHTAC
 west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/zephtacore.conf"
 ```
 
-Repeating is the `mt.relay` setting (see `docs/CLI_commands.md`), not a build option. `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`
-is the default of `mt.hops`, the hop limit of the frames we originate; Meshtastic's own default is 3.
+Repeating is the `z.mt.relay` setting (see `docs/CLI_commands.md`), not a build option. `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`
+is the default of `z.mt.hops`, the hop limit of the frames we originate; Meshtastic's own default is 3.
 
 SX127x boards build, but cannot pick the sync word per frame, so Meshtastic is neither heard nor sent there.
 On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x1B`
@@ -83,6 +83,7 @@ only when a firmware raises the revision. Existing channels and radio settings a
   back by the reactive backoff (`backoff.multiplier` x airtime, capped as for MeshCore floods) and never cancels it.
   Why: [CAD.md](CAD.md).
 - Frames we send to Meshtastic carry Meshtastic's 16-symbol preamble whatever the SF (SX126x, LR11xx, LR20xx).
+- The ping bot (`z.mc.ping.*`, `z.mt.ping.*`, off until a command is chosen) is in the companion and the repeater, on the fixed channels `#bot` (MeshCore) and `Bots` (Meshtastic). It reports hops, SNR and the route: all of it in MeshCore, only the last relay in Meshtastic, which carries just that. The frequency error meshtacore's `PPING` adds is not available per packet in ZephCore's radio drivers yet. See [CLI_commands.md](../CLI_commands.md).
 - The contact list holds Meshtastic nodes as ordinary contacts, so they count against `CONFIG_ZEPHCORE_MAX_CONTACTS`.
 
 ## How it works
@@ -121,11 +122,11 @@ derived from it matches.
 
 The repeater role builds with the same `CONFIG_ZEPHTACORE_MESHTASTIC` (`boards/common/repeater.conf;boards/common/zephtacore.conf`).
 It holds one channel, the primary (default `SFNarrow`, the companion's own first channel, named once in `MT_DEFAULT_CHANNEL`), because Meshtastic sends NodeInfo, position and telemetry on it.
-Settings live under `mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI_commands.md`).
+Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI_commands.md`).
 
 | Piece | Where |
 | --- | --- |
-| Repeater glue (RX hook, NodeInfo, position, telemetry, `mt.` commands) | `zephcore/app/RepeaterMeshtastic.cpp` |
+| Repeater glue (RX hook, NodeInfo, position, telemetry, `z.mt.` commands) | `zephcore/app/RepeaterMeshtastic.cpp` |
 | What companion and repeater share: hearing a frame, repeating it with the role's timing, giving way to an echo, our own frames, AES, self identity | `zephcore/app/MtRelayPort.h/.cpp` |
 | Settings, command parser, defaults | `zephcore/helpers/meshtastic/MtConfig.h/.cpp` |
 | What gives way to an echo | `mt::relayClassOf` in `MtPolicy.h` |
@@ -148,9 +149,9 @@ floods on) and sets `relay_node`. A frame first heard while it named another nod
 fallback, and the originator sending a frame again (`hop_start == hop_limit`, nobody ACKed) is repeated again, once per retry.
 A repeat heard from another repeater is not dropped if that repeater named this node.
 
-Our NodeInfo, our position and our device metrics (when enabled) go out on the primary channel only. The position is the MeshCore one (`set lat` / `set lon`), sent after each NodeInfo while `advert.loc` is not `none`. Name, identity, radio parameters and `repeat` stay MeshCore's; `mt.relay` is Meshtastic's own switch, independent of `repeat`.
+Our NodeInfo, our position and our device metrics (when enabled) go out on the primary channel only. The position is the MeshCore one (`set lat` / `set lon`), sent after each NodeInfo while `advert.loc` is not `none`. Name, identity, radio parameters and `repeat` stay MeshCore's; `z.mt.relay` is Meshtastic's own switch, independent of `repeat`.
 
-Companion and repeater keep one copy of the settings (`mt::RepeaterPrefs`), of the `mt.` commands (`CommonCLI::handleMtCmd`),
+Companion and repeater keep one copy of the settings (`mt::RepeaterPrefs`), of the `z.mt.` commands (`CommonCLI::handleMtCmd`),
 of `prefs.json` `mt{}`, and of the timers and beacons (`MtRelayPort::apply/arm/tick`). The role supplies only what it has:
 the repeater its channel, position and metrics (`MtRelayPort::Source`), the companion its channels.
 

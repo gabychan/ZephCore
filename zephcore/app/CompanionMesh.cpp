@@ -1131,6 +1131,66 @@ void CompanionMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh
 		);
 	}
 #endif
+	ChannelDetails ch;
+
+	if (pkt && getChannel(channel_idx, ch) && strcmp(ch.name, PING_MC_CHANNEL) == 0) {
+		const uint8_t hops = pkt->getPathHashCount();
+		const ping::Heard heard = {hops, pkt->_snr, (int16_t)_radio->getLastRSSI(),
+					   {pkt->path, pkt->getPathHashSize(), hops}};
+
+		pingReply(ping::PROTO_MC, channel_idx, heard, text);
+	}
+}
+
+/* The ping bot's answer goes out the way the app's own channel text does. */
+void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, const ping::Heard &heard, const char *text)
+{
+	ChannelDetails ch;
+	char out[MAX_TEXT_LEN + 1];
+
+	if (!getChannel(channel_idx, ch)) {
+		return;
+	}
+	size_t n = ping::reply(prefs.ping, ping::countersOf(_ping_stats, w), w, text, heard, pingName, this, out,
+			       sizeof(out) - 32);
+
+	if (n == 0) {
+		return;
+	}
+	const uint32_t ts = getRTCClock()->getCurrentTimeUnique();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	bool mt_sent = false;
+
+	if (w == ping::PROTO_MT) {
+		mtSendChannelText(channel_idx, ts, out, n, mt_sent);
+		return;
+	}
+#endif
+	sendGroupMessage(ts, ch.channel, prefs.node_name, out, n);
+}
+
+/* A repeater of that hash among the contacts (MeshCore), or a Meshtastic node ending in that byte. */
+int CompanionMesh::pingName(void *ctx, ping::Protocol w, const uint8_t *hash, uint8_t size, char *out, size_t cap)
+{
+	CompanionMesh &m = *(CompanionMesh *)ctx;
+	int found = 0;
+
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	if (w == ping::PROTO_MT) {
+		return m.mtNameOfRelay(hash[0], out, cap);
+	}
+#endif
+	ContactInfo c;
+
+	for (int i = 0; i < m.getNumContacts(); i++) {
+		if (m.getContactByIdx(i, c) && c.type == ADV_TYPE_REPEATER && memcmp(c.id.pub_key, hash, size) == 0) {
+			if (found++ == 0) {
+				snprintf(out, cap, "%s", c.name);
+			}
+		}
+	}
+	(void)w;
+	return found > 1 ? 2 : found;
 }
 
 void CompanionMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt,

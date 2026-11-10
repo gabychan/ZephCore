@@ -45,10 +45,11 @@ uint32_t relayDelayMs(uint32_t slot_ms, bool early, uint32_t r);
 class Sink {
 public:
 	virtual ~Sink() {}
-	/* text is not NUL terminated. hops is 0 when the sender did not set hop_start. */
+	/* text is not NUL terminated. hops is 0 when the sender did not set hop_start.
+	 * relay: last byte of the node number that sent us the frame (the sender itself when hops is 0). */
 	virtual void onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
 			    uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
-			    uint8_t hops) = 0;
+			    uint8_t hops, uint8_t relay) = 0;
 	virtual void onNodeInfo(uint32_t from, const User &user) = 0;
 	virtual void onPosition(uint32_t from, const Position &pos) = 0;
 	/* A PKI direct message for us. want_ack: the sender asks for an ACK. */

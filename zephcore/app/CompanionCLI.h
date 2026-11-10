@@ -148,6 +148,8 @@ public:
 		return _mesh.getMeshTimeSync();
 	}
 
+	ping::Stats* pingStats() override { return _mesh.pingStats(); }
+
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 	/* mt.*: the channels are the app's, so channel and telemetry do not apply. */
 	void onMtPrefsChanged() override { _mesh.mtPrefsChanged(); }

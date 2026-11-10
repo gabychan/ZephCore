@@ -566,6 +566,44 @@ void RepeaterMesh::sendFloodReply(mesh::Packet* packet, unsigned long delay_mill
   }
 }
 
+/* The ping bot's channel is known only while the bot is on, so a repeater without it never opens a group packet. */
+int RepeaterMesh::searchChannelsByHash(const uint8_t* hash, mesh::GroupChannel channels[], int max_matches) {
+  if (!_prefs.ping.mc.enable || max_matches < 1 || hash[0] != _ping_channel.hash[0]) {
+    return 0;
+  }
+  channels[0] = _ping_channel;
+  return 1;
+}
+
+/* "<sender>: <text>" on the ping channel; the answer goes back as the same kind of channel text. */
+void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mesh::GroupChannel& channel, uint8_t* data, size_t len) {
+  if (type != PAYLOAD_TYPE_GRP_TXT || len < 5 || (data[4] >> 2) != 0) {
+    return;
+  }
+  data[len] = 0;
+  char out[96];
+  const uint8_t hops = packet->getPathHashCount();
+  const ping::Heard heard = {hops, packet->_snr, (int16_t)_radio->getLastRSSI(),
+                             {packet->path, packet->getPathHashSize(), hops}};
+
+  /* No names: a repeater keeps only the keys of its neighbours, so the route is in hex. */
+  if (ping::reply(_prefs.ping, _ping_stats.mc, ping::PROTO_MC, (const char*)&data[5], heard, nullptr, nullptr, out,
+                  sizeof(out)) == 0) {
+    return;
+  }
+  uint8_t temp[5 + sizeof(_prefs.node_name) + 2 + sizeof(out)];
+  const uint32_t timestamp = getRTCClock()->getCurrentTimeUnique();
+
+  memcpy(temp, &timestamp, 4);
+  temp[4] = 0;  // TXT_TYPE_PLAIN
+  int n = snprintf((char*)&temp[5], sizeof(temp) - 5, "%s: %s", _prefs.node_name, out);
+  mesh::Packet* pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_TXT, channel, temp, 5 + n);
+
+  if (pkt) {
+    sendFloodReply(pkt, SERVER_RESPONSE_DELAY, packet->getPathHashSize());
+  }
+}
+
 bool RepeaterMesh::allowPacketForward(const mesh::Packet *packet) {
   if (_prefs.disable_fwd) return false;
   if (packet->isRouteFlood()
@@ -1071,6 +1109,14 @@ void RepeaterMesh::begin(RepeaterDataStore* store) {
    * begin() — the radio reads freq/bw/sf/cr through _prefs during
    * Mesh::begin() → Dispatcher::begin() → Radio::begin(). */
   mesh::Mesh::begin();
+  {
+    /* A hashtag channel's secret is the first 16 bytes of SHA256 of its name. */
+    uint8_t digest[32];
+    mesh::Utils::sha256(digest, sizeof(digest), (const uint8_t*)PING_MC_CHANNEL, strlen(PING_MC_CHANNEL));
+    memset(&_ping_channel, 0, sizeof(_ping_channel));
+    memcpy(_ping_channel.secret, digest, 16);
+    mesh::Utils::sha256(_ping_channel.hash, sizeof(_ping_channel.hash), _ping_channel.secret, 16);
+  }
   _contention.setBackoffMultiplier(_prefs.backoff_multiplier);
   acl.load(_store->getFS(), self_id);
   region_map.load(_store->getFS());

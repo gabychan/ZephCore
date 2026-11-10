@@ -340,7 +340,7 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 
 void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
 				   uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
-				   uint8_t hops)
+				   uint8_t hops, uint8_t relay)
 {
 	(void)to;
 
@@ -395,6 +395,29 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 	if (pkt) {
 		m.releasePacket(pkt);
 	}
+	if (strcmp(ch.name, "MT:" PING_MT_CHANNEL) == 0) {
+		const ping::Heard heard = {hops, snr_x4, (int16_t)m._radio->getLastRSSI(),
+					   {&relay, 1, (uint8_t)(hops ? 1 : 0)}};
+
+		m.pingReply(ping::PROTO_MT, channel_id, heard, line);
+	}
+}
+
+int CompanionMesh::mtNameOfRelay(uint8_t relay, char *out, size_t cap)
+{
+	ContactInfo c;
+	char base[32];
+	int found = 0;
+
+	for (int i = 0; i < getNumContacts(); i++) {
+		if (getContactByIdx(i, c) && c.sync_since != 0 && (uint8_t)c.sync_since == relay &&
+		    mtContactBase(c.name, base, sizeof(base))) {
+			if (found++ == 0) {
+				snprintf(out, cap, "%s", base);
+			}
+		}
+	}
+	return found > 1 ? 2 : found;
 }
 
 void CompanionMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)

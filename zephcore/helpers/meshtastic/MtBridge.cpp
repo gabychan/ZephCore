@@ -288,7 +288,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 	if (d.portnum == PORT_TEXT) {
 		if ((h.to == kBroadcast || h.to == _self) && d.payload_len > 0) {
 			sink.onText(match->id, h.from, h.to, h.id, d.reply_id,
-				    (const char *)d.payload, d.payload_len, snr_x4, hops);
+				    (const char *)d.payload, d.payload_len, snr_x4, hops, h.relay);
 		}
 	} else {
 		deliverData(h, d, match->id, snr_x4, sink);

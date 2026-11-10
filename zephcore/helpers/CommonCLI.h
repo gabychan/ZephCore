@@ -68,6 +68,8 @@ public:
 
 	/* Zephtacore "mt." commands: standalone = the node has a channel of its own
 	 * (repeater); the role applies the settings after a change. */
+	virtual ping::Stats* pingStats() { return nullptr; }  /* null: the role has no ping bot */
+	virtual void onPingPrefsChanged() {}
 	virtual bool mtStandalone() const { return false; }
 	virtual void onMtPrefsChanged() {}
 	virtual void formatMtStatsReply(char* reply, size_t cap) { (void)cap; strcpy(reply, "not available"); }

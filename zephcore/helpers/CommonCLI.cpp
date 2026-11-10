@@ -337,7 +337,7 @@ bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 	const size_t cap = replyCap(sender_timestamp);
 
-	if (strcmp(command, "get mt.stats") == 0) {
+	if (strcmp(command, "get z.mt.stats") == 0) {
 		_callbacks->formatMtStatsReply(reply, cap);
 		return true;
 	}
@@ -357,6 +357,26 @@ bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
 	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
+		return;
+	}
+	if (ping::isCommand(command)) {
+		ping::Stats* stats = _callbacks->pingStats();
+#if !IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		if (strncmp(command + 6, "mt.", 3) == 0) {
+			stats = nullptr;
+		}
+#endif
+		if (!stats) {
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
+			return;
+		}
+		const ping::CmdResult pr = ping::handleCommand(_prefs->ping, *stats, command, reply, replyCap(sender_timestamp));
+
+		if (pr.changed) {
+			ping::sanitize(_prefs->ping);
+			_callbacks->onPingPrefsChanged();
+			savePrefs();
+		}
 		return;
 	}
 	if (handleMtCmd(sender_timestamp, command, reply)) {
@@ -1240,7 +1260,7 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, const char* command, cha
 	} else if (memcmp(config, "loop.wakes", 10) == 0) {
 		loopWakeFormat(reply, replyCap(sender_timestamp));
 #endif
-	} else if (memcmp(config, "tx.stalls", 9) == 0) {
+	} else if (memcmp(config, "z.tx.stalls", 11) == 0) {
 		size_t cap = replyCap(sender_timestamp);
 		int n = snprintf(reply, cap, "> ");
 		if (_callbacks->formatTxStallStatus(reply + n, (int)cap - n) == 0) {

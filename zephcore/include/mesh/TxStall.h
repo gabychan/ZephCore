@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: MIT
  * TX stalls: times the dispatcher could not transmit for getCADFailMaxDuration(),
- * per cause, for `get tx.stalls`. ERR_EVENT_CAD_TIMEOUT only says one happened.
+ * per cause, for `get z.tx.stalls`. ERR_EVENT_CAD_TIMEOUT only says one happened.
  */
 
 #pragma once

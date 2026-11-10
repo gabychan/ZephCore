@@ -102,6 +102,7 @@ public:
 	CompanionMesh(mesh::Radio &radio, mesh::MillisecondClock &ms, mesh::RNG &rng,
 		mesh::RTCClock &rtc, mesh::PacketManager &mgr, mesh::MeshTables &tables,
 		ZephyrDataStore &store);
+	ping::Stats *pingStats() { return &_ping_stats; }
 
 	void begin();
 	void loop();
@@ -234,6 +235,9 @@ protected:
 	uint32_t calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t path_len) const override;
 	void onSendTimeout() override;
 	void onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint32_t timestamp, const char *text) override;
+	void pingReply(ping::Protocol w, uint8_t channel_idx, const ping::Heard &heard, const char *text);
+	static int pingName(void *ctx, ping::Protocol w, const uint8_t *hash, uint8_t size, char *out, size_t cap);
+	ping::Stats _ping_stats = {};
 	void onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint16_t data_type,
 		const uint8_t *data, size_t data_len) override;
 	uint8_t onContactRequest(const ContactInfo &contact, uint32_t sender_timestamp, const uint8_t *data, uint8_t len, uint8_t *reply) override;
@@ -308,7 +312,7 @@ private:
 		explicit MtSink(CompanionMesh &mesh) : m(mesh) {}
 		void onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
 			    uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
-			    uint8_t hops) override;
+			    uint8_t hops, uint8_t relay) override;
 		void onNodeInfo(uint32_t from, const mt::User &user) override;
 		void onPosition(uint32_t from, const mt::Position &pos) override;
 		void onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
@@ -363,6 +367,8 @@ private:
 	void mtSyncChannels();
 	void mtSetup();
 	bool mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE]);
+	/* Contacts that are Meshtastic nodes whose number ends in relay: the first one's name in out, how many. */
+	int mtNameOfRelay(uint8_t relay, char *out, size_t cap);
 	bool mtNodeOf(const ContactInfo &contact, uint32_t &node);
 	void mtUpsertContact(uint32_t node, const char *name, bool has_pos, int32_t lat_i, int32_t lon_i);
 	int mtFirstChannel() const;

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: MIT
  * Zephtacore: the repeater's Meshtastic side. It repeats Meshtastic floods on
  * the radio it shares with MeshCore, announces itself with a NodeInfo on its
- * primary channel, and answers the "mt." CLI commands. Nothing here enters the
+ * primary channel, and answers the "z.mt." CLI commands. Nothing here enters the
  * MeshCore routing path.
  */
 
@@ -19,6 +19,7 @@
 LOG_MODULE_DECLARE(zephcore_repeater, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 
 static constexpr uint8_t kPrimaryChannel = 0;
+static constexpr uint8_t kBotChannel = 1;
 /* Unix time of 2023-11-14: an earlier clock was never set. */
 static constexpr uint32_t kClockSetAfter = 1700000000u;
 
@@ -82,9 +83,53 @@ void RepeaterMesh::mtApplyPrefs()
 		MtRelayPort::renameSelf(_mt, _prefs.node_name);
 	}
 	_mtport.apply(p);
+	mtSetChannels();
+	_mtport.arm((uint32_t)_ms->getMillis(), p);
+}
+
+/* The primary channel, and the ping bot's while the bot is on. */
+void RepeaterMesh::mtSetChannels()
+{
+	const mt::RepeaterPrefs &p = _prefs.mt;
+
 	_mt.clearChannels();
 	_mt.setChannel(kPrimaryChannel, p.channel, p.psk, p.psk_len);
-	_mtport.arm((uint32_t)_ms->getMillis(), p);
+	if (_prefs.ping.mt.enable) {
+		const uint8_t index = ping::kMtPskIndex;
+
+		_mt.setChannel(kBotChannel, PING_MT_CHANNEL, &index, 1);
+	}
+}
+
+void RepeaterMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
+				  uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
+				  uint8_t hops, uint8_t relay)
+{
+	(void)from; (void)to; (void)reply_id;
+	if (channel_id == kBotChannel) {
+		m.mtPing(text, len, id, snr_x4, hops, relay);
+	}
+}
+
+/* Answers as a reply to the message, on the channel it came on. The text has no sender, so no "@[name]". */
+void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_x4, uint8_t hops, uint8_t relay)
+{
+	char line[ping::kTriggerMax + 2];
+	char out[96];
+	const ping::Heard heard = {hops, snr_x4, (int16_t)_radio->getLastRSSI(), {&relay, 1, (uint8_t)(hops ? 1 : 0)}};
+
+	if (!_prefs.mt.enable || len >= sizeof(line)) {
+		return;
+	}
+	memcpy(line, text, len);
+	line[len] = '\0';
+	size_t n = ping::reply(_prefs.ping, _ping_stats.mt, ping::PROTO_MT, line, heard, nullptr, nullptr, out, sizeof(out));
+	uint8_t frame[mt::kMaxTxFrame];
+
+	n = n ? _mt.buildText(kBotChannel, mt::kBroadcast, out, n, frame, sizeof(frame), id) : 0;
+	if (n) {
+		_mtport.send(frame, n);
+	}
 }
 
 bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)

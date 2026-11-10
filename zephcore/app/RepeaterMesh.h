@@ -115,13 +115,16 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   // Zephtacore: the Meshtastic side of the repeater (RepeaterMeshtastic.cpp).
   struct MtSink : mt::Sink {
-    void onText(uint8_t, uint32_t, uint32_t, uint32_t, uint32_t, const char*, size_t, int8_t, uint8_t) override {}
+    explicit MtSink(RepeaterMesh& mesh) : m(mesh) {}
+    void onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id, uint32_t reply_id, const char* text,
+                size_t len, int8_t snr_x4, uint8_t hops, uint8_t relay) override;
+    RepeaterMesh& m;
     void onNodeInfo(uint32_t, const mt::User&) override {}
     void onPosition(uint32_t, const mt::Position&) override {}
   };
   mt::Bridge _mt{MtRelayPort::aesBlock};
   MtRelayPort _mtport{*this, _mt};
-  MtSink _mt_sink;
+  MtSink _mt_sink{*this};
   struct MtSource : MtRelayPort::Source {
     explicit MtSource(RepeaterMesh& mesh) : m(mesh) {}
     bool position(mt::Position& pos) override;
@@ -132,9 +135,13 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   MtSource _mt_source{*this};
   bool _mt_ready = false;
   void mtApplyPrefs();
+  void mtSetChannels();
+  void mtPing(const char* text, size_t len, uint32_t id, int8_t snr_x4, uint8_t hops, uint8_t relay);
   void mtTick();
   void mtFormatStats(char* reply, size_t cap) const;
 #endif
+  mesh::GroupChannel _ping_channel;  // PING_MC_CHANNEL
+  ping::Stats _ping_stats = {};
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
@@ -234,6 +241,8 @@ protected:
 
   void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override;
   int searchPeersByHash(const uint8_t* hash) override;
+  int searchChannelsByHash(const uint8_t* hash, mesh::GroupChannel channels[], int max_matches) override;
+  void onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mesh::GroupChannel& channel, uint8_t* data, size_t len) override;
   void getPeerSharedSecret(uint8_t* dest_secret, int peer_idx) override;
   void onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len);
   void onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) override;
@@ -321,6 +330,10 @@ public:
   bool mtStandalone() const override { return true; }
   void onMtPrefsChanged() override { mtApplyPrefs(); }
   void formatMtStatsReply(char* reply, size_t cap) override { mtFormatStats(reply, cap); }
+#endif
+  ping::Stats* pingStats() override { return &_ping_stats; }
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  void onPingPrefsChanged() override { mtSetChannels(); }
 #endif
   uint32_t getDefaultGpsIntervalSec() const override { return CONFIG_ZEPHCORE_REPEATER_GPS_INTERVAL_SEC; }
   void freezeRadioParams(float freq, float bw, uint8_t sf, uint8_t cr) override;

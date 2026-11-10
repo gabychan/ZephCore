@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: MIT
- * The Meshtastic settings of a repeater and the "mt." CLI commands that read
+ * The Meshtastic settings of a repeater and the "z.mt." CLI commands that read
  * and change them. Pure code, host tested; persistence is prefs.json's mt{}.
  */
 
@@ -149,7 +149,7 @@ struct CmdResult {
 	bool changed;  /* a setting changed: save it */
 };
 
-/* "get mt.<key>" and "set mt.<key> <value>". The reply is always written when
+/* "get z.mt.<key>" and "set z.mt.<key> <value>". The reply is always written when
  * handled. standalone: the node has one channel of its own (a repeater) and
  * sends telemetry; a companion's channels are the app's. */
 CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap,

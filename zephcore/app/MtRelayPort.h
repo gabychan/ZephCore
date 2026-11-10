@@ -63,7 +63,7 @@ public:
 	bool send(const uint8_t *frame, size_t len);
 
 	const Stats &stats() const { return _stats; }
-	/* "heard=.. relayed=.." for get mt.stats. */
+	/* "heard=.. relayed=.." for get z.mt.stats. */
 	void formatStats(char *out, size_t cap) const;
 
 private:

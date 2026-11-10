@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "LoRaConfig.h"
+#include "PingBot.h"
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 #include "meshtastic/MtConfig.h"
 #endif
@@ -200,6 +201,7 @@ struct NodePrefs {
 	char wifi_ssid[33];
 	char wifi_pwd[64];
 	uint8_t wifi_enabled;           // 1 = join wifi_ssid when set (upstream default)
+	ping::Prefs ping;               // ping bot; prefs.json zc{} ping_*
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 	/* The Meshtastic side of Zephtacore; prefs.json mt{} (ADR 0013). */
 	mt::RepeaterPrefs mt;
@@ -328,6 +330,7 @@ static inline void sanitizeNodePrefs(NodePrefs* p) {
 	 * that was neither 0 nor 1 silently switched adaptive CAD off instead of
 	 * restoring the default — left over from when the default was dry-run. */
 	p->cad_auto            = saneBool<uint8_t>(p->cad_auto, 1);
+	ping::sanitize(p->ping);
 	p->allow_read_only     = saneBool<uint8_t>(p->allow_read_only, 0);
 	p->powersaving_enabled = saneBool<uint8_t>(p->powersaving_enabled, POWERSAVING_DEFAULT);
 	p->powersaving_set     = saneBool<uint8_t>(p->powersaving_set, 0);
@@ -458,6 +461,7 @@ static inline void initNodePrefs(NodePrefs* prefs) {
 	prefs->v_contact_enabled = 1;     // Default ON — v-contact loopback admin chat (companion)
 	prefs->v_battery_alert_mv = 0xFFFF; // Sentinel: derive from board auto-shutdown threshold
 	prefs->wifi_enabled = 1;          // as upstream: WiFi still stays off until an SSID is set
+	ping::setDefaults(prefs->ping);   // Default OFF
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 #ifdef CONFIG_ZEPHTACORE_MT_HOP_LIMIT
 	const uint8_t mt_hops = CONFIG_ZEPHTACORE_MT_HOP_LIMIT;

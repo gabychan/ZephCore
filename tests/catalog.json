@@ -811,6 +811,56 @@
       "id": "UNIT-DISPATCH-020",
       "name": "TX stalls are counted per cause with age and longest streak",
       "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-001",
+      "name": "A direct ping is answered with the SNR alone by default, and with the RSSI when it is on",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-002",
+      "name": "MeshCore: the whole route, a name when the hash is known, its hex otherwise, ? when shared",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-003",
+      "name": "Meshtastic: the last relay only, by name or in hex",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-004",
+      "name": "A long name is cut to 14 bytes without splitting a UTF-8 character",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-005",
+      "name": "Each protocol answers only its own exact command, without regard to case, and only when on",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-006",
+      "name": "ignore.direct and ignore.remote turn pings away; each protocol counts its own",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-007",
+      "name": "A long route is cut with .. keeping the SNR; a small buffer is never overrun",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-008",
+      "name": "z.mc.ping.*, z.mt.ping.* and z.ping.* read and change the settings; a protocol needs a command to turn on",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-009",
+      "name": "status is per protocol: state, command and counters; it cannot be set",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-010",
+      "name": "A prefs blob out of range comes back valid; a protocol without a trigger is off",
+      "source": "tests/unit/ping_tests.cpp"
     }
   ]
 }
