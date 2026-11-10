@@ -53,6 +53,20 @@ void LoRaRadio::applySyncWord(SyncKind kind)
 	}
 }
 
+void LoRaRadio::setMtListen(bool on)
+{
+	if (atomic_set(&_mt_listen, on ? 1 : 0) == (on ? 1 : 0)) {
+		return;
+	}
+	LOG_INF("rx sync word: %s", on ? "MeshCore and Meshtastic" : "MeshCore");
+	/* A receiver already running takes the new word now; otherwise the next startReceive() does. */
+	if (atomic_get(&_in_recv_mode) && !atomic_get(&_tx_active)) {
+		hwCancelReceive();
+		atomic_set(&_in_recv_mode, 0);
+		startReceive();
+	}
+}
+
 void LoRaRadio::applyTxPreamble()
 {
 	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_tx_preamble_len) {
@@ -577,7 +591,7 @@ void LoRaRadio::clearRadioOverride()
 void LoRaRadio::startReceive()
 {
 	configureRx();
-	applySyncWord(SyncKind::HybridRx);
+	applySyncWord(atomic_get(&_mt_listen) ? SyncKind::HybridRx : SyncKind::MeshCore);
 
 	int ret;
 

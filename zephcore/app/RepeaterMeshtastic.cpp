@@ -76,6 +76,7 @@ void RepeaterMesh::mtApplyPrefs()
 {
 	const mt::RepeaterPrefs &p = _prefs.mt;
 
+	_radio->setMtListen(p.enable != 0);
 	if (!_mt_ready) {
 		MtRelayPort::initSelf(_mt, self_id, _prefs.node_name, *getRNG());
 		_mt_ready = true;

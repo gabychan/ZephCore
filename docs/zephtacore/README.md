@@ -134,7 +134,7 @@ Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI
 | MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. A frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser, whatever the `z.mt.*` settings (`MtRelayPort::unopened`) |
 | Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard`, `cancelForeignRelay` |
 
-The receiver is hybrid and does not report the sync word a frame came in on. A frame that none of our channels opens is told
+The receiver is hybrid while `z.mt.enable` is on (`LoRaRadio::setMtListen`); with it off, and on every role without Meshtastic, it listens with MeshCore's sync word alone, as upstream does. A hybrid receiver does not report the sync word a frame came in on. A frame that none of our channels opens is told
 from MeshCore by its shape: it must parse as MeshCore, its payload must be whole 16-byte AES blocks after the fixed part,
 and its Meshtastic `to`/`from` must not be our node number (the check meshtacore uses). A real MeshCore frame always passes;
 about one Meshtastic frame in fifty does by chance and is handled as MeshCore, as it was before this feature.

@@ -57,6 +57,13 @@ public:
   virtual void setNextTxForeign(bool foreign) { }
 
   /**
+   * \brief  ZEPHCORE: whether the receiver also takes Meshtastic frames (true) or listens
+   *         with MeshCore's sync word alone (false, the default).
+   *         Radios that cannot send a second sync word ignore it.
+  */
+  virtual void setMtListen(bool on) { }
+
+  /**
    * \returns true if the previous 'startSendRaw()' completed successfully.
    * ZEPHCORE: one-shot — returns true exactly once per completed transmit and
    * consumes that completion (like RadioLibWrapper). Never use it as a state

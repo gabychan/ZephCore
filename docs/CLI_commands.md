@@ -240,7 +240,7 @@ The repeater and the companion repeat Meshtastic floods on the radio they share 
 
 | Command | Description |
 |---------|-------------|
-| `get z.mt.enable` / `set z.mt.enable on\|off` | Meshtastic side on or off (default on). Off: no frame is repeated as Meshtastic and the NodeInfo stops. |
+| `get z.mt.enable` / `set z.mt.enable on\|off` | Meshtastic side on or off (default on). Off: the receiver listens with MeshCore's sync word alone (Meshtastic frames are no longer heard), no frame is repeated as Meshtastic and the NodeInfo stops. |
 | `get z.mt.role` / `set z.mt.role client\|router\|router_late\|repeater` | Role announced in our NodeInfo and its timing (default `client`). `router` repeats in the first slots, before any client, and never gives way to an echo. `router_late` waits like a client and never gives way. `client` and `repeater` give way to an echo for frames that are not essential. |
 | `get z.mt.relay` / `set z.mt.relay off\|essential\|all` | What is repeated (default `essential` on the repeater, `off` on the companion). `essential`: text, direct messages, their ACKs, NodeInfo and traceroute. `all`: those, which are always sent even if another node repeated them first, plus the rest (position, telemetry, other ports), which are dropped if another node repeats them while ours waits. |
 | `get z.mt.relay.opaque` / `set z.mt.relay.opaque on\|off` | Also repeat frames of channels this node holds no key for (default on). Direct messages between nodes count as essential. |

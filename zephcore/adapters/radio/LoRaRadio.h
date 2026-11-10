@@ -54,6 +54,7 @@ public:
 	float packetScore(float snr, int packet_len) override;
 	bool startSendRaw(const uint8_t *bytes, int len) override;
 	void setNextTxForeign(bool foreign) override { _tx_foreign = foreign; }
+	void setMtListen(bool on) override;
 	bool isSendComplete() override;
 	void onSendFinished() override;
 	bool isInRecvMode() const override;
@@ -345,6 +346,8 @@ private:
 	bool _config_cached;
 	/* The next startSendRaw() carries a Meshtastic frame (sync word 0x2B). */
 	bool _tx_foreign = false;
+	/* RX takes both sync words; off, MeshCore's alone. */
+	atomic_t _mt_listen = 0;
 	/* Writes one SX126x sync word register; a no-op unless the family has the op. */
 	void applySyncWord(SyncKind kind);
 	/* Meshtastic frames go out with Meshtastic's 16 symbols, MeshCore ones with ours. */

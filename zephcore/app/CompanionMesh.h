@@ -401,6 +401,8 @@ public:
 	void mtAddDefaultChannels();
 	/* mt.* settings changed through the CLI, and its stats. */
 	void mtPrefsChanged();
+	/* The receiver takes Meshtastic frames while z.mt.enable is on. */
+	void mtApplyListen();
 	void mtFormatStats(char *reply, size_t cap) const;
 private:
 #endif

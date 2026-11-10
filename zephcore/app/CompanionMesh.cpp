@@ -111,6 +111,9 @@ void CompanionMesh::begin()
 	 * but its private half is derived-and-dropped — never stored, never used —
 	 * and only this node can recompute it. */
 	deriveVContactKey();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	mtApplyListen();
+#endif
 	/* Stamp lastmod only if a time source already ran (hardware RTC restore
 	 * happens before begin()). Otherwise stay deferred (lastmod = 0) until
 	 * vcontactClockSynced() — an advert stamped now would show as 1970. */

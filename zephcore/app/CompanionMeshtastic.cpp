@@ -154,9 +154,15 @@ void CompanionMesh::mtSetup()
 	_mtport.arm((uint32_t)_ms->getMillis(), prefs.mt);
 }
 
+void CompanionMesh::mtApplyListen()
+{
+	_radio->setMtListen(prefs.mt.enable != 0);
+}
+
 /* mt.* changed through the CLI. */
 void CompanionMesh::mtPrefsChanged()
 {
+	mtApplyListen();
 	if (_mt_ready) {
 		MtRelayPort::renameSelf(_mt, prefs.node_name);
 		_mtport.apply(prefs.mt);
