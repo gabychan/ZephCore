@@ -139,6 +139,7 @@ renunciar a repetir. meshtacore lo resolvió de otra forma: la cancelación se p
 | CAD, bloqueo de RX, recuperación | Los de ZephCore | CAD de hardware siempre activo, umbral adaptativo, operación atómica en el driver |
 | Repetición de floods MeshCore | La de ZephCore | Ventana adaptativa y espera extra por duplicados |
 | Repetición de floods Meshtastic | Ventana en slots ponderada por SNR, como Meshtastic, más la espera extra por duplicados de ZephCore, sin cancelar | Coordinarse con los repetidores Meshtastic de alrededor sin perder mensajes en topologías débiles |
+| Frames Meshtastic propios (NodeInfo, texto, respuestas del ping bot) | Entre 0 y 7 slots de espera antes del CAD (la ventana mínima de Meshtastic, 2³) | Si varios nodos contestan al mismo mensaje, sin espera todos llegan al CAD en el mismo instante y lo ven libre |
 | Preámbulo de los frames Meshtastic | 16 símbolos, el de Meshtastic, en SX126x, LR11xx y LR20xx | Con SF≤8 MeshCore usa 32: enviar los frames Meshtastic con 32 solo gastaba aire |
 
 ## 7. Cómo comprobarlo en una zona congestionada

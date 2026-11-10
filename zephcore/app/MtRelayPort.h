@@ -51,7 +51,8 @@ public:
 	/* First NodeInfo (and telemetry) soon after boot or after a change. */
 	void arm(uint32_t now_ms, const mt::RepeaterPrefs &p);
 	/* Sends what is due on this channel. */
-	void tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src);
+	void tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src, uint8_t sf,
+		  float bw);
 	/* The soonest deadline, false when nothing is planned. */
 	bool nextAt(uint32_t &at_ms) const;
 
@@ -63,8 +64,8 @@ public:
 	 * MeshCore, RX_IGNORED otherwise. Only the first reaches the MeshCore stack. */
 	static mt::RxResult unopened(const uint8_t raw[], int len, uint32_t self);
 
-	/* A frame we originate, out at once. */
-	bool send(const uint8_t *frame, size_t len);
+	/* A frame we originate, after a slot or two of the contention window. */
+	bool send(const uint8_t *frame, size_t len, uint8_t sf, float bw);
 
 	const Stats &stats() const { return _stats; }
 	/* "heard=.. relayed=.." for get z.mt.stats. */

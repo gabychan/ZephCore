@@ -1159,3 +1159,12 @@ TEST(mt_discriminate_shapes, "UNIT-MT-040", "Every MeshCore payload type, route 
         CHECK(n > 0 && !looksLikeMeshCore(mt, n, 0));
     }
 }
+
+TEST(mt_origin_delay, "UNIT-MT-041", "A frame of our own waits 0 to 7 slots, never as long as a client repeat") {
+    const uint32_t slot = slotTimeMs(11, 250.0f);     // LongFast
+    CHECK(slot == 28 && originWindow() == 8);
+    CHECK(originDelayMs(slot, 0) == 0 && originDelayMs(slot, 7) == 7 * slot);
+    for (uint32_t r = 0; r < originWindow(); r++) {
+        CHECK(originDelayMs(slot, r) < rebroadcastDelayMs(slot, 0));  // the first slot a client repeat can take
+    }
+}

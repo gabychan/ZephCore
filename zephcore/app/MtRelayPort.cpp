@@ -109,7 +109,8 @@ void MtRelayPort::arm(uint32_t now_ms, const mt::RepeaterPrefs &p)
 	}
 }
 
-void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src)
+void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src,
+		       uint8_t sf, float bw)
 {
 	uint8_t frame[mt::kMaxTxFrame];
 
@@ -122,12 +123,12 @@ void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t chan
 		size_t n = _bridge.buildNodeInfo(channel, frame, sizeof(frame));
 
 		if (n > 0) {
-			send(frame, n);
+			send(frame, n, sf, bw);
 		}
 		mt::Position pos = {};
 
 		if (src.position(pos) && (n = _bridge.buildPosition(channel, pos, frame, sizeof(frame))) > 0) {
-			send(frame, n);
+			send(frame, n, sf, bw);
 		}
 	}
 	if (_telemetry.due(now_ms)) {
@@ -140,7 +141,7 @@ void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t chan
 		size_t n;
 
 		if (src.metrics(m) && (n = _bridge.buildTelemetry(channel, m, frame, sizeof(frame))) > 0) {
-			send(frame, n);
+			send(frame, n, sf, bw);
 		}
 	}
 }
@@ -165,9 +166,11 @@ void MtRelayPort::formatStats(char *out, size_t cap) const
 		 (unsigned)_stats.yielded, (unsigned)_stats.dropped);
 }
 
-bool MtRelayPort::send(const uint8_t *frame, size_t len)
+bool MtRelayPort::send(const uint8_t *frame, size_t len, uint8_t sf, float bw)
 {
-	if (!_mesh.sendForeign(frame, (int)len, 1, 0)) {
+	const uint32_t r = _mesh.getRNG()->nextInt(0, mt::originWindow());
+
+	if (!_mesh.sendForeign(frame, (int)len, 1, mt::originDelayMs(mt::slotTimeMs(sf, bw), r))) {
 		LOG_WRN("mt: frame not queued (len=%u)", (unsigned)len);
 		return false;
 	}

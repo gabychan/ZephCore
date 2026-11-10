@@ -38,6 +38,12 @@ uint32_t rebroadcastDelayMs(uint32_t slot_ms, uint32_t r);
  * 2 x cw (RadioInterface::getTxDelayMsecWeighted, router branch), r < 2 * cw. */
 uint32_t earlyDelayMs(uint32_t slot_ms, uint32_t r);
 
+/* A frame of our own waits slot r of 2^3, the smallest contention window
+ * (RadioInterface::getTxDelayMsec); without it every node that answers one
+ * message, a ping above all, goes to the CAD at the same instant. */
+uint32_t originWindow();
+uint32_t originDelayMs(uint32_t slot_ms, uint32_t r);
+
 /* Slots to draw r from: 2 x cw for a router (early), 2^cw for a client. */
 uint32_t relayWindow(int8_t snr_x4, bool early);
 uint32_t relayDelayMs(uint32_t slot_ms, bool early, uint32_t r);

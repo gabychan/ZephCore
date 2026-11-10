@@ -618,7 +618,7 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 		mtNoteText(h.id, prefs.node_name);
 		s.len = (uint8_t)(len < sizeof(s.text) ? len : sizeof(s.text));
 		memcpy(s.text, text, s.len);
-		_mtport.send(frame, n);
+		_mtport.send(frame, n, prefs.sf, prefs.bw);
 		sent = true;
 	}
 	return true;
@@ -700,7 +700,7 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 		/* The packet id is what the node's ACK answers: the app's ack code. */
 		addPendingAck(h.id, mtContactIndex(contact));
 		ack = h.id;
-		_mtport.send(frame, n);
+		_mtport.send(frame, n, prefs.sf, prefs.bw);
 		sent = true;
 	}
 	return true;
@@ -763,7 +763,7 @@ void CompanionMesh::mtSendAck(uint32_t to, uint32_t request_id)
 	size_t n = _mt.buildAck(to, request_id, key, frame, sizeof(frame));
 
 	if (n > 0) {
-		_mtport.send(frame, n);
+		_mtport.send(frame, n, prefs.sf, prefs.bw);
 	}
 }
 
@@ -776,7 +776,7 @@ void CompanionMesh::mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool wan
 						    sizeof(frame));
 
 	if (n > 0) {
-		_mtport.send(frame, n);
+		_mtport.send(frame, n, prefs.sf, prefs.bw);
 	}
 }
 
@@ -827,7 +827,7 @@ void CompanionMesh::mtNodeInfoTick()
 	}
 	MtRelayPort::Source none;
 
-	_mtport.tick((uint32_t)_ms->getMillis(), prefs.mt, (uint8_t)ch, none);
+	_mtport.tick((uint32_t)_ms->getMillis(), prefs.mt, (uint8_t)ch, none, prefs.sf, prefs.bw);
 }
 
 #endif /* CONFIG_ZEPHTACORE_MESHTASTIC */

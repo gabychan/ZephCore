@@ -131,7 +131,7 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 
 	n = n ? _mt.buildText(kBotChannel, mt::kBroadcast, out, n, frame, sizeof(frame), id) : 0;
 	if (n) {
-		_mtport.send(frame, n);
+		_mtport.send(frame, n, _prefs.sf, _prefs.bw);
 	}
 }
 
@@ -145,7 +145,7 @@ bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float 
 /* NodeInfo, position and telemetry on the primary channel, as Meshtastic's own default does. */
 void RepeaterMesh::mtTick()
 {
-	_mtport.tick((uint32_t)_ms->getMillis(), _prefs.mt, kPrimaryChannel, _mt_source);
+	_mtport.tick((uint32_t)_ms->getMillis(), _prefs.mt, kPrimaryChannel, _mt_source, _prefs.sf, _prefs.bw);
 }
 
 void RepeaterMesh::mtFormatStats(char *reply, size_t cap) const

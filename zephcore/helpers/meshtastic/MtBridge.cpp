@@ -191,6 +191,16 @@ uint32_t rebroadcastDelayMs(uint32_t slot_ms, uint32_t r)
 	return (2U * kCwMax + r) * slot_ms;
 }
 
+uint32_t originWindow()
+{
+	return 1U << kCwMin;
+}
+
+uint32_t originDelayMs(uint32_t slot_ms, uint32_t r)
+{
+	return r * slot_ms;
+}
+
 uint32_t earlyDelayMs(uint32_t slot_ms, uint32_t r)
 {
 	return r * slot_ms;
