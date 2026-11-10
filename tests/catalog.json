@@ -823,6 +823,11 @@
       "source": "tests/unit/dispatcher_tests.cpp"
     },
     {
+      "id": "UNIT-DISPATCH-022",
+      "name": "A consumed foreign frame counts as receive airtime, with its own preamble; a MeshCore one with the MeshCore estimate",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
       "id": "UNIT-PING-001",
       "name": "A direct ping is answered with the SNR alone by default, and with the RSSI when it is on",
       "source": "tests/unit/ping_tests.cpp"

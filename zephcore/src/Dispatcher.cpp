@@ -277,6 +277,7 @@ void Dispatcher::checkRecv() {
       }
       logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
       if (onRecvForeign(raw, len, _radio->getLastSNR(), _radio->getLastRSSI())) {  // ZEPHCORE
+        rx_air_time += _radio->getEstForeignAirtimeFor(len);  // on the air all the same
         continue;
       }
 

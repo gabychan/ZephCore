@@ -229,6 +229,17 @@ TEST(dispatch_foreign_airtime, "UNIT-DISPATCH-021", "A foreign TX is charged its
     CHECK(f.dispatcher.getTotalAirTime() == 160 && f.dispatcher.getNumSentFlood() == 1);
 }
 
+TEST(dispatch_foreign_rx_airtime, "UNIT-DISPATCH-022", "A consumed foreign frame counts as receive airtime, with its own preamble; a MeshCore one with the MeshCore estimate") {
+    Fixture f; f.begin();
+    const std::vector<uint8_t> meshcore = {9, 0, 0xAA}, other(30, 0xDE);
+    f.radio.incoming = {other};
+    f.dispatcher.consume_foreign = true; f.dispatcher.loop();
+    CHECK(f.radio.foreign_airtime_len == 30 && f.dispatcher.getReceiveAirTime() == 60);
+    f.radio.incoming = {meshcore};
+    f.dispatcher.consume_foreign = false; f.dispatcher.loop();
+    CHECK(f.dispatcher.getReceiveAirTime() == 160);
+}
+
 TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause with age and longest streak") {
     mesh::TxStall lbt, rx;
     char buf[96];
