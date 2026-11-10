@@ -306,7 +306,7 @@ protected:
 private:
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 	/* ---- Meshtastic bridge, see app/CompanionMeshtastic.cpp ----
-	 * Group channels named "MT:<name>" are Meshtastic channels (16 byte PSK);
+	 * Channels "#mt-<name>" (added with z.mt.channel.add) are Meshtastic channels;
 	 * Meshtastic nodes appear as contacts keyed by a key derived from their node
 	 * number. Nothing here enters the MeshCore routing path. */
 	struct MtSink : mt::Sink {
@@ -338,7 +338,7 @@ private:
 	/* NodeInfo we send to a node on our own account (answering its request,
 	 * asking for a key we lack): once per node per interval. */
 	mt::NodeRateLimit _mt_info_limit;
-	/* Text sent on an MT: channel, kept so that hearing a node repeat the frame
+	/* Text sent on a Meshtastic channel ("#mt-<name>"), kept so that hearing a node repeat the frame
 	 * can be shown to the app as a MeshCore repeat of the same message. */
 	struct MtSent {
 		uint32_t id;
@@ -353,7 +353,7 @@ private:
 	static constexpr int MT_RELAYS_KEEP = 8;
 	MtSent _mt_sent[MT_SENT_KEEP] = {};
 	uint8_t _mt_sent_next = 0;
-	/* Who wrote the last texts on MT: channels (ours included), by Meshtastic
+	/* Who wrote the last texts on Meshtastic channels (ours included), by Meshtastic
 	 * packet id: a reply names its target by id in Meshtastic and by "@[name] "
 	 * in MeshCore. */
 	struct MtRecent {
@@ -364,10 +364,11 @@ private:
 	MtRecent _mt_recent[MT_RECENT_KEEP] = {};
 	uint8_t _mt_recent_next = 0;
 
-	bool mtHasChannelNamed(const char *name);
 	/* The table entry behind a channel slot: the slot is named for it and holds the secret derived from that name. */
 	const mt::ChannelEntry *mtEntryOfSlot(int idx);
 	int mtSlotByName(const char *slot);
+	/* Puts the slot in the first free place, a hole left by a removal included. */
+	bool mtPlaceChannel(const char *slot, const uint8_t secret[16]);
 	/* Creates the slot of every table entry that has none. */
 	void mtReconcileChannels();
 	void mtSyncChannels();
@@ -407,6 +408,8 @@ public:
 	void mtAddDefaultChannels();
 	/* z.mt.* settings changed through the CLI, and its stats. */
 	void mtPrefsChanged();
+	/* z.mt.channel.add: creates its slot; false when the app cannot hold it. */
+	bool mtChannelAdded(const char *slot);
 	/* z.mt.channel.remove: frees the slot of that name. */
 	void mtChannelRemoved(const char *slot);
 	/* The receiver takes Meshtastic frames while z.mt.enable is on. */

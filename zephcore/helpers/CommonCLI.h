@@ -72,6 +72,8 @@ public:
 	virtual void onPingPrefsChanged() {}
 	virtual bool mtStandalone() const { return false; }
 	virtual void onMtPrefsChanged() {}
+	/* False when the app has no room for the channel just added. */
+	virtual bool onMtChannelAdded(const char* slot) { (void)slot; return true; }
 	virtual void onMtChannelRemoved(const char* slot) { (void)slot; }
 	virtual void formatMtStatsReply(char* reply, size_t cap) { (void)cap; strcpy(reply, "not available"); }
 	virtual mesh::LocalIdentity& getSelfId() = 0;

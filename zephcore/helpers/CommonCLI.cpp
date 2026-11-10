@@ -345,6 +345,13 @@ bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char
 
 	if (r.changed) {
 		mt::sanitize(_prefs->mt);
+		if (r.added[0] != '\0' && !_callbacks->onMtChannelAdded(r.added)) {
+			if (mt::ChannelEntry *e = mt::findChannel(_prefs->mt, r.added)) {
+				*e = mt::ChannelEntry{};
+			}
+			snprintf(reply, cap, "Error: no room in the app for the channel %s", r.added);
+			return true;
+		}
 		if (r.removed[0] != '\0') {
 			_callbacks->onMtChannelRemoved(r.removed);
 		}

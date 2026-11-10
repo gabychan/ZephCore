@@ -2,9 +2,10 @@
  * SPDX-License-Identifier: MIT
  * Zephtacore: the companion's Meshtastic bridge.
  *
- *   - A group channel named "MT:<name>" with a 16 byte secret is a Meshtastic
- *     channel with that name and PSK. Text the app sends on it leaves as a
- *     Meshtastic frame; text heard on it reaches the app as a channel message.
+ *   - A channel added with "z.mt.channel.add <name>" is a Meshtastic channel
+ *     with that name and key, shown to the app as the hashtag channel
+ *     "#mt-<name>". Text the app sends on it leaves as a Meshtastic frame;
+ *     text heard on it reaches the app as a channel message.
  *   - Meshtastic nodes heard on those channels (NodeInfo, Position) become
  *     contacts named "<long name> (MT)", keyed by an Ed25519 key derived from the
  *     node number, so they appear in the contact list and on the map.
@@ -92,18 +93,6 @@ static const MtDefaultChannel kMtDefaults[] = {
 };
 static const char *const kMcHashtagDefaults[] = {"#test", "#bot"};
 
-bool CompanionMesh::mtHasChannelNamed(const char *name)
-{
-	ChannelDetails ch;
-
-	for (int i = 0; getChannel(i, ch); i++) {
-		if (strcmp(ch.name, name) == 0) {
-			return true;
-		}
-	}
-	return false;
-}
-
 void CompanionMesh::mtAddDefaultChannels()
 {
 	for (const auto &c : kMtDefaults) {
@@ -116,7 +105,7 @@ void CompanionMesh::mtAddDefaultChannels()
 	for (const char *name : kMcHashtagDefaults) {
 		uint8_t digest[32];
 
-		if (mtHasChannelNamed(name)) {
+		if (mtSlotByName(name) >= 0) {
 			continue;
 		}
 
@@ -193,30 +182,56 @@ int CompanionMesh::mtSlotByName(const char *slot)
 	return -1;
 }
 
+static bool mtSlotFree(const ChannelDetails &ch)
+{
+	static const uint8_t zeroes[sizeof(ch.channel.secret)] = {0};
+
+	return ch.name[0] == '\0' && memcmp(ch.channel.secret, zeroes, sizeof(zeroes)) == 0;
+}
+
+bool CompanionMesh::mtPlaceChannel(const char *slot, const uint8_t secret[16])
+{
+	ChannelDetails ch;
+
+	for (int i = 0; i < getNumChannels(); i++) {
+		if (getChannel(i, ch) && mtSlotFree(ch)) {
+			memset(&ch, 0, sizeof(ch));
+			StrHelper::strncpy(ch.name, slot, sizeof(ch.name));
+			memcpy(ch.channel.secret, secret, 16);
+			return setChannel(i, ch);
+		}
+	}
+	return addChannel(slot, secret, 16) != nullptr;
+}
+
+bool CompanionMesh::mtChannelAdded(const char *slot)
+{
+	const int idx = mtSlotByName(slot);
+	uint8_t secret[16];
+
+	if (idx >= 0) {
+		return mtEntryOfSlot(idx) != nullptr; /* a slot with another key is the app's own */
+	}
+	mt::slotSecret(slot, mtSha256, secret);
+	if (!mtPlaceChannel(slot, secret)) {
+		return false;
+	}
+	markChannelsDirty();
+	return true;
+}
+
 void CompanionMesh::mtReconcileChannels()
 {
-	bool added = false;
-
 	for (const auto &e : prefs.mt.channels) {
 		char slot[mt::kSlotNameMax];
-		uint8_t secret[16];
 
 		if (e.name[0] == '\0') {
 			continue;
 		}
 		mt::slotName(e.name, slot);
-		if (mtSlotByName(slot) >= 0) {
-			continue;
+		if (!mtChannelAdded(slot)) {
+			LOG_WRN("mt: no slot for channel '%s'", e.name);
 		}
-		mt::slotSecret(slot, mtSha256, secret);
-		if (addChannel(slot, secret, sizeof(secret))) {
-			added = true;
-		} else {
-			LOG_WRN("mt: no free slot for channel '%s'", e.name);
-		}
-	}
-	if (added) {
-		markChannelsDirty();
 	}
 }
 

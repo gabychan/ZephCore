@@ -1392,18 +1392,20 @@ config ZEPHTACORE_MESHTASTIC
 	depends on ZEPHCORE_ROLE_COMPANION || ZEPHCORE_ROLE_REPEATER
 	default n
 	help
-	  Receives MeshCore and Meshtastic with one SX126x (hybrid sync word
-	  register) and picks the sync word per transmitted frame. Group
-	  channels named "MT:<name>" in the companion app carry a Meshtastic
-	  channel (name and 16 byte PSK): text sent on one goes out as a
-	  Meshtastic frame, and text, node names and positions heard on it
-	  reach the app as channel messages and contacts.
+	  Receives MeshCore and Meshtastic with one radio (SX126x, LR1110 or
+	  LR2021, hybrid sync word) and picks the sync word per transmitted
+	  frame. Channels named "#mt-<name>" in the companion app, added with
+	  "z.mt.channel.add", carry a Meshtastic channel (name and key):
+	  text sent on one goes out as a Meshtastic frame, and text, node
+	  names and positions heard on it reach the app as channel messages
+	  and contacts.
 
-	  The repeater role also repeats Meshtastic floods, with its own
-	  settings under "z.mt." in the CLI.
+	  The repeater repeats Meshtastic floods by default; the companion
+	  does not until "z.mt.relay" is set. Settings are under "z.mt." in
+	  the CLI.
 
-	  Needs a radio family that can write the sync word register
-	  (SX126x). On other families the build still links, but the second
+	  Needs a radio family that can write the sync word (SX126x, LR1110,
+	  LR2021). On other families the build still links, but the second
 	  protocol is never heard or sent.
 
 config ZEPHTACORE_MT_HOP_LIMIT

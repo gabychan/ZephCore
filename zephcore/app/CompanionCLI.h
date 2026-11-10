@@ -153,6 +153,7 @@ public:
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 	/* z.mt.*: the node has no channel of its own, so channel and telemetry do not apply. */
 	void onMtPrefsChanged() override { _mesh.mtPrefsChanged(); }
+	bool onMtChannelAdded(const char* slot) override { return _mesh.mtChannelAdded(slot); }
 	void onMtChannelRemoved(const char* slot) override { _mesh.mtChannelRemoved(slot); }
 	void formatMtStatsReply(char* reply, size_t cap) override { _mesh.mtFormatStats(reply, cap); }
 #endif

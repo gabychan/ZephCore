@@ -1226,7 +1226,9 @@ TEST(mt_channel_table, "UNIT-MT-043", "z.mt.channel.add and .remove keep a table
     CHECK(r.handled && r.changed && std::string(reply) == "OK" && std::string(r.removed) == "#mt-bots");
     CHECK(!findChannel(p, "#mt-bots"));
     CHECK(mtCmd(p, "set z.mt.channel.remove Bots", &ch, false).find("Error") == 0 && !ch);
-    CHECK(mtCmd(p, "set z.mt.channel.add Nine", &ch, false) == "OK" && ch);  // the freed entry is reused
+    r = handleCommand(p, "set z.mt.channel.add Nine", reply, sizeof(reply), false);
+    CHECK(r.changed && std::string(reply) == "OK" && std::string(r.added) == "#mt-nine");  // the freed entry is reused
+    CHECK(mtCmd(p, "set z.mt.channel.add Nine", &ch, false).find("Error") == 0 && !ch);
     // A repeater has one channel of its own and no table; a companion has no primary channel to set.
     CHECK(mtCmd(p, "set z.mt.channel.add X", &ch, true).find("Error") == 0 && !ch);
     CHECK(mtCmd(p, "get z.mt.channels", &ch, true).find("Error") == 0);

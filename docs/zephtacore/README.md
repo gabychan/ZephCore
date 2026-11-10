@@ -1,6 +1,6 @@
 # Zephtacore
 
-ZephCore with a Meshtastic bridge: one SX126x hears and speaks MeshCore and Meshtastic. The MeshCore app
+ZephCore with a Meshtastic bridge: one radio hears and speaks MeshCore and Meshtastic. The MeshCore app
 is the client. Status: **MVP, not yet verified on air**. See [Verification](#verification).
 
 ## What works
@@ -11,7 +11,7 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Receive text | Text heard on a Meshtastic channel reaches the app as a channel message, `<sender>: <text>`. |
 | Send text | A message the app sends on a `#mt-` channel leaves as a Meshtastic broadcast. |
 | Repeats heard | When a Meshtastic node repeats a text we sent, the app gets the same message as a MeshCore group packet, which it counts as a heard repeat. The packet carries the repeater's `relay_node` byte as a 1-byte path, so each repeater is one heard (up to 8 per text). Incoming texts carry their real hop count (`hop_start - hop_limit`). The last 3 sent texts are kept for this. |
-| Replies | A reply written in the app (`@[name] text`) leaves as a Meshtastic text with `reply_id` set to the newest text by that name, tag dropped. A Meshtastic reply or reaction reaches the app as `@[name] text`, `name` being the author of the answered text. Authors are known for the last 8 texts on `MT:` channels (ours included); older targets lose the tag on the way in and leave the reply unlinked on the way out. |
+| Replies | A reply written in the app (`@[name] text`) leaves as a Meshtastic text with `reply_id` set to the newest text by that name, tag dropped. A Meshtastic reply or reaction reaches the app as `@[name] text`, `name` being the author of the answered text. Authors are known for the last 8 texts on `#mt-` channels (ours included); older targets lose the tag on the way in and leave the reply unlinked on the way out. |
 | Direct messages | A message to a Meshtastic contact leaves as a Meshtastic PKI message (X25519 with the node's key, AES-256-CCM, channel 0), as Meshtastic 2.5+ nodes expect. It needs the node's public key, learned from its NodeInfo; without it the app gets an error. A PKI message addressed to us reaches the app as a message of that contact, and is answered with an ACK when it asks for one. Our messages ask for an ACK: when the node answers (by PKI or on a shared channel, from that node only), the app gets the confirmation, and times out after 20 s otherwise. |
 | Node keys | The public key of a node is kept in the `mtkeys` file (36 bytes per node, next to `contacts3`: `/ext` when there is external flash, `/lfs` otherwise), written once per node. A node that later sends another key keeps the first, as Meshtastic does; removing the contact in the app drops its key. Our own key is derived from the node identity and goes out in our NodeInfo. |
 | Exchanging keys | Marking a Meshtastic contact as favourite, when it still has no name or no key, sends it our NodeInfo with `want_response`, once. We also send our NodeInfo, at most once per node per hour: when a node asks for ours (a unicast NodeInfo with `want_response`), when a node answers `PKI_UNKNOWN_PUBKEY`, and (asking for theirs too) when a PKI message for us arrives from a node whose key we do not hold. |

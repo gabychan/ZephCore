@@ -165,6 +165,7 @@ inline bool roleYieldsToEcho(uint8_t role) { return role != ROLE_ROUTER && role 
 struct CmdResult {
 	bool handled;  /* the command was a "z.mt." one */
 	bool changed;  /* a setting changed: save it */
+	char added[kSlotNameMax];    /* slot of the channel just added, or "" */
 	char removed[kSlotNameMax];  /* slot of the channel just removed, or "" */
 };
 

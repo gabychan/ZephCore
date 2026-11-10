@@ -173,7 +173,7 @@ AddResult addChannel(RepeaterPrefs &p, const char *name, const uint8_t *psk, siz
 	return ADD_OK;
 }
 
-static void channelAdd(RepeaterPrefs &p, const char *args, char *reply, size_t cap, bool &changed)
+static void channelAdd(RepeaterPrefs &p, const char *args, char *reply, size_t cap, CmdResult &r)
 {
 	char name[kChannelNameMax + 2];
 	char key[40] = "";
@@ -195,7 +195,8 @@ static void channelAdd(RepeaterPrefs &p, const char *args, char *reply, size_t c
 	}
 	switch (addChannel(p, name, psk, (size_t)len)) {
 	case ADD_OK:
-		changed = true;
+		r.changed = true;
+		slotName(name, r.added);
 		snprintf(reply, cap, "OK");
 		break;
 	case ADD_EXISTS:
@@ -376,7 +377,8 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 	} else if (strcmp(name, "channel") == 0) {
 		setChannel(p, val, reply, cap, changed);
 	} else if (strcmp(name, "channel.add") == 0) {
-		channelAdd(p, val, reply, cap, changed);
+		channelAdd(p, val, reply, cap, res);
+		changed = res.changed;
 	} else if (strcmp(name, "channel.remove") == 0) {
 		channelRemove(p, val, reply, cap, res);
 		changed = res.changed;
