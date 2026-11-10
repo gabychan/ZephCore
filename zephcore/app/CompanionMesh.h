@@ -410,6 +410,8 @@ public:
 	void mtPrefsChanged();
 	/* z.mt.channel.add: creates its slot; false when the app cannot hold it. */
 	bool mtChannelAdded(const char *slot);
+	/* The app is about to write slot idx: an entry whose slot it empties or changes leaves the table. */
+	void mtSlotRewritten(int idx, const ChannelDetails &next);
 	/* z.mt.channel.remove: frees the slot of that name. */
 	void mtChannelRemoved(const char *slot);
 	/* The receiver takes Meshtastic frames while z.mt.enable is on. */

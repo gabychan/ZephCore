@@ -139,7 +139,6 @@ void CompanionMesh::mtApplyListen()
 /* z.mt.* changed through the CLI. */
 void CompanionMesh::mtPrefsChanged()
 {
-	mtReconcileChannels();
 	mtApplyListen();
 	if (_mt_ready) {
 		MtRelayPort::renameSelf(_mt, prefs.node_name);
@@ -231,6 +230,27 @@ void CompanionMesh::mtReconcileChannels()
 		mt::slotName(e.name, slot);
 		if (!mtChannelAdded(slot)) {
 			LOG_WRN("mt: no slot for channel '%s'", e.name);
+		}
+	}
+}
+
+void CompanionMesh::mtSlotRewritten(int idx, const ChannelDetails &next)
+{
+	ChannelDetails cur;
+	mt::ChannelEntry *e;
+
+	if (!mtEntryOfSlot(idx) || !getChannel(idx, cur)) {
+		return;
+	}
+	if (strcmp(cur.name, next.name) == 0 &&
+	    memcmp(cur.channel.secret, next.channel.secret, sizeof(cur.channel.secret)) == 0) {
+		return;
+	}
+	e = mt::findChannel(prefs.mt, cur.name);
+	if (e) {
+		*e = mt::ChannelEntry{};
+		if (_store) {
+			_store->savePrefs(prefs);
 		}
 	}
 }
