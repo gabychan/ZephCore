@@ -398,7 +398,7 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 		pkt->setPathHashSizeAndCount(1, hops);
 		pkt->_snr = snr_x4;
 	}
-	m.onChannelMessageRecv(ch.channel, pkt, m.getRTCClock()->getCurrentTimeUnique(), line);
+	m.deliverChannelMessage(channel_id, pkt, m.getRTCClock()->getCurrentTimeUnique(), line);
 	if (pkt) {
 		m.releasePacket(pkt);
 	}

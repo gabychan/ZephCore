@@ -235,6 +235,8 @@ protected:
 	uint32_t calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t path_len) const override;
 	void onSendTimeout() override;
 	void onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint32_t timestamp, const char *text) override;
+	/* Channels may share a secret, so a caller that knows the slot passes it. */
+	void deliverChannelMessage(uint8_t channel_idx, mesh::Packet *pkt, uint32_t timestamp, const char *text);
 	void pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDetails &ch, const ping::Heard &heard, const char *text);
 	static int pingName(void *ctx, ping::Protocol w, const uint8_t *hash, uint8_t size, char *out, size_t cap);
 	ping::Stats _ping_stats = {};

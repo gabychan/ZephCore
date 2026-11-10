@@ -1082,6 +1082,12 @@ void CompanionMesh::onSendTimeout()
 void CompanionMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt,
 	uint32_t timestamp, const char *text)
 {
+	deliverChannelMessage(findChannelIdx(channel), pkt, timestamp, text);
+}
+
+void CompanionMesh::deliverChannelMessage(uint8_t channel_idx, mesh::Packet *pkt,
+	uint32_t timestamp, const char *text)
+{
 	LOG_INF("onChannelMessageRecv: timestamp=%u text='%s'", timestamp, text);
 
 	// Build incoming channel message frame
@@ -1099,8 +1105,6 @@ void CompanionMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh
 		frame[i++] = PACKET_CHANNEL_MSG_RECV;
 	}
 
-	// channel index
-	uint8_t channel_idx = findChannelIdx(channel);
 	frame[i++] = channel_idx;
 
 	uint8_t path_len = (pkt && pkt->isRouteFlood()) ? pkt->path_len : OUT_PATH_UNKNOWN;
