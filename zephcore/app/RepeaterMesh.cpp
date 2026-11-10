@@ -1315,9 +1315,8 @@ public:
     return _n[i].heard_timestamp != 0;
   }
   void row(size_t i, neighbours::Row& r) const override {
+    key(i, r.snr_x4, r.age_s);
     mesh::Utils::toHex(r.name, _n[i].id.pub_key, 4);
-    r.snr_x4 = _n[i].snr;
-    r.age_s = _now > _n[i].heard_timestamp ? _now - _n[i].heard_timestamp : 0;
   }
 private:
   const NeighbourInfo* _n;

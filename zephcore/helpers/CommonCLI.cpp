@@ -349,7 +349,7 @@ bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char
 			if (mt::ChannelEntry *e = mt::findChannel(_prefs->mt, r.added)) {
 				*e = mt::ChannelEntry{};
 			}
-			snprintf(reply, cap, "Error: no room in the app for the channel %s", r.added);
+			snprintf(reply, cap, "Error: no room in the app for %s, or the app has its own channel by that name", r.added);
 			return true;
 		}
 		if (r.removed[0] != '\0') {

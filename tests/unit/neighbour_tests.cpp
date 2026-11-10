@@ -145,3 +145,15 @@ TEST(neighbours_name, "UNIT-NEIGH-008", "A short name is set only for a node alr
         if (e.id == 3) { CHECK(std::string(e.name) == "ABCD"); }
     }
 }
+
+TEST(neighbours_name_before_entry, "UNIT-NEIGH-011", "The short name of a node heard before it is entered is kept for its entry")
+{
+    neighbours::Table t;
+    t.setName(3, "ABCD");
+    t.note(4, 4, 1);
+    t.note(3, 4, 2);
+    for (const neighbours::Entry &e : t) {
+        if (e.id == 3) { CHECK(std::string(e.name) == "ABCD"); }
+        if (e.id == 4) { CHECK(std::string(e.name) == ""); }
+    }
+}

@@ -198,4 +198,19 @@ AddResult addChannel(RepeaterPrefs &p, const char *name, const uint8_t *psk, siz
 const ChannelEntry *findChannel(const RepeaterPrefs &p, const char *slot);
 ChannelEntry *findChannel(RepeaterPrefs &p, const char *slot);
 
+enum SlotWrite {
+	SLOT_WRITE_OTHER,    /* not a #mt- name: the app's own channel */
+	SLOT_WRITE_KEPT,     /* a channel of the table, moved or rewritten as it was */
+	SLOT_WRITE_RENAMED,  /* the entry the slot held has the new name and keeps its key */
+	SLOT_WRITE_REFUSED,  /* a #mt- name the table does not hold and that renames nothing */
+};
+
+/* The app writes a slot named next with next_secret; held is the entry of what the slot holds now, or
+ * nullptr. An entry the write leaves without a slot stays until dropOrphans(). */
+SlotWrite slotWrite(RepeaterPrefs &p, ChannelEntry *held, const char *next, const uint8_t next_secret[16],
+		    ShaFn sha);
+
+/* Clears the entries whose slot name has_slot() does not find. True when it cleared any. */
+bool dropOrphans(RepeaterPrefs &p, bool (*has_slot)(const char *slot, void *ctx), void *ctx);
+
 } /* namespace mt */

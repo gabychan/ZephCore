@@ -68,7 +68,7 @@ public:
 	bool send(const uint8_t *frame, size_t len);
 
 	const Stats &stats() const { return _stats; }
-	/* The nodes heard directly: hop_start equal to hop_limit and the relay byte the sender's own. */
+	/* The nodes heard directly: hop_start set and equal to hop_limit. */
 	neighbours::Table &neighbours() { return _neighbours; }
 	const neighbours::Table &neighbours() const { return _neighbours; }
 	/* "heard=.. relayed=.." for get z.mt.stats. */

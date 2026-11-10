@@ -1249,3 +1249,60 @@ TEST(mt_channel_sanitize, "UNIT-MT-044", "An entry with a bad name or key is cle
     CHECK(std::string(p.channels[0].name) == "Good" && p.channels[0].psk[0] == 2);
     CHECK(p.channels[1].name[0] == '\0' && p.channels[2].name[0] == '\0');
 }
+
+namespace {
+bool slotIn(const char* slot, void* ctx) {
+    for (const char* const* n = static_cast<const char* const*>(ctx); *n; n++) {
+        if (std::strcmp(*n, slot) == 0) { return true; }
+    }
+    return false;
+}
+
+SlotWrite writeSlot(RepeaterPrefs& p, ChannelEntry* held, const char* next, bool own_secret = true) {
+    uint8_t secret[16];
+    slotSecret(next, refSha256, secret);
+    if (!own_secret) { secret[0] ^= 1; }
+    return slotWrite(p, held, next, secret, refSha256);
+}
+}  // namespace
+
+TEST(mt_slot_write, "UNIT-MT-045", "The app moves a channel of the table to another slot and keeps its key; it cannot create a #mt- channel") {
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_OFF);
+    const uint8_t one = 1, two = 2;
+    CHECK(addChannel(p, "Test", &two, 1) == ADD_OK && addChannel(p, "Bots", &one, 1) == ADD_OK);
+    ChannelEntry* test = findChannel(p, "#mt-test");
+    // A swap: slot 0 held Test and now gets Bots, slot 1 held Bots and now gets Test. Both stay.
+    CHECK(writeSlot(p, test, "#mt-bots") == SLOT_WRITE_KEPT);
+    CHECK(writeSlot(p, findChannel(p, "#mt-bots"), "#mt-test") == SLOT_WRITE_KEPT);
+    CHECK(findChannel(p, "#mt-test")->psk[0] == 2 && findChannel(p, "#mt-bots")->psk[0] == 1);
+    // The app's own channel, whatever its name, is not ours to judge.
+    CHECK(writeSlot(p, test, "#bot") == SLOT_WRITE_OTHER && writeSlot(p, nullptr, "Public") == SLOT_WRITE_OTHER);
+    // Not created from the app, with or without a slot behind it; a name without its own secret either.
+    CHECK(writeSlot(p, nullptr, "#mt-new") == SLOT_WRITE_REFUSED);
+    CHECK(writeSlot(p, test, "#mt-bots", false) == SLOT_WRITE_REFUSED);
+    CHECK(writeSlot(p, test, "#mt-New_Name") == SLOT_WRITE_REFUSED);
+    CHECK(findChannel(p, "#mt-test") == test && !findChannel(p, "#mt-new"));
+}
+
+TEST(mt_slot_rename, "UNIT-MT-046", "Renaming the slot of an entry to another #mt- name renames the entry and keeps its key") {
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_OFF);
+    const uint8_t two = 2;
+    CHECK(addChannel(p, "Test", &two, 1) == ADD_OK);
+    ChannelEntry* test = findChannel(p, "#mt-test");
+    CHECK(writeSlot(p, test, "#mt-renamed") == SLOT_WRITE_RENAMED);
+    CHECK(!findChannel(p, "#mt-test") && findChannel(p, "#mt-renamed") == test);
+    CHECK(std::string(test->name) == "renamed" && test->psk_len == 1 && test->psk[0] == 2);
+}
+
+TEST(mt_drop_orphans, "UNIT-MT-047", "An entry no slot holds is dropped when the app's writes stop; one a slot holds stays") {
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_OFF);
+    const uint8_t one = 1;
+    CHECK(addChannel(p, "Test", &one, 1) == ADD_OK && addChannel(p, "Bots", &one, 1) == ADD_OK);
+    const char* const slots[] = {"#mt-bots", nullptr};
+    CHECK(dropOrphans(p, slotIn, const_cast<void*>(static_cast<const void*>(slots))));
+    CHECK(!findChannel(p, "#mt-test") && findChannel(p, "#mt-bots"));
+    CHECK(!dropOrphans(p, slotIn, const_cast<void*>(static_cast<const void*>(slots))));
+}

@@ -142,6 +142,53 @@ ChannelEntry *findChannel(RepeaterPrefs &p, const char *slot)
 	return const_cast<ChannelEntry *>(findChannel(static_cast<const RepeaterPrefs &>(p), slot));
 }
 
+SlotWrite slotWrite(RepeaterPrefs &p, ChannelEntry *held, const char *next, const uint8_t next_secret[16],
+		    ShaFn sha)
+{
+	uint8_t secret[16];
+	char slot[kSlotNameMax];
+
+	if (strncmp(next, "#mt-", 4) != 0) {
+		return SLOT_WRITE_OTHER;
+	}
+	slotSecret(next, sha, secret);
+	if (memcmp(next_secret, secret, sizeof(secret)) != 0) {
+		return SLOT_WRITE_REFUSED;
+	}
+	if (findChannel(p, next)) {
+		return SLOT_WRITE_KEPT;
+	}
+	if (!held || !validName(next + 4)) {
+		return SLOT_WRITE_REFUSED;
+	}
+	slotName(next + 4, slot);
+	if (strcmp(slot, next) != 0) {
+		return SLOT_WRITE_REFUSED;
+	}
+	memset(held->name, 0, sizeof(held->name));
+	memcpy(held->name, next + 4, strlen(next + 4));
+	return SLOT_WRITE_RENAMED;
+}
+
+bool dropOrphans(RepeaterPrefs &p, bool (*has_slot)(const char *slot, void *ctx), void *ctx)
+{
+	bool dropped = false;
+
+	for (auto &e : p.channels) {
+		char slot[kSlotNameMax];
+
+		if (e.name[0] == '\0') {
+			continue;
+		}
+		slotName(e.name, slot);
+		if (!has_slot(slot, ctx)) {
+			e = ChannelEntry{};
+			dropped = true;
+		}
+	}
+	return dropped;
+}
+
 AddResult addChannel(RepeaterPrefs &p, const char *name, const uint8_t *psk, size_t psk_len)
 {
 	char slot[kSlotNameMax];

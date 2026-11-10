@@ -251,7 +251,7 @@ bool CompanionMesh::mtChannelAdded(const char *slot)
 
 void CompanionMesh::mtReconcileChannels()
 {
-	for (const auto &e : prefs.mt.channels) {
+	for (auto &e : prefs.mt.channels) {
 		char slot[mt::kSlotNameMax];
 
 		if (e.name[0] == '\0') {
@@ -259,60 +259,45 @@ void CompanionMesh::mtReconcileChannels()
 		}
 		mt::slotName(e.name, slot);
 		if (!mtChannelAdded(slot)) {
-			LOG_WRN("mt: no slot for channel '%s'", e.name);
+			LOG_WRN("mt: no slot for channel '%s', dropped", e.name);
+			e = mt::ChannelEntry{};
 		}
 	}
-}
-
-/* True when the slot name has the "#mt-" form of a Meshtastic channel. */
-static bool mtIsSlotName(const char *name)
-{
-	return strncmp(name, "#mt-", 4) == 0;
 }
 
 bool CompanionMesh::mtSlotRewritten(int idx, const ChannelDetails &next)
 {
 	ChannelDetails cur;
-	uint8_t secret[16];
-	char slot[mt::kSlotNameMax];
-	mt::ChannelEntry *old = nullptr;
+	mt::ChannelEntry *held = nullptr;
 
 	if (getChannel(idx, cur) && mtEntryOfSlot(idx)) {
-		old = mt::findChannel(prefs.mt, cur.name);
+		held = mt::findChannel(prefs.mt, cur.name);
 	}
-	if (old && strcmp(cur.name, next.name) == 0 &&
-	    memcmp(cur.channel.secret, next.channel.secret, sizeof(secret)) == 0) {
+	switch (mt::slotWrite(prefs.mt, held, next.name, next.channel.secret, mtSha256)) {
+	case mt::SLOT_WRITE_REFUSED:
+		return false;
+	case mt::SLOT_WRITE_RENAMED:
+		if (_store) {
+			_store->savePrefs(prefs);
+		}
+		return true;
+	default:
 		return true;
 	}
-	if (mtIsSlotName(next.name)) {
-		/* Only a name the table knows, or a rename of an entry to a name that carries its own secret. */
-		mt::slotSecret(next.name, mtSha256, secret);
-		if (memcmp(next.channel.secret, secret, sizeof(secret)) != 0) {
-			return false;
-		}
-		const mt::ChannelEntry *known = mt::findChannel(prefs.mt, next.name);
+}
 
-		if (known) {
-			return old == nullptr || known == old;
-		}
-		if (!old || !mt::validName(next.name + 4)) {
-			return false;
-		}
-		mt::slotName(next.name + 4, slot);
-		if (strcmp(slot, next.name) != 0) {
-			return false;
-		}
-		memset(old->name, 0, sizeof(old->name));
-		memcpy(old->name, next.name + 4, strlen(next.name + 4));
-	} else if (old) {
-		*old = mt::ChannelEntry{};
-	} else {
-		return true;
-	}
-	if (_store) {
+void CompanionMesh::mtDropOrphanChannels()
+{
+	auto held = [](const char *slot, void *ctx) {
+		CompanionMesh &m = *static_cast<CompanionMesh *>(ctx);
+		const int idx = m.mtSlotByName(slot);
+
+		return idx >= 0 && m.mtEntryOfSlot(idx) != nullptr;
+	};
+
+	if (mt::dropOrphans(prefs.mt, held, this) && _store) {
 		_store->savePrefs(prefs);
 	}
-	return true;
 }
 
 void CompanionMesh::mtChannelRemoved(const char *slot)
@@ -560,7 +545,10 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 	char bot_slot[mt::kSlotNameMax];
 
 	mt::slotName(PING_MT_CHANNEL, bot_slot);
-	if (m.prefs.ping.mt.enable && strcmp(ch.name, bot_slot) == 0 && m.mtEntryOfSlot(channel_id)) {
+	const mt::ChannelEntry *bots = m.mtEntryOfSlot(channel_id);
+
+	if (m.prefs.ping.mt.enable && strcmp(ch.name, bot_slot) == 0 && bots && bots->psk_len == 1 &&
+	    bots->psk[0] == ping::kMtPskIndex) {
 		/* relay is 0 when the sender set no relay_node; a relay that is not the sender says it was relayed. */
 		const bool relayed = hops == 0 && relay != 0 && (uint8_t)from != relay;
 		const ping::Heard heard = {hops, snr_x4, (int16_t)m._radio->getLastRSSI(),

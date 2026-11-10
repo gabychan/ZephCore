@@ -322,6 +322,9 @@ void CompanionMesh::flushDirtyContacts()
 void CompanionMesh::flushDirtyChannels()
 {
 	if (_dirty_channels_expiry) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		mtDropOrphanChannels();
+#endif
 		LOG_INF("flushDirtyChannels: saving channels (lazy write)");
 		_store->saveChannels(this);
 		_dirty_channels_expiry = 0;

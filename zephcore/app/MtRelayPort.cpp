@@ -246,8 +246,8 @@ void MtRelayPort::noteDirect(const uint8_t raw[], int len, int8_t snr_x4)
 {
 	mt::Header h;
 
-	if (mt::parseHeader(raw, (size_t)len, h) && h.from != _bridge.self() && h.hopStart() <= h.hopLimit() &&
-	    h.relay == (uint8_t)h.from) {
+	if (mt::parseHeader(raw, (size_t)len, h) && h.from != _bridge.self() && h.hopStart() > 0 &&
+	    h.hopStart() == h.hopLimit()) {
 		_neighbours.note(h.from, snr_x4, (uint32_t)(k_uptime_get() / 1000));
 	}
 }

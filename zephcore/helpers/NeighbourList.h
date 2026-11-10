@@ -47,12 +47,16 @@ public:
 		if (e->id != id) {
 			*e = Entry{};
 			e->id = id;
+			if (_pending_id == id) {
+				snprintf(e->name, sizeof(e->name), "%s", _pending_name);
+				_pending_id = 0;
+			}
 		}
 		e->snr_x4 = snr_x4;
 		e->heard_s = now_s;
 	}
 
-	/* The short name of a node already in the table. */
+	/* The short name of a node. One not yet in the table gets it when note() enters it. */
 	void setName(uint32_t id, const char *name)
 	{
 		for (Entry &e : _e) {
@@ -61,6 +65,8 @@ public:
 				return;
 			}
 		}
+		_pending_id = id;
+		snprintf(_pending_name, sizeof(_pending_name), "%s", name);
 	}
 
 	const Entry *begin() const { return _e; }
@@ -68,6 +74,8 @@ public:
 
 private:
 	Entry _e[kTableSize] = {};
+	uint32_t _pending_id = 0;
+	char _pending_name[kShortMax + 1] = {};
 };
 
 struct Row {

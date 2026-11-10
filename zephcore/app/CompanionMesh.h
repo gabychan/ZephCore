@@ -413,10 +413,12 @@ public:
 	void mtPrefsChanged();
 	/* z.mt.channel.add: creates its slot; false when the app cannot hold it. */
 	bool mtChannelAdded(const char *slot);
-	/* The app is about to write slot idx. An entry whose slot it empties or changes leaves the table, a
-	 * rename to another #mt- name that carries that name's secret renames the entry, and a #mt- slot
-	 * with no entry is refused: false, nothing changed. */
+	/* The app is about to write slot idx. A #mt- name that carries its own secret is taken when the table
+	 * holds it (a move) or when it renames the entry of that slot; any other #mt- slot is refused: false,
+	 * nothing changed. An entry the writes leave without a slot is dropped by mtDropOrphanChannels(). */
 	bool mtSlotRewritten(int idx, const ChannelDetails &next);
+	/* Drops the entries no slot holds, once the app has stopped writing channels. */
+	void mtDropOrphanChannels();
 	/* z.mt.channel.remove: frees the slot of that name. */
 	void mtChannelRemoved(const char *slot);
 	/* The receiver takes Meshtastic frames while z.mt.enable is on. */

@@ -264,7 +264,7 @@ Tibidabo RPT (-2.0, 45s)
 Gracia RPT (-5.5, 3h)
 ```
 
-Each line is `name (SNR in dB, time since the last frame)`. MeshCore: repeaters whose zero-hop advert was heard; on the repeater it is the table `neighbors` already shows, and since the repeater keeps no names the line carries the first 4 bytes of the key in hex, on the companion the name from the contacts. Meshtastic: nodes whose frame arrived with no relay in between (`hop_start` equal to `hop_limit` and the relay byte the sender's own), on a channel we hold or not; the name is the contact on the companion, else the short name of a NodeInfo heard, else `!<node number>`. 16 nodes are kept per protocol and a full table drops the one heard longest ago. Kept in RAM only: a reboot empties them. `-none-` when there are none; `not available` on the room server and, for `z.mt.neighbors`, in builds without Meshtastic.
+Each line is `name (SNR in dB, time since the last frame)`. MeshCore: repeaters whose zero-hop advert was heard; on the repeater it is the table `neighbors` already shows, and since the repeater keeps no names the line carries the first 4 bytes of the key in hex, on the companion the name from the contacts. Meshtastic: nodes whose frame arrived with no relay in between (`hop_start` set and equal to `hop_limit`), on a channel we hold or not; the name is the contact on the companion, else the short name of a NodeInfo heard, else `!<node number>`. 16 nodes are kept per protocol and a full table drops the one heard longest ago. Kept in RAM only: a reboot empties them. `-none-` when there are none; `not available` on the room server and, for `z.mt.neighbors`, in builds without Meshtastic.
 
 ## Ping bot (*ZephCore only*)
 

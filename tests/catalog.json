@@ -918,6 +918,21 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-045",
+      "name": "The app moves a channel of the table to another slot and keeps its key; it cannot create a #mt- channel",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-046",
+      "name": "Renaming the slot of an entry to another #mt- name renames the entry and keeps its key",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-047",
+      "name": "An entry no slot holds is dropped when the app's writes stop; one a slot holds stays",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-PJSON-011",
       "name": "The ping bot's settings survive prefs.json in both roles; an invalid command comes back off",
       "source": "tests/unit/prefs_json_tests.cpp"
@@ -975,6 +990,11 @@
     {
       "id": "UNIT-NEIGH-010",
       "name": "With recent the lines come heard-last first, the title says so, and a tie keeps list order",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-011",
+      "name": "The short name of a node heard before it is entered is kept for its entry",
       "source": "tests/unit/neighbour_tests.cpp"
     }
   ]
