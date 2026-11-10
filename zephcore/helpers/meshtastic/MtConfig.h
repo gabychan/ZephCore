@@ -32,6 +32,17 @@ enum Relay : uint8_t {
 
 static constexpr size_t kChannelNameMax = 11;
 static constexpr size_t kPskMax = 16;
+/* Channels a companion carries: the bridge's own limit. */
+static constexpr int kTableMax = 8;
+/* "#mt-" and a channel name, terminator included. */
+static constexpr size_t kSlotNameMax = 4 + kChannelNameMax + 1;
+
+/* One Meshtastic channel of a companion; name "" is a free entry. */
+struct ChannelEntry {
+	char name[kChannelNameMax + 1];
+	uint8_t psk_len;  /* 1: a default key variant, whose number is psk[0] */
+	uint8_t psk[kPskMax];
+};
 
 /* Plain data: NodePrefs holds one and is cleared with memset. setDefaults() fills it. */
 struct RepeaterPrefs {
@@ -45,6 +56,7 @@ struct RepeaterPrefs {
 	uint32_t nodeinfo_s;
 	uint32_t telemetry_s;
 	char channel[kChannelNameMax + 1];
+	ChannelEntry channels[kTableMax];  /* a companion's channels, see ADR 0015 */
 };
 
 /* 0 (off) or at least min, at most max. */
@@ -89,6 +101,12 @@ inline void sanitize(RepeaterPrefs &p)
 	}
 	p.nodeinfo_s = clampInterval(p.nodeinfo_s, 600, 604800);
 	p.telemetry_s = clampInterval(p.telemetry_s, 60, 86400);
+	for (auto &e : p.channels) {
+		e.name[kChannelNameMax] = '\0';
+		if (e.name[0] != '\0' && (!validName(e.name) || (e.psk_len != 1 && e.psk_len != kPskMax))) {
+			e = ChannelEntry{};
+		}
+	}
 	p.channel[kChannelNameMax] = '\0';
 	if (!validName(p.channel)) {
 		const char kDefault[] = MT_DEFAULT_CHANNEL;
@@ -147,6 +165,7 @@ inline bool roleYieldsToEcho(uint8_t role) { return role != ROLE_ROUTER && role 
 struct CmdResult {
 	bool handled;  /* the command was a "z.mt." one */
 	bool changed;  /* a setting changed: save it */
+	char removed[kSlotNameMax];  /* slot of the channel just removed, or "" */
 };
 
 /* "get z.mt.<key>" and "set z.mt.<key> <value>". The reply is always written when
@@ -157,5 +176,25 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 
 /* Standard base64 into out; length, or -1 on bad input or overflow. */
 int base64Decode(const char *s, uint8_t *out, size_t cap);
+
+/* The name the app sees for a channel: "#mt-" and the name in lower case, every
+ * character outside a-z and 0-9 turned into '-'. */
+void slotName(const char *name, char out[kSlotNameMax]);
+
+typedef void (*ShaFn)(const uint8_t *msg, size_t len, uint8_t out[32]);
+
+/* The secret of that slot, as for any '#' channel: the first 16 bytes of the
+ * SHA-256 of the slot name, '#' included. */
+void slotSecret(const char *slot, ShaFn sha, uint8_t out[16]);
+
+enum AddResult { ADD_OK, ADD_BAD_NAME, ADD_BAD_KEY, ADD_EXISTS, ADD_FULL };
+
+/* Adds a channel, key 1 byte (default key variant) or 16. The name is taken when no
+ * other entry has the same slot name. */
+AddResult addChannel(RepeaterPrefs &p, const char *name, const uint8_t *psk, size_t psk_len);
+
+/* The entry of a slot name, or nullptr. */
+const ChannelEntry *findChannel(const RepeaterPrefs &p, const char *slot);
+ChannelEntry *findChannel(RepeaterPrefs &p, const char *slot);
 
 } /* namespace mt */

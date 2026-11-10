@@ -364,8 +364,12 @@ private:
 	MtRecent _mt_recent[MT_RECENT_KEEP] = {};
 	uint8_t _mt_recent_next = 0;
 
-	static bool mtIsChannelName(const char *name);
 	bool mtHasChannelNamed(const char *name);
+	/* The table entry behind a channel slot: the slot is named for it and holds the secret derived from that name. */
+	const mt::ChannelEntry *mtEntryOfSlot(int idx);
+	int mtSlotByName(const char *slot);
+	/* Creates the slot of every table entry that has none. */
+	void mtReconcileChannels();
 	void mtSyncChannels();
 	void mtSetup();
 	bool mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE]);
@@ -396,13 +400,15 @@ private:
 	void mtForgetContact(const ContactInfo &contact);
 public:
 	/* Bump when the default channel list changes; the next boot adds what is missing. */
-	static constexpr uint8_t MT_DEFAULTS_REV = 1;
+	static constexpr uint8_t MT_DEFAULTS_REV = 2;
 	/* How long the app waits for the ACK of a message to a Meshtastic node. */
 	static constexpr uint32_t MT_ACK_TIMEOUT_MS = 20000;
 	/* Adds the channels of the Spanish SFNarrow community that are not in the list. */
 	void mtAddDefaultChannels();
 	/* z.mt.* settings changed through the CLI, and its stats. */
 	void mtPrefsChanged();
+	/* z.mt.channel.remove: frees the slot of that name. */
+	void mtChannelRemoved(const char *slot);
 	/* The receiver takes Meshtastic frames while z.mt.enable is on. */
 	void mtApplyListen();
 	void mtFormatStats(char *reply, size_t cap) const;

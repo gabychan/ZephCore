@@ -81,11 +81,6 @@ static uint32_t mtRandom32()
 
 static const mt::PkiCrypto kMtPki = {MtRelayPort::aesBlock256, mtSha256, mtRandom32};
 
-bool CompanionMesh::mtIsChannelName(const char *name)
-{
-	return strncmp(name, kMtPrefix, kMtPrefixLen) == 0 && name[kMtPrefixLen] != '\0';
-}
-
 /* Meshtastic's default key has PSK index 1; index n adds n-1 to its last byte. */
 struct MtDefaultChannel {
 	const char *name;
@@ -93,7 +88,7 @@ struct MtDefaultChannel {
 };
 
 static const MtDefaultChannel kMtDefaults[] = {
-	{"MT:" MT_DEFAULT_CHANNEL, 1}, {"MT:Test", 2}, {"MT:Bots", 2}, {"MT:Catalunya", 1}, {"MT:Barcelona", 1},
+	{MT_DEFAULT_CHANNEL, 1}, {"Test", 2}, {"Bots", 2}, {"Catalunya", 1}, {"Barcelona", 1},
 };
 static const char *const kMcHashtagDefaults[] = {"#test", "#bot"};
 
@@ -111,19 +106,12 @@ bool CompanionMesh::mtHasChannelNamed(const char *name)
 
 void CompanionMesh::mtAddDefaultChannels()
 {
-	/* The default Meshtastic key (PSK "AQ=="). */
-	static const uint8_t kDefaultKey[16] = {0xd4, 0xf1, 0xbb, 0x3a, 0x20, 0x29, 0x07, 0x59,
-						0xf0, 0xbc, 0xff, 0xab, 0xcf, 0x4e, 0x69, 0x01};
-	uint8_t key[16];
-
 	for (const auto &c : kMtDefaults) {
-		if (mtHasChannelNamed(c.name)) {
-			continue;
-		}
-		memcpy(key, kDefaultKey, sizeof(key));
-		key[15] = (uint8_t)(key[15] + c.psk_index - 1);
-		addChannel(c.name, key, sizeof(key));
+		const uint8_t variant = c.psk_index;
+
+		mt::addChannel(prefs.mt, c.name, &variant, 1); /* one already there stays */
 	}
+	mtReconcileChannels();
 	/* A MeshCore hashtag channel's secret is the first 16 bytes of SHA256 of its name. */
 	for (const char *name : kMcHashtagDefaults) {
 		uint8_t digest[32];
@@ -162,6 +150,7 @@ void CompanionMesh::mtApplyListen()
 /* z.mt.* changed through the CLI. */
 void CompanionMesh::mtPrefsChanged()
 {
+	mtReconcileChannels();
 	mtApplyListen();
 	if (_mt_ready) {
 		MtRelayPort::renameSelf(_mt, prefs.node_name);
@@ -175,18 +164,89 @@ void CompanionMesh::mtFormatStats(char *reply, size_t cap) const
 	_mtport.formatStats(reply, cap);
 }
 
+const mt::ChannelEntry *CompanionMesh::mtEntryOfSlot(int idx)
+{
+	ChannelDetails ch;
+	uint8_t secret[16];
+
+	if (!getChannel(idx, ch) || ch.name[0] == '\0') {
+		return nullptr;
+	}
+	const mt::ChannelEntry *e = mt::findChannel(prefs.mt, ch.name);
+
+	if (!e) {
+		return nullptr;
+	}
+	mt::slotSecret(ch.name, mtSha256, secret);
+	return memcmp(ch.channel.secret, secret, sizeof(secret)) == 0 ? e : nullptr;
+}
+
+int CompanionMesh::mtSlotByName(const char *slot)
+{
+	ChannelDetails ch;
+
+	for (int i = 0; i < getNumChannels(); i++) {
+		if (getChannel(i, ch) && strcmp(ch.name, slot) == 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void CompanionMesh::mtReconcileChannels()
+{
+	bool added = false;
+
+	for (const auto &e : prefs.mt.channels) {
+		char slot[mt::kSlotNameMax];
+		uint8_t secret[16];
+
+		if (e.name[0] == '\0') {
+			continue;
+		}
+		mt::slotName(e.name, slot);
+		if (mtSlotByName(slot) >= 0) {
+			continue;
+		}
+		mt::slotSecret(slot, mtSha256, secret);
+		if (addChannel(slot, secret, sizeof(secret))) {
+			added = true;
+		} else {
+			LOG_WRN("mt: no free slot for channel '%s'", e.name);
+		}
+	}
+	if (added) {
+		markChannelsDirty();
+	}
+}
+
+void CompanionMesh::mtChannelRemoved(const char *slot)
+{
+	const int idx = mtSlotByName(slot);
+	ChannelDetails ch;
+	uint8_t secret[16];
+
+	if (idx < 0 || !getChannel(idx, ch)) {
+		return;
+	}
+	mt::slotSecret(slot, mtSha256, secret);
+	if (memcmp(ch.channel.secret, secret, sizeof(secret)) != 0) {
+		return; /* the app's own channel by that name */
+	}
+	memset(&ch, 0, sizeof(ch));
+	setChannel(idx, ch);
+	markChannelsDirty();
+}
+
 void CompanionMesh::mtSyncChannels()
 {
 	_mt.clearChannels();
 
 	for (int i = 0; i < getNumChannels(); i++) {
-		ChannelDetails ch;
+		const mt::ChannelEntry *e = mtEntryOfSlot(i);
 
-		if (!getChannel(i, ch) || !mtIsChannelName(ch.name)) {
-			continue;
-		}
-		if (!_mt.setChannel((uint8_t)i, ch.name + kMtPrefixLen, ch.channel.secret, 16)) {
-			LOG_WRN("mt: channel '%s' not usable (table full)", ch.name);
+		if (e && !_mt.setChannel((uint8_t)i, e->name, e->psk, e->psk_len)) {
+			LOG_WRN("mt: channel '%s' not usable (table full)", e->name);
 		}
 	}
 	LOG_INF("mt: %d Meshtastic channel(s)", _mt.channelCount());
@@ -402,7 +462,10 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 	if (pkt) {
 		m.releasePacket(pkt);
 	}
-	if (m.prefs.ping.mt.enable && strcmp(ch.name, "MT:" PING_MT_CHANNEL) == 0) {
+	char bot_slot[mt::kSlotNameMax];
+
+	mt::slotName(PING_MT_CHANNEL, bot_slot);
+	if (m.prefs.ping.mt.enable && strcmp(ch.name, bot_slot) == 0 && m.mtEntryOfSlot(channel_id)) {
 		/* relay is 0 when the sender set no relay_node; a relay that is not the sender says it was relayed. */
 		const bool relayed = hops == 0 && relay != 0 && (uint8_t)from != relay;
 		const ping::Heard heard = {hops, snr_x4, (int16_t)m._radio->getLastRSSI(),
@@ -591,7 +654,7 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 {
 	ChannelDetails ch;
 
-	if (!getChannel(ch_idx, ch) || !mtIsChannelName(ch.name)) {
+	if (!getChannel(ch_idx, ch) || !mtEntryOfSlot(ch_idx)) {
 		return false;
 	}
 	sent = false;

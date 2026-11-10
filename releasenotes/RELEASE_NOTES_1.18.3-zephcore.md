@@ -7,6 +7,14 @@ default channels and node name in order.
 
 ## Meshtastic (Zephtacore builds)
 
+- Meshtastic channels on the companion are made by command, and the app no longer mixes channels that share a
+  key (`Test` and `Bots`, or `SFNarrow`, `Catalunya` and `Barcelona`: a text sent to one showed in the others, and
+  one app listed only one of them). `set z.mt.channel.add <name> [<key>]` takes the key as Meshtastic shows it
+  (`AQ==`, `Ag==` or 16 bytes in base64), `set z.mt.channel.remove <name>` removes it and `get z.mt.channels` lists
+  them. The app lists each as `#mt-<name>`. The default channels are created the same way. A node that held the old
+  `MT:<name>` channels needs a factory reset; they are plain private channels now and carry no Meshtastic.
+- A Meshtastic text now reaches the channel it was heard on, not the first channel with the same key.
+
 - The repeater starts with `z.mt.relay essential`: text, direct messages, their ACKs, NodeInfo and
   traceroute are repeated, and nothing is dropped when another node repeats it first. `z.mt.relay all`
   still repeats the rest as before.

@@ -1168,3 +1168,82 @@ TEST(mt_origin_delay, "UNIT-MT-041", "A frame of our own waits 0 to 7 slots, nev
         CHECK(originDelayMs(slot, r) < rebroadcastDelayMs(slot, 0));  // the first slot a client repeat can take
     }
 }
+
+static std::string toHexStr(const uint8_t* b, size_t n) {
+    static const char* d = "0123456789abcdef";
+    std::string s;
+    for (size_t i = 0; i < n; i++) { s += d[b[i] >> 4]; s += d[b[i] & 15]; }
+    return s;
+}
+
+TEST(mt_channel_slot, "UNIT-MT-042", "A channel's slot is #mt-<name> in lower case; its secret is the first 16 bytes of the SHA-256 of that name, as for a # channel") {
+    char slot[kSlotNameMax];
+    slotName("SFNarrow", slot);
+    CHECK(std::string(slot) == "#mt-sfnarrow");
+    slotName("Test 2", slot);
+    CHECK(std::string(slot) == "#mt-test-2");
+    slotName("Catalunya12", slot);  // the longest name still fits
+    CHECK(std::string(slot) == "#mt-catalunya12");
+    // Secrets of #test and #bot as a MeshCore companion holds them (read from a device).
+    uint8_t secret[16];
+    slotSecret("#test", refSha256, secret);
+    CHECK(toHexStr(secret, 16) == "9cd8fcf22a47333b591d96a2b848b73f");
+    slotSecret("#bot", refSha256, secret);
+    CHECK(toHexStr(secret, 16) == "eb50a1bcb3e4e5d7bf69a57c9dada211");
+    // Two channels that share a Meshtastic key get different secrets.
+    uint8_t a[16], b[16];
+    slotSecret("#mt-test", refSha256, a);
+    slotSecret("#mt-bots", refSha256, b);
+    CHECK(std::memcmp(a, b, 16) != 0);
+}
+
+TEST(mt_channel_table, "UNIT-MT-043", "z.mt.channel.add and .remove keep a table of channels on a companion; names differing only in case, a bad key and a ninth channel are refused") {
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_OFF);
+    bool ch = false;
+    CHECK(mtCmd(p, "get z.mt.channels", &ch, false) == "> none" && !ch);
+    CHECK(mtCmd(p, "set z.mt.channel.add SFNarrow", &ch, false) == "OK" && ch);
+    CHECK(mtCmd(p, "set z.mt.channel.add Bots Ag==", &ch, false) == "OK" && ch);
+    CHECK(mtCmd(p, "set z.mt.channel.add Mine AAECAwQFBgcICQoLDA0ODw==", &ch, false) == "OK" && ch);
+    CHECK(mtCmd(p, "get z.mt.channels", &ch, false) == "> SFNarrow=1 Bots=2 Mine=key");
+    const ChannelEntry* e = findChannel(p, "#mt-bots");
+    CHECK(e && std::string(e->name) == "Bots" && e->psk_len == 1 && e->psk[0] == 2);
+    e = findChannel(p, "#mt-mine");
+    CHECK(e && e->psk_len == 16 && e->psk[15] == 0x0F);
+    // Same slot name: refused, nothing changes.
+    CHECK(mtCmd(p, "set z.mt.channel.add bots", &ch, false).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "set z.mt.channel.add Bad AAEC", &ch, false).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "set z.mt.channel.add", &ch, false).find("Error") == 0 && !ch);
+    for (int i = 0; i < kTableMax - 3; i++) {
+        char cmd[48];
+        snprintf(cmd, sizeof(cmd), "set z.mt.channel.add C%d", i);
+        CHECK(mtCmd(p, cmd, &ch, false) == "OK");
+    }
+    CHECK(mtCmd(p, "set z.mt.channel.add Nine", &ch, false).find("Error") == 0 && !ch);
+    // Remove: the slot to free is reported, and an unknown name changes nothing.
+    char reply[96];
+    CmdResult r = handleCommand(p, "set z.mt.channel.remove BOTS", reply, sizeof(reply), false);
+    CHECK(r.handled && r.changed && std::string(reply) == "OK" && std::string(r.removed) == "#mt-bots");
+    CHECK(!findChannel(p, "#mt-bots"));
+    CHECK(mtCmd(p, "set z.mt.channel.remove Bots", &ch, false).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "set z.mt.channel.add Nine", &ch, false) == "OK" && ch);  // the freed entry is reused
+    // A repeater has one channel of its own and no table; a companion has no primary channel to set.
+    CHECK(mtCmd(p, "set z.mt.channel.add X", &ch, true).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "get z.mt.channels", &ch, true).find("Error") == 0);
+    CHECK(mtCmd(p, "set z.mt.channel X", &ch, false).find("Error") == 0 && !ch);
+}
+
+TEST(mt_channel_sanitize, "UNIT-MT-044", "An entry with a bad name or key is cleared when the settings are put in range") {
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_OFF);
+    std::strcpy(p.channels[0].name, "Good");
+    p.channels[0].psk_len = 1;
+    p.channels[0].psk[0] = 2;
+    std::strcpy(p.channels[1].name, "NoKey");
+    p.channels[1].psk_len = 5;
+    std::strcpy(p.channels[2].name, "bad\x01name");
+    p.channels[2].psk_len = 1;
+    sanitize(p);
+    CHECK(std::string(p.channels[0].name) == "Good" && p.channels[0].psk[0] == 2);
+    CHECK(p.channels[1].name[0] == '\0' && p.channels[2].name[0] == '\0');
+}

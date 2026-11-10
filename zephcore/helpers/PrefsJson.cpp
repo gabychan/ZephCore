@@ -89,9 +89,45 @@ public:
 };
 
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+/* One channel of the companion's table: a value of prefs.json is at most
+ * CONFIG_MAX_TOKEN_LEN long, so the table is an object per entry. */
+class MtChannelJson : public ConfigSerializer {
+	mt::ChannelEntry *_e;
+
+protected:
+	void structure() override
+	{
+		def("n", _e->name, sizeof(_e->name));
+		def("l", _e->psk_len);
+		def("k", (void *)_e->psk, sizeof(_e->psk));
+	}
+
+public:
+	explicit MtChannelJson(mt::ChannelEntry *e) : _e(e) {}
+};
+
+class MtChannelsJson : public ConfigSerializer {
+	NodePrefs *_p;
+
+protected:
+	void structure() override
+	{
+		for (int i = 0; i < mt::kTableMax; i++) {
+			char key[3] = {'c', (char)('0' + i), '\0'};
+			MtChannelJson e(&_p->mt.channels[i]);
+
+			def(key, e);
+		}
+	}
+
+public:
+	explicit MtChannelsJson(NodePrefs *p) : _p(p) {}
+};
+
 /* mt{}: the Meshtastic side of both roles. */
 class MtJson : public ConfigSerializer {
 	NodePrefs *_p;
+	MtChannelsJson _chs;
 
 protected:
 	void structure() override
@@ -106,10 +142,11 @@ protected:
 		def("ch", _p->mt.channel, sizeof(_p->mt.channel));
 		def("psk_len", _p->mt.psk_len);
 		def("psk", (void *)_p->mt.psk, sizeof(_p->mt.psk));
+		def("chs", _chs);
 	}
 
 public:
-	explicit MtJson(NodePrefs *p) : _p(p) {}
+	explicit MtJson(NodePrefs *p) : _p(p), _chs(p) {}
 };
 #endif
 

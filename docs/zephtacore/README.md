@@ -7,9 +7,9 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 
 | Feature | How |
 | --- | --- |
-| Meshtastic channels in the MeshCore app | A group channel named `MT:<name>` with the Meshtastic PSK as its 16 byte secret. |
-| Receive text | Text heard on an `MT:` channel reaches the app as a channel message, `<sender>: <text>`. |
-| Send text | A message the app sends on an `MT:` channel leaves as a Meshtastic broadcast. |
+| Meshtastic channels in the MeshCore app | A group channel named `#mt-<name>` (lower case) whose secret is derived from that name, like any `#` channel. The Meshtastic key and the exact name are kept by the node (`z.mt.channel.add`, ADR 0015). |
+| Receive text | Text heard on a Meshtastic channel reaches the app as a channel message, `<sender>: <text>`. |
+| Send text | A message the app sends on a `#mt-` channel leaves as a Meshtastic broadcast. |
 | Repeats heard | When a Meshtastic node repeats a text we sent, the app gets the same message as a MeshCore group packet, which it counts as a heard repeat. The packet carries the repeater's `relay_node` byte as a 1-byte path, so each repeater is one heard (up to 8 per text). Incoming texts carry their real hop count (`hop_start - hop_limit`). The last 3 sent texts are kept for this. |
 | Replies | A reply written in the app (`@[name] text`) leaves as a Meshtastic text with `reply_id` set to the newest text by that name, tag dropped. A Meshtastic reply or reaction reaches the app as `@[name] text`, `name` being the author of the answered text. Authors are known for the last 8 texts on `MT:` channels (ours included); older targets lose the tag on the way in and leave the reply unlinked on the way out. |
 | Direct messages | A message to a Meshtastic contact leaves as a Meshtastic PKI message (X25519 with the node's key, AES-256-CCM, channel 0), as Meshtastic 2.5+ nodes expect. It needs the node's public key, learned from its NodeInfo; without it the app gets an error. A PKI message addressed to us reaches the app as a message of that contact, and is answered with an ACK when it asks for one. Our messages ask for an ACK: when the node answers (by PKI or on a shared channel, from that node only), the app gets the confirmation, and times out after 20 s otherwise. |
@@ -17,10 +17,10 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Exchanging keys | Marking a Meshtastic contact as favourite, when it still has no name or no key, sends it our NodeInfo with `want_response`, once. We also send our NodeInfo, at most once per node per hour: when a node asks for ours (a unicast NodeInfo with `want_response`), when a node answers `PKI_UNKNOWN_PUBKEY`, and (asking for theirs too) when a PKI message for us arrives from a node whose key we do not hold. |
 | Nodes in the contact list | NodeInfo creates a contact `<long name> (MT)`. |
 | Nodes on the map | Position packets set the contact's coordinates. |
-| Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every `z.mt.nodeinfo` seconds (12 h), on the first `MT:` channel. |
+| Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every `z.mt.nodeinfo` seconds (12 h), on the first Meshtastic channel. |
 | Repeat Meshtastic floods | `z.mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. |
 
-MeshCore behaves as before. A frame that does not decrypt on one of our `MT:` channels is handled as MeshCore.
+MeshCore behaves as before. A frame that does not decrypt on one of our Meshtastic channels is handled as MeshCore.
 
 ## Build
 
@@ -48,8 +48,8 @@ data store under `zt_ch_rev`) it adds the channels of meshtacore's community mat
 | Channel | Key |
 | --- | --- |
 | `Public` | MeshCore public key (as in ZephCore) |
-| `MT:SFNarrow`, `MT:Catalunya`, `MT:Barcelona` | Meshtastic default key (PSK `AQ==`) |
-| `MT:Test`, `MT:Bots` | default key + 1 (PSK `Ag==`) |
+| `SFNarrow`, `Catalunya`, `Barcelona` (slots `#mt-sfnarrow`, ...) | Meshtastic default key (PSK `AQ==`) |
+| `Test`, `Bots` (slots `#mt-test`, `#mt-bots`) | default key + 1 (PSK `Ag==`) |
 | `#test`, `#bot` | MeshCore hashtag channels (first 16 bytes of SHA256 of the name) |
 
 meshtacore's `MC:Public`, `MC:#test` and `MC:#bot` are bridged names there; here those are native MeshCore
@@ -63,11 +63,12 @@ only when a firmware raises the revision. Existing channels and radio settings a
    For SFNarrow (as in meshtacore's `custom_sfnarrow_default`): 869.618 MHz, BW 62.5 kHz, SF 7, CR 4/6.
    Any SF works: Meshtastic frames carry 16 preamble symbols, so with the bridge on, the RX duty-cycle window is
    sized for 16 (at SF 8 and below that leaves no sleep budget, so the radio listens continuously).
-2. In the MeshCore app add a channel. Name: `MT:SFNarrow` (the part after `MT:` is the Meshtastic channel
-   name; the channel hash, 0x20, comes from name and key). Secret, for the default key (PSK `AQ==`):
-   `d4f1bb3a20290759f0bcffabcf4e6901`. A channel with PSK `Ag==` (default key index 2, e.g. `Test`) has the same
-   key with the last byte `02`: `d4f1bb3a20290759f0bcffabcf4e6902`. For a private channel, the 16 byte key in
-   hex. 32 byte (AES-256) keys are not supported.
+2. Add the Meshtastic channel from the node's USB text console (or any front end of the companion CLI), not from
+   the app: `set z.mt.channel.add SFNarrow` (default key), `set z.mt.channel.add Test Ag==` (the key as Meshtastic
+   shows it: `AQ==` is the default key, `Ag==` its variant 2, 16 bytes in base64 a key of your own). The app then
+   lists a channel `#mt-sfnarrow`. `get z.mt.channels` lists them and `set z.mt.channel.remove <name>` deletes one.
+   Channels that share a key no longer merge in the app, because each slot has its own secret. 32 byte (AES-256)
+   keys are not supported.
 3. Send and receive on that channel. Meshtastic nodes appear as contacts after they send NodeInfo or Position.
 
 ## Limits
@@ -91,11 +92,11 @@ only when a firmware raises the revision. Existing channels and radio settings a
 ```
 radio RX (hybrid sync 0x14B4) -> Dispatcher::checkRecv
     -> CompanionMesh::onRecvForeign -> mt::Bridge::handleFrame
-          decrypts on our MT: channels (hash, AES-CTR, protobuf Data)
+          decrypts on our Meshtastic channels (hash, AES-CTR, protobuf Data)
           yes: text / NodeInfo / Position -> app, optional relay, frame consumed
           no : MeshCore parser, as before
           channel 0 to us: PKI, opened with the sender's key (mtkeys) -> direct text to the app, ACK if asked
-app message on MT: channel -> mt::Bridge::buildText -> Dispatcher::sendForeign
+app message on a #mt- channel -> mt::Bridge::buildText -> Dispatcher::sendForeign
 app message to a Meshtastic contact -> mt::Bridge::buildDirectText (PKI) -> same TX queue
     -> normal TX queue (LBT, duty cycle) -> LoRaRadio writes sync 0x24B4 for the frame
 ```
@@ -174,6 +175,6 @@ Not run on air.
 | **On air** | **Not done**, on any radio family. No frame has been sent to or received from a Meshtastic node, and the hybrid sync word has not been measured for packet loss on this code |
 
 First on-air checks, in order: (1) a Meshtastic node on the same frequency, bandwidth, SF and CR sends text on
-`SFNarrow`: it must show in the app; (2) the app sends on `MT:SFNarrow`: the Meshtastic node must show it;
+`SFNarrow`: it must show in the app; (2) the app sends on `#mt-sfnarrow`: the Meshtastic node must show it;
 (3) MeshCore traffic still arrives with the hybrid register on; (4) NodeInfo and Position make contacts and map
 pins; (5) loss of MeshCore and Meshtastic frames against a build without the feature.

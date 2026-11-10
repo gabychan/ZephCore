@@ -275,3 +275,23 @@ TEST(pjson_ping, "UNIT-PJSON-011", "The ping bot's settings survive prefs.json i
     sanitizeNodePrefs(&b);
     CHECK(b.ping.mc.enable == 0 && std::string(b.ping.mc.trigger) == "" && b.ping.snr == 1);
 }
+
+TEST(pjson_mt_channels, "UNIT-PJSON-012", "A companion's Meshtastic channels survive prefs.json; a file without them has none") {
+    NodePrefs p = defaults();
+    CHECK(mt::addChannel(p.mt, "SFNarrow", (const uint8_t*)"\x01", 1) == mt::ADD_OK);
+    uint8_t key[16];
+    for (int i = 0; i < 16; i++) key[i] = (uint8_t)(0x40 + i);
+    CHECK(mt::addChannel(p.mt, "Mine", key, 16) == mt::ADD_OK);
+    MemStream s;
+    CHECK(companionPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(companionPrefsFromJson(q, s));
+    CHECK(std::string(q.mt.channels[0].name) == "SFNarrow" && q.mt.channels[0].psk_len == 1 && q.mt.channels[0].psk[0] == 1);
+    CHECK(std::string(q.mt.channels[1].name) == "Mine" && q.mt.channels[1].psk_len == 16 && q.mt.channels[1].psk[15] == 0x4F);
+    CHECK(q.mt.channels[2].name[0] == '\0');
+
+    MemStream old("{name:\"C\",lat:0,lon:0,mt:{en:1}}");
+    NodePrefs d = defaults();
+    CHECK(companionPrefsFromJson(d, old));
+    CHECK(d.mt.channels[0].name[0] == '\0');
+}

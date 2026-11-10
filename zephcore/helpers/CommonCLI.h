@@ -72,6 +72,7 @@ public:
 	virtual void onPingPrefsChanged() {}
 	virtual bool mtStandalone() const { return false; }
 	virtual void onMtPrefsChanged() {}
+	virtual void onMtChannelRemoved(const char* slot) { (void)slot; }
 	virtual void formatMtStatsReply(char* reply, size_t cap) { (void)cap; strcpy(reply, "not available"); }
 	virtual mesh::LocalIdentity& getSelfId() = 0;
 	virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;

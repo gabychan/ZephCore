@@ -151,8 +151,9 @@ public:
 	ping::Stats* pingStats() override { return _mesh.pingStats(); }
 
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-	/* z.mt.*: the channels are the app's, so channel and telemetry do not apply. */
+	/* z.mt.*: the node has no channel of its own, so channel and telemetry do not apply. */
 	void onMtPrefsChanged() override { _mesh.mtPrefsChanged(); }
+	void onMtChannelRemoved(const char* slot) override { _mesh.mtChannelRemoved(slot); }
 	void formatMtStatsReply(char* reply, size_t cap) override { _mesh.mtFormatStats(reply, cap); }
 #endif
 

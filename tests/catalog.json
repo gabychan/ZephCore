@@ -908,8 +908,28 @@
       "source": "tests/unit/ping_tests.cpp"
     },
     {
+      "id": "UNIT-MT-042",
+      "name": "A channel's slot is #mt-<name> in lower case; its secret is the first 16 bytes of the SHA-256 of that name, as for a # channel",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-043",
+      "name": "z.mt.channel.add and .remove keep a table of channels on a companion; names differing only in case, a bad key and a ninth channel are refused",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-044",
+      "name": "An entry with a bad name or key is cleared when the settings are put in range",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-PJSON-011",
       "name": "The ping bot's settings survive prefs.json in both roles; an invalid command comes back off",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-012",
+      "name": "A companion's Meshtastic channels survive prefs.json; a file without them has none",
       "source": "tests/unit/prefs_json_tests.cpp"
     }
   ]

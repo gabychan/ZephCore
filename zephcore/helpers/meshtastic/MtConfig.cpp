@@ -99,6 +99,159 @@ int base64Decode(const char *s, uint8_t *out, size_t cap)
 	return (int)n;
 }
 
+void slotName(const char *name, char out[kSlotNameMax])
+{
+	size_t n = 0;
+
+	memcpy(out, "#mt-", 4);
+	n = 4;
+	for (const char *c = name; *c && n < kSlotNameMax - 1; c++) {
+		char l = (*c >= 'A' && *c <= 'Z') ? (char)(*c - 'A' + 'a') : *c;
+
+		out[n++] = ((l >= 'a' && l <= 'z') || (l >= '0' && l <= '9')) ? l : '-';
+	}
+	out[n] = '\0';
+}
+
+void slotSecret(const char *slot, ShaFn sha, uint8_t out[16])
+{
+	uint8_t digest[32];
+
+	sha((const uint8_t *)slot, strlen(slot), digest);
+	memcpy(out, digest, 16);
+}
+
+const ChannelEntry *findChannel(const RepeaterPrefs &p, const char *slot)
+{
+	char other[kSlotNameMax];
+
+	for (const auto &e : p.channels) {
+		if (e.name[0] == '\0') {
+			continue;
+		}
+		slotName(e.name, other);
+		if (strcmp(other, slot) == 0) {
+			return &e;
+		}
+	}
+	return nullptr;
+}
+
+ChannelEntry *findChannel(RepeaterPrefs &p, const char *slot)
+{
+	return const_cast<ChannelEntry *>(findChannel(static_cast<const RepeaterPrefs &>(p), slot));
+}
+
+AddResult addChannel(RepeaterPrefs &p, const char *name, const uint8_t *psk, size_t psk_len)
+{
+	char slot[kSlotNameMax];
+	ChannelEntry *free_entry = nullptr;
+
+	if (!validName(name)) {
+		return ADD_BAD_NAME;
+	}
+	if (psk_len != 1 && psk_len != kPskMax) {
+		return ADD_BAD_KEY;
+	}
+	slotName(name, slot);
+	if (findChannel(p, slot)) {
+		return ADD_EXISTS;
+	}
+	for (auto &e : p.channels) {
+		if (e.name[0] == '\0') {
+			free_entry = &e;
+			break;
+		}
+	}
+	if (!free_entry) {
+		return ADD_FULL;
+	}
+	*free_entry = ChannelEntry{};
+	memcpy(free_entry->name, name, strlen(name));
+	free_entry->psk_len = (uint8_t)psk_len;
+	memcpy(free_entry->psk, psk, psk_len);
+	return ADD_OK;
+}
+
+static void channelAdd(RepeaterPrefs &p, const char *args, char *reply, size_t cap, bool &changed)
+{
+	char name[kChannelNameMax + 2];
+	char key[40] = "";
+	uint8_t psk[kPskMax] = {1};
+	int len = 1;
+	int n = sscanf(args, "%12s %39s", name, key);
+
+	if (n < 1 || !validName(name)) {
+		snprintf(reply, cap, "Error: set z.mt.channel.add <name up to %u chars> [default|<base64 key>]",
+			 (unsigned)kChannelNameMax);
+		return;
+	}
+	if (n == 2 && strcmp(key, "default") != 0) {
+		len = base64Decode(key, psk, sizeof(psk));
+		if (len != 1 && len != 16) {
+			snprintf(reply, cap, "Error: key is 1 or 16 bytes in base64");
+			return;
+		}
+	}
+	switch (addChannel(p, name, psk, (size_t)len)) {
+	case ADD_OK:
+		changed = true;
+		snprintf(reply, cap, "OK");
+		break;
+	case ADD_EXISTS:
+		snprintf(reply, cap, "Error: a channel with that name already exists");
+		break;
+	case ADD_FULL:
+		snprintf(reply, cap, "Error: %d channels at most", kTableMax);
+		break;
+	default:
+		snprintf(reply, cap, "Error: bad name or key");
+		break;
+	}
+}
+
+static void channelRemove(RepeaterPrefs &p, const char *args, char *reply, size_t cap,
+			  CmdResult &r)
+{
+	char name[kChannelNameMax + 2];
+	char slot[kSlotNameMax];
+
+	if (sscanf(args, "%12s", name) != 1) {
+		snprintf(reply, cap, "Error: set z.mt.channel.remove <name>");
+		return;
+	}
+	slotName(name, slot);
+	ChannelEntry *e = findChannel(p, slot);
+
+	if (!e) {
+		snprintf(reply, cap, "Error: no such channel");
+		return;
+	}
+	*e = ChannelEntry{};
+	memcpy(r.removed, slot, sizeof(slot));
+	r.changed = true;
+	snprintf(reply, cap, "OK");
+}
+
+static void channelList(const RepeaterPrefs &p, char *reply, size_t cap)
+{
+	size_t n = (size_t)snprintf(reply, cap, ">");
+
+	for (const auto &e : p.channels) {
+		if (e.name[0] == '\0' || n >= cap) {
+			continue;
+		}
+		if (e.psk_len == 1) {
+			n += (size_t)snprintf(reply + n, cap - n, " %s=%u", e.name, e.psk[0]);
+		} else {
+			n += (size_t)snprintf(reply + n, cap - n, " %s=key", e.name);
+		}
+	}
+	if (n == 1) {
+		snprintf(reply, cap, "> none");
+	}
+}
+
 static void setChannel(RepeaterPrefs &p, const char *args, char *reply, size_t cap, bool &changed)
 {
 	char name[kChannelNameMax + 2];
@@ -140,7 +293,7 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 	const bool set = strncmp(command, "set z.mt.", 9) == 0;
 
 	if (!get && !set) {
-		return {false, false};
+		return {};
 	}
 	const char *key = command + 9;
 	char name[24];
@@ -155,10 +308,16 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 	uint32_t u;
 	uint8_t b;
 	bool changed = false;
+	CmdResult res = {};
 
+	res.handled = true;
 	if (!standalone && (strcmp(name, "channel") == 0 || strcmp(name, "telemetry") == 0)) {
-		snprintf(reply, cap, "Error: not available here, the app sets the channels");
-		return {true, false};
+		snprintf(reply, cap, "Error: not available here, use z.mt.channel.add and z.mt.channel.remove");
+		return res;
+	}
+	if (standalone && (strncmp(name, "channel.", 8) == 0 || strcmp(name, "channels") == 0)) {
+		snprintf(reply, cap, "Error: not available here, the node has one channel: z.mt.channel");
+		return res;
 	}
 
 	if (get) {
@@ -179,10 +338,12 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 		} else if (strcmp(name, "channel") == 0) {
 			snprintf(reply, cap, "> %s (%s key)", p.channel,
 				 p.psk_len == 1 && p.psk[0] == 1 ? "default" : "custom");
+		} else if (strcmp(name, "channels") == 0) {
+			channelList(p, reply, cap);
 		} else {
 			snprintf(reply, cap, "Error: unknown z.mt setting");
 		}
-		return {true, false};
+		return res;
 	}
 
 	if (strcmp(name, "enable") == 0) {
@@ -214,10 +375,16 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 		} else { snprintf(reply, cap, "Error: seconds, 0 (never) or 60-86400"); }
 	} else if (strcmp(name, "channel") == 0) {
 		setChannel(p, val, reply, cap, changed);
+	} else if (strcmp(name, "channel.add") == 0) {
+		channelAdd(p, val, reply, cap, changed);
+	} else if (strcmp(name, "channel.remove") == 0) {
+		channelRemove(p, val, reply, cap, res);
+		changed = res.changed;
 	} else {
 		snprintf(reply, cap, "Error: unknown z.mt setting");
 	}
-	return {true, changed};
+	res.changed = changed;
+	return res;
 }
 
 } /* namespace mt */

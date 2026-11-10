@@ -1057,6 +1057,7 @@ int main(void)
 	{
 		if (data_store.loadMtDefaultsRev() != CompanionMesh::MT_DEFAULTS_REV) {
 			companion_mesh.mtAddDefaultChannels();
+			data_store.savePrefs(companion_mesh.prefs);
 			data_store.saveChannels(&companion_mesh);
 			data_store.saveMtDefaultsRev(CompanionMesh::MT_DEFAULTS_REV);
 			LOG_INF("Added missing default channels (revision %u)",

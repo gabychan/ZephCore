@@ -345,6 +345,9 @@ bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char
 
 	if (r.changed) {
 		mt::sanitize(_prefs->mt);
+		if (r.removed[0] != '\0') {
+			_callbacks->onMtChannelRemoved(r.removed);
+		}
 		_callbacks->onMtPrefsChanged();
 		savePrefs();
 	}
