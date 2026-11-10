@@ -131,7 +131,7 @@ Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI
 | What companion and repeater share: hearing a frame, repeating it with the role's timing, giving way to an echo, our own frames, AES, self identity | `zephcore/app/MtRelayPort.h/.cpp` |
 | Settings, command parser, defaults | `zephcore/helpers/meshtastic/MtConfig.h/.cpp` |
 | What gives way to an echo | `mt::relayClassOf` in `MtPolicy.h` |
-| MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h` |
+| MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. A frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser, whatever the `z.mt.*` settings (`MtRelayPort::unopened`) |
 | Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard`, `cancelForeignRelay` |
 
 The receiver is hybrid and does not report the sync word a frame came in on. A frame that none of our channels opens is told

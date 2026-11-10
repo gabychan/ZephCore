@@ -240,7 +240,7 @@ The repeater and the companion repeat Meshtastic floods on the radio they share 
 
 | Command | Description |
 |---------|-------------|
-| `get z.mt.enable` / `set z.mt.enable on\|off` | Meshtastic side on or off (default on). Off: no frame is repeated as Meshtastic and the NodeInfo stops; a frame that is not shaped like MeshCore is dropped instead of reaching the MeshCore parser. |
+| `get z.mt.enable` / `set z.mt.enable on\|off` | Meshtastic side on or off (default on). Off: no frame is repeated as Meshtastic and the NodeInfo stops. |
 | `get z.mt.role` / `set z.mt.role client\|router\|router_late\|repeater` | Role announced in our NodeInfo and its timing (default `client`). `router` repeats in the first slots, before any client, and never gives way to an echo. `router_late` waits like a client and never gives way. `client` and `repeater` give way to an echo for frames that are not essential. |
 | `get z.mt.relay` / `set z.mt.relay off\|essential\|all` | What is repeated (default `essential` on the repeater, `off` on the companion). `essential`: text, direct messages, their ACKs, NodeInfo and traceroute. `all`: those, which are always sent even if another node repeated them first, plus the rest (position, telemetry, other ports), which are dropped if another node repeats them while ours waits. |
 | `get z.mt.relay.opaque` / `set z.mt.relay.opaque on\|off` | Also repeat frames of channels this node holds no key for (default on). Direct messages between nodes count as essential. |
@@ -248,7 +248,7 @@ The repeater and the companion repeat Meshtastic floods on the radio they share 
 | `get z.mt.hops` / `set z.mt.hops <0-7>` | `hop_limit` of the frames this node originates (default `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`). |
 | `get z.mt.nodeinfo` / `set z.mt.nodeinfo <seconds>` | Seconds between our NodeInfo broadcasts, `0` never, otherwise 600 to 604800 (default 43200). The first goes out 30 s after boot or after a change. Our position, the one set by `set lat` / `set lon`, follows each NodeInfo while `advert.loc` is not `none` and the position is not 0,0. |
 | `get z.mt.telemetry` / `set z.mt.telemetry <seconds>` | Device metrics (battery level and voltage, channel utilisation, TX air utilisation, uptime) on the primary channel. `0` never, otherwise 60 to 86400 (default 0). Without a battery reading the level is 101, which Meshtastic shows as powered. Utilisations are the share of the time since the previous telemetry that the radio spent receiving and sending (the first one counts from boot), not Meshtastic's sliding windows. The first goes out 60 s after boot or after a change. |
-| `get z.mt.stats` | `heard` Meshtastic frames, `relayed` repeats queued, `opaque` frames of unknown channels, `yielded` repeats dropped because another node sent them first, `dropped` non-MeshCore frames discarded while `z.mt.enable` is off. |
+| `get z.mt.stats` | `heard` Meshtastic frames, `relayed` repeats queued, `opaque` frames of unknown channels, `yielded` repeats dropped because another node sent them first, `dropped` frames discarded because no Meshtastic channel opened them and they are not shaped like MeshCore. |
 
 ## Ping bot (*ZephCore only*)
 

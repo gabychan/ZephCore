@@ -226,16 +226,22 @@ void MtRelayPort::echoHeard(const uint8_t raw[], int len, bool may_yield)
 	}
 }
 
+mt::RxResult MtRelayPort::unopened(const uint8_t raw[], int len, uint32_t self)
+{
+	return mt::looksLikeMeshCore(raw, (size_t)len, self) ? mt::RX_NOT_MESHTASTIC : mt::RX_IGNORED;
+}
+
 mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::Sink &sink,
 				  const Policy &policy, uint8_t sf, float bw)
 {
 	if (!policy.enabled) {
 		/* Off: what is not shaped like MeshCore is not ours to repeat as MeshCore either. */
-		if (mt::looksLikeMeshCore(raw, (size_t)len, _bridge.self())) {
-			return mt::RX_NOT_MESHTASTIC;
+		mt::RxResult r = unopened(raw, len, _bridge.self());
+
+		if (r == mt::RX_IGNORED) {
+			_stats.dropped++;
 		}
-		_stats.dropped++;
-		return mt::RX_IGNORED;
+		return r;
 	}
 	uint8_t relay[mt::kMaxFrame];
 	size_t relay_len = 0;
@@ -244,6 +250,11 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 	mt::RxResult r = _bridge.handleFrame(raw, (size_t)len, snr_x4, sink, relay, &relay_len, &cls);
 
 	if (r == mt::RX_NOT_MESHTASTIC) {
+		/* Not opened on our channels: only a MeshCore-shaped frame goes on to the MeshCore stack. */
+		r = unopened(raw, len, _bridge.self());
+		if (r == mt::RX_IGNORED) {
+			_stats.dropped++;
+		}
 		return r;
 	}
 	_stats.heard++;

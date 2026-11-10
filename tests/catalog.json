@@ -798,6 +798,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-040",
+      "name": "Every MeshCore payload type, route and path width passes the shape test; Meshtastic broadcast and version 2/3 first bytes never do",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-018",
       "name": "A consumed foreign frame never reaches the MeshCore parser",
       "source": "tests/unit/dispatcher_tests.cpp"

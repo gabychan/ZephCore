@@ -59,6 +59,10 @@ public:
 	mt::RxResult onFrame(const uint8_t raw[], int len, float snr, mt::Sink &sink,
 			     const Policy &policy, uint8_t sf, float bw);
 
+	/* A frame the Meshtastic side did not take: RX_NOT_MESHTASTIC when it is shaped like
+	 * MeshCore, RX_IGNORED otherwise. Only the first reaches the MeshCore stack. */
+	static mt::RxResult unopened(const uint8_t raw[], int len, uint32_t self);
+
 	/* A frame we originate, out at once. */
 	bool send(const uint8_t *frame, size_t len);
 

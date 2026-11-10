@@ -1121,3 +1121,41 @@ TEST(mt_config_roles, "UNIT-MT-039", "A companion has no channel or telemetry se
     t.stop();
     CHECK(!t.due(0x5000u));
 }
+
+TEST(mt_discriminate_shapes, "UNIT-MT-040", "Every MeshCore payload type, route and path width passes the shape test; Meshtastic broadcast and version 2/3 first bytes never do") {
+    const struct { uint8_t type; size_t fixed; } kTypes[] = {
+        {PAYLOAD_TYPE_REQ, 4}, {PAYLOAD_TYPE_RESPONSE, 4}, {PAYLOAD_TYPE_TXT_MSG, 4}, {PAYLOAD_TYPE_PATH, 4},
+        {PAYLOAD_TYPE_ANON_REQ, 1 + PUB_KEY_SIZE + 2}, {PAYLOAD_TYPE_GRP_TXT, 3}, {PAYLOAD_TYPE_GRP_DATA, 3},
+    };
+    const uint8_t kRoutes[] = {ROUTE_TYPE_FLOOD, ROUTE_TYPE_DIRECT, ROUTE_TYPE_TRANSPORT_FLOOD, ROUTE_TYPE_TRANSPORT_DIRECT};
+    uint8_t frame[MAX_TRANS_UNIT];
+
+    for (auto t : kTypes) {
+        for (uint8_t route : kRoutes) {
+            for (uint8_t width = 0; width < 3; width++) {
+                for (uint8_t hops = 0; hops < 4; hops++) {
+                    for (size_t blocks = 1; blocks < 11; blocks++) {
+                        size_t i = 0, payload = t.fixed + 16 * blocks;
+                        std::memset(frame, 0x5A, sizeof(frame));
+                        frame[i++] = (uint8_t)((t.type << PH_TYPE_SHIFT) | route);
+                        if (route == ROUTE_TYPE_TRANSPORT_FLOOD || route == ROUTE_TYPE_TRANSPORT_DIRECT) i += 4;
+                        frame[i++] = (uint8_t)((width << 6) | hops);
+                        i += (size_t)hops * (width + 1);
+                        if (payload > MAX_PACKET_PAYLOAD || i + payload > MAX_TRANS_UNIT) continue;  // not a legal MeshCore frame
+                        CHECK(looksLikeMeshCore(frame, i + payload, 0));
+                        CHECK(!looksLikeMeshCore(frame, i + payload - 1, 0));
+                    }
+                }
+            }
+        }
+    }
+    // Meshtastic broadcast starts with 0xFF (payload version 3); any "to" whose low byte has a version bit set is not MeshCore.
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 7);
+    uint8_t mt[kMaxFrame];
+    size_t n = a.buildText(3, kBroadcast, "hola", 4, mt, sizeof(mt));
+    CHECK(n > 0 && !looksLikeMeshCore(mt, n, 0));
+    for (uint32_t to : {0x123456C0u, 0x123456FFu, 0x00000080u, 0xDEADBE40u}) {
+        n = a.buildText(3, to, "hola", 4, mt, sizeof(mt));
+        CHECK(n > 0 && !looksLikeMeshCore(mt, n, 0));
+    }
+}

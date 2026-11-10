@@ -312,14 +312,15 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 
 bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
+	/* With no Meshtastic channel nothing is opened here: only a MeshCore-shaped frame goes on. */
 	if (getNumChannels() == 0) {
-		return false;
+		return MtRelayPort::unopened(raw, len, 0) == mt::RX_IGNORED;
 	}
 	if (!_mt_ready) {
 		mtSetup();
 	}
 	if (_mt.channelCount() == 0) {
-		return false;
+		return MtRelayPort::unopened(raw, len, _mt.self()) == mt::RX_IGNORED;
 	}
 
 	MtRelayPort::Policy policy = MtRelayPort::policyFor(prefs.mt);
