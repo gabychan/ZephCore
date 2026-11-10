@@ -39,6 +39,9 @@ public:
   virtual uint32_t getEstAirtimeFor(int len_bytes) = 0;
   // ZEPHCORE: the same for a Meshtastic frame, which carries its own preamble length.
   virtual uint32_t getEstForeignAirtimeFor(int len_bytes) { return getEstAirtimeFor(len_bytes); }
+  // ZEPHCORE: the spreading factor and bandwidth (kHz x10) in use now, a tempradio override included.
+  virtual uint8_t getActiveSpreadingFactor() const { return 0; }
+  virtual uint16_t getActiveBandwidthKHzX10() const { return 0; }
 
   virtual float packetScore(float snr, int packet_len) = 0;
 

@@ -273,7 +273,7 @@ MeshCore flood packets carry the hash of every repeater they crossed, first repe
 | `get z.ping.ignore.direct` / `set z.ping.ignore.direct on\|off` | Do not answer a ping heard with 0 hops (default off). Shared. |
 | `get z.ping.ignore.remote` / `set z.ping.ignore.remote on\|off` | Do not answer a ping heard with 1 or more hops (default off). Shared. |
 
-Anyone on the channel can trigger an answer; a protocol answers at most once every 10 s, and a ping inside that gap counts as ignored in `status`. On the repeater, while the Meshtastic bot is on, frames on `Bots` follow the normal repeat policy instead of `z.mt.relay.opaque`. `z.mt.ping.*` does not exist in builds without Meshtastic.
+Anyone on the channel can trigger an answer; a protocol answers at most once every 10 s, and a ping inside that gap counts as ignored in `status`. On the repeater, while the Meshtastic bot is on, frames on `Bots` follow the normal repeat policy instead of `z.mt.relay.opaque`. `z.mt.ping.*` does not exist in builds without Meshtastic. The Meshtastic bot answers only while `z.mt.enable` is on.
 
 ---
 

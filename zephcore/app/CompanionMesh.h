@@ -399,7 +399,7 @@ public:
 	static constexpr uint32_t MT_ACK_TIMEOUT_MS = 20000;
 	/* Adds the channels of the Spanish SFNarrow community that are not in the list. */
 	void mtAddDefaultChannels();
-	/* mt.* settings changed through the CLI, and its stats. */
+	/* z.mt.* settings changed through the CLI, and its stats. */
 	void mtPrefsChanged();
 	/* The receiver takes Meshtastic frames while z.mt.enable is on. */
 	void mtApplyListen();

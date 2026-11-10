@@ -109,8 +109,7 @@ void MtRelayPort::arm(uint32_t now_ms, const mt::RepeaterPrefs &p)
 	}
 }
 
-void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src,
-		       uint8_t sf, float bw)
+void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src)
 {
 	uint8_t frame[mt::kMaxTxFrame];
 
@@ -123,12 +122,12 @@ void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t chan
 		size_t n = _bridge.buildNodeInfo(channel, frame, sizeof(frame));
 
 		if (n > 0) {
-			send(frame, n, sf, bw);
+			send(frame, n);
 		}
 		mt::Position pos = {};
 
 		if (src.position(pos) && (n = _bridge.buildPosition(channel, pos, frame, sizeof(frame))) > 0) {
-			send(frame, n, sf, bw);
+			send(frame, n);
 		}
 	}
 	if (_telemetry.due(now_ms)) {
@@ -141,7 +140,7 @@ void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t chan
 		size_t n;
 
 		if (src.metrics(m) && (n = _bridge.buildTelemetry(channel, m, frame, sizeof(frame))) > 0) {
-			send(frame, n, sf, bw);
+			send(frame, n);
 		}
 	}
 }
@@ -166,15 +165,22 @@ void MtRelayPort::formatStats(char *out, size_t cap) const
 		 (unsigned)_stats.yielded, (unsigned)_stats.dropped, (unsigned)_stats.shed);
 }
 
-bool MtRelayPort::send(const uint8_t *frame, size_t len, uint8_t sf, float bw)
+bool MtRelayPort::send(const uint8_t *frame, size_t len)
 {
 	const uint32_t r = _mesh.getRNG()->nextInt(0, mt::originWindow());
 
-	if (!_mesh.sendForeign(frame, (int)len, 1, mt::originDelayMs(mt::slotTimeMs(sf, bw), r))) {
+	if (!_mesh.sendForeign(frame, (int)len, 1, mt::originDelayMs(slotMs(), r))) {
 		LOG_WRN("mt: frame not queued (len=%u)", (unsigned)len);
 		return false;
 	}
 	return true;
+}
+
+uint32_t MtRelayPort::slotMs() const
+{
+	const mesh::Radio *radio = _mesh.getRadio();
+
+	return mt::slotTimeMs(radio->getActiveSpreadingFactor(), radio->getActiveBandwidthKHzX10() / 10.0f);
 }
 
 bool MtRelayPort::yields(uint32_t hash) const
@@ -190,12 +196,12 @@ bool MtRelayPort::yields(uint32_t hash) const
 /* Queues the repeat of a heard frame with the delay of the role. A repeat that
  * may give way to an echo is remembered by hash. */
 void MtRelayPort::queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::RelayClass cls,
-			const Policy &policy, uint8_t sf, float bw)
+			const Policy &policy)
 {
 	if (len > mt::kMaxTxFrame) {
 		return;
 	}
-	const uint32_t slot = mt::slotTimeMs(sf, bw);
+	const uint32_t slot = slotMs();
 	const uint32_t r = (uint32_t)_mesh.getRNG()->nextInt(0, (int)mt::relayWindow(snr_x4, policy.early));
 
 	if (!_mesh.relayForeign(relay, len, mt::relayDelayMs(slot, policy.early, r))) {
@@ -236,7 +242,7 @@ mt::RxResult MtRelayPort::unopened(const uint8_t raw[], int len, uint32_t self)
 }
 
 mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::Sink &sink,
-				  const Policy &policy, uint8_t sf, float bw)
+				  const Policy &policy)
 {
 	if (!policy.enabled) {
 		/* Off: what is not shaped like MeshCore is not ours to repeat as MeshCore either. */
@@ -270,7 +276,7 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		return r;
 	}
 	if (relay_len > 0 && (policy.relay_all || cls == mt::RelayClass::Always)) {
-		queue(relay, relay_len, snr_x4, cls, policy, sf, bw);
+		queue(relay, relay_len, snr_x4, cls, policy);
 	}
 	return r;
 }

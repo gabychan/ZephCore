@@ -110,8 +110,8 @@ public:
 	 * These honor temporary radio overrides for freq/bw/sf/cr and the same TX
 	 * clamps as the actual lora_config() path. */
 	uint32_t getActiveFrequencyHz() const;
-	uint16_t getActiveBandwidthKHzX10() const;
-	uint8_t getActiveSpreadingFactor() const;
+	uint16_t getActiveBandwidthKHzX10() const override;
+	uint8_t getActiveSpreadingFactor() const override;
 	uint8_t getActiveCodingRate() const;
 	uint16_t getActivePreambleLength() const;
 	uint8_t getActiveSyncWord() const;

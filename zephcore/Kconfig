@@ -1400,7 +1400,7 @@ config ZEPHTACORE_MESHTASTIC
 	  reach the app as channel messages and contacts.
 
 	  The repeater role also repeats Meshtastic floods, with its own
-	  settings under "mt." in the CLI.
+	  settings under "z.mt." in the CLI.
 
 	  Needs a radio family that can write the sync word register
 	  (SX126x). On other families the build still links, but the second

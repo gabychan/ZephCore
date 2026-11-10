@@ -66,7 +66,7 @@ public:
 	virtual void formatRadioStatsReply(char* reply)      { strcpy(reply, "not available"); }
 	virtual void formatPacketStatsReply(char* reply)     { strcpy(reply, "not available"); }
 
-	/* Zephtacore "mt." commands: standalone = the node has a channel of its own
+	/* Zephtacore "z.mt." commands: standalone = the node has a channel of its own
 	 * (repeater); the role applies the settings after a change. */
 	virtual ping::Stats* pingStats() { return nullptr; }  /* null: the role has no ping bot */
 	virtual void onPingPrefsChanged() {}

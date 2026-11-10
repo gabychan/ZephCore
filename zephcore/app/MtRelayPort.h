@@ -51,21 +51,20 @@ public:
 	/* First NodeInfo (and telemetry) soon after boot or after a change. */
 	void arm(uint32_t now_ms, const mt::RepeaterPrefs &p);
 	/* Sends what is due on this channel. */
-	void tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src, uint8_t sf,
-		  float bw);
+	void tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src);
 	/* The soonest deadline, false when nothing is planned. */
 	bool nextAt(uint32_t &at_ms) const;
 
-	/* RX_NOT_MESHTASTIC leaves the frame to MeshCore. sf and bw set the slot. */
+	/* RX_NOT_MESHTASTIC leaves the frame to MeshCore. */
 	mt::RxResult onFrame(const uint8_t raw[], int len, float snr, mt::Sink &sink,
-			     const Policy &policy, uint8_t sf, float bw);
+			     const Policy &policy);
 
 	/* A frame the Meshtastic side did not take: RX_NOT_MESHTASTIC when it is shaped like
 	 * MeshCore, RX_IGNORED otherwise. Only the first reaches the MeshCore stack. */
 	static mt::RxResult unopened(const uint8_t raw[], int len, uint32_t self);
 
-	/* A frame we originate, after a slot or two of the contention window. */
-	bool send(const uint8_t *frame, size_t len, uint8_t sf, float bw);
+	/* A frame we originate, after 0 to 7 slots. */
+	bool send(const uint8_t *frame, size_t len);
 
 	const Stats &stats() const { return _stats; }
 	/* "heard=.. relayed=.." for get z.mt.stats. */
@@ -81,8 +80,9 @@ private:
 	uint8_t _yield_next = 0;
 	mt::Timer _nodeinfo, _telemetry;
 
+	uint32_t slotMs() const;
 	bool yields(uint32_t hash) const;
 	void echoHeard(const uint8_t raw[], int len, bool yields);
 	void queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::RelayClass cls,
-		   const Policy &policy, uint8_t sf, float bw);
+		   const Policy &policy);
 };

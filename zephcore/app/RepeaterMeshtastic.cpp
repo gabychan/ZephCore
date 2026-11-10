@@ -108,7 +108,7 @@ void RepeaterMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to
 {
 	(void)to; (void)reply_id;
 	if (channel_id == kBotChannel) {
-		m.mtPing(text, len, id, snr_x4, hops, relay, hops == 0 && (uint8_t)from != relay);
+		m.mtPing(text, len, id, snr_x4, hops, relay, hops == 0 && relay != 0 && (uint8_t)from != relay);
 	}
 }
 
@@ -125,27 +125,30 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 	}
 	memcpy(line, text, len);
 	line[len] = '\0';
+	const ping::Counters before = _ping_stats.mt;
 	size_t n = ping::reply(_prefs.ping, _ping_stats.mt, ping::PROTO_MT, line, heard, nullptr, nullptr,
 			       (uint32_t)_ms->getMillis(), out, sizeof(out));
 	uint8_t frame[mt::kMaxTxFrame];
 
-	n = n ? _mt.buildText(kBotChannel, mt::kBroadcast, out, n, frame, sizeof(frame), id) : 0;
-	if (n) {
-		_mtport.send(frame, n, _prefs.sf, _prefs.bw);
+	if (n == 0) {
+		return;
+	}
+	n = _mt.buildText(kBotChannel, mt::kBroadcast, out, n, frame, sizeof(frame), id);
+	if (n == 0 || !_mtport.send(frame, n)) {
+		_ping_stats.mt = before;
 	}
 }
 
 bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
 	(void)rssi;
-	return _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(_prefs.mt), _prefs.sf,
-			       _prefs.bw) != mt::RX_NOT_MESHTASTIC;
+	return _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(_prefs.mt)) != mt::RX_NOT_MESHTASTIC;
 }
 
 /* NodeInfo, position and telemetry on the primary channel, as Meshtastic's own default does. */
 void RepeaterMesh::mtTick()
 {
-	_mtport.tick((uint32_t)_ms->getMillis(), _prefs.mt, kPrimaryChannel, _mt_source, _prefs.sf, _prefs.bw);
+	_mtport.tick((uint32_t)_ms->getMillis(), _prefs.mt, kPrimaryChannel, _mt_source);
 }
 
 void RepeaterMesh::mtFormatStats(char *reply, size_t cap) const

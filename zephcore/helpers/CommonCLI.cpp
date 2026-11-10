@@ -332,7 +332,7 @@ void CommonCLI::scheduleReboot(uint8_t type)
 /* CLI commands are case-sensitive, matching upstream Arduino MeshCore. Do
  * not fold the input buffer: a value can be the second token (`password
  * <value>`). */
-/* Zephtacore: "get/set mt.*", the same settings and commands in every role. */
+/* Zephtacore: "get/set z.mt.*", the same settings and commands in every role. */
 bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char* reply) {
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 	const size_t cap = replyCap(sender_timestamp);

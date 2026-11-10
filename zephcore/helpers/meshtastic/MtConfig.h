@@ -145,7 +145,7 @@ inline bool roleSendsEarly(uint8_t role) { return role == ROLE_ROUTER; }
 inline bool roleYieldsToEcho(uint8_t role) { return role != ROLE_ROUTER && role != ROLE_ROUTER_LATE; }
 
 struct CmdResult {
-	bool handled;  /* the command was an "mt." one */
+	bool handled;  /* the command was a "z.mt." one */
 	bool changed;  /* a setting changed: save it */
 };
 

@@ -1136,7 +1136,7 @@ void CompanionMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh
 #endif
 	ChannelDetails ch;
 
-	if (pkt && getChannel(channel_idx, ch) && strcmp(ch.name, PING_MC_CHANNEL) == 0) {
+	if (pkt && prefs.ping.mc.enable && getChannel(channel_idx, ch) && strcmp(ch.name, PING_MC_CHANNEL) == 0) {
 		const uint8_t hops = pkt->getPathHashCount();
 		const ping::Heard heard = {hops, pkt->_snr, (int16_t)_radio->getLastRSSI(),
 					   {pkt->path, pkt->getPathHashSize(), hops}};
@@ -1150,7 +1150,9 @@ void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDeta
 			      const ping::Heard &heard, const char *text)
 {
 	char out[MAX_TEXT_LEN + 1];
-	size_t n = ping::reply(prefs.ping, ping::countersOf(_ping_stats, w), w, text, heard, pingName, this,
+	ping::Counters &counters = ping::countersOf(_ping_stats, w);
+	const ping::Counters before = counters;
+	size_t n = ping::reply(prefs.ping, counters, w, text, heard, pingName, this,
 			       (uint32_t)_ms->getMillis(), out, sizeof(out) - 32);
 
 	if (n == 0) {
@@ -1159,13 +1161,17 @@ void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDeta
 	const uint32_t ts = getRTCClock()->getCurrentTimeUnique();
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 	if (w == ping::PROTO_MT) {
-		bool mt_sent;
+		bool mt_sent = false;
 
-		mtSendChannelText(channel_idx, ts, out, n, mt_sent);
+		if (!mtSendChannelText(channel_idx, ts, out, n, mt_sent) || !mt_sent) {
+			counters = before;
+		}
 		return;
 	}
 #endif
-	sendGroupMessage(ts, ch.channel, prefs.node_name, out, n);
+	if (!sendGroupMessage(ts, ch.channel, prefs.node_name, out, n)) {
+		counters = before;
+	}
 }
 
 /* A repeater of that hash among the contacts (MeshCore), or a Meshtastic node ending in that byte. */

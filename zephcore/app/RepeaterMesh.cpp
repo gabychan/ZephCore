@@ -586,6 +586,8 @@ void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
   const ping::Heard heard = {hops, packet->_snr, (int16_t)_radio->getLastRSSI(),
                              {packet->path, packet->getPathHashSize(), hops}};
 
+  const ping::Counters before = _ping_stats.mc;
+
   /* No names: a repeater keeps only the keys of its neighbours, so the route is in hex. */
   if (ping::reply(_prefs.ping, _ping_stats.mc, ping::PROTO_MC, (const char*)&data[5], heard, nullptr, nullptr,
                   (uint32_t)_ms->getMillis(), out, sizeof(out)) == 0) {
@@ -601,6 +603,8 @@ void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
 
   if (pkt) {
     sendFloodReply(pkt, SERVER_RESPONSE_DELAY, packet->getPathHashSize());
+  } else {
+    _ping_stats.mc = before;
   }
 }
 

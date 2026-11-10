@@ -159,7 +159,7 @@ void CompanionMesh::mtApplyListen()
 	_radio->setMtListen(prefs.mt.enable != 0);
 }
 
-/* mt.* changed through the CLI. */
+/* z.mt.* changed through the CLI. */
 void CompanionMesh::mtPrefsChanged()
 {
 	mtApplyListen();
@@ -332,7 +332,7 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 	MtRelayPort::Policy policy = MtRelayPort::policyFor(prefs.mt);
 
 	policy.yields = false; /* a companion never cancels a repeat on an echo */
-	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, policy, prefs.sf, prefs.bw);
+	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, policy);
 
 	if (r == mt::RX_NOT_MESHTASTIC) {
 		return false;
@@ -402,9 +402,9 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 	if (pkt) {
 		m.releasePacket(pkt);
 	}
-	if (strcmp(ch.name, "MT:" PING_MT_CHANNEL) == 0) {
-		/* hops is 0 when the sender set no hop_start; a relay that is not the sender says it was relayed. */
-		const bool relayed = hops == 0 && (uint8_t)from != relay;
+	if (m.prefs.ping.mt.enable && strcmp(ch.name, "MT:" PING_MT_CHANNEL) == 0) {
+		/* relay is 0 when the sender set no relay_node; a relay that is not the sender says it was relayed. */
+		const bool relayed = hops == 0 && relay != 0 && (uint8_t)from != relay;
 		const ping::Heard heard = {hops, snr_x4, (int16_t)m._radio->getLastRSSI(),
 					   {&relay, 1, (uint8_t)(hops || relayed ? 1 : 0)}, relayed};
 
@@ -618,8 +618,7 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 		mtNoteText(h.id, prefs.node_name);
 		s.len = (uint8_t)(len < sizeof(s.text) ? len : sizeof(s.text));
 		memcpy(s.text, text, s.len);
-		_mtport.send(frame, n, prefs.sf, prefs.bw);
-		sent = true;
+		sent = _mtport.send(frame, n);
 	}
 	return true;
 }
@@ -700,7 +699,7 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 		/* The packet id is what the node's ACK answers: the app's ack code. */
 		addPendingAck(h.id, mtContactIndex(contact));
 		ack = h.id;
-		_mtport.send(frame, n, prefs.sf, prefs.bw);
+		_mtport.send(frame, n);
 		sent = true;
 	}
 	return true;
@@ -763,7 +762,7 @@ void CompanionMesh::mtSendAck(uint32_t to, uint32_t request_id)
 	size_t n = _mt.buildAck(to, request_id, key, frame, sizeof(frame));
 
 	if (n > 0) {
-		_mtport.send(frame, n, prefs.sf, prefs.bw);
+		_mtport.send(frame, n);
 	}
 }
 
@@ -776,7 +775,7 @@ void CompanionMesh::mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool wan
 						    sizeof(frame));
 
 	if (n > 0) {
-		_mtport.send(frame, n, prefs.sf, prefs.bw);
+		_mtport.send(frame, n);
 	}
 }
 
@@ -827,7 +826,7 @@ void CompanionMesh::mtNodeInfoTick()
 	}
 	MtRelayPort::Source none;
 
-	_mtport.tick((uint32_t)_ms->getMillis(), prefs.mt, (uint8_t)ch, none, prefs.sf, prefs.bw);
+	_mtport.tick((uint32_t)_ms->getMillis(), prefs.mt, (uint8_t)ch, none);
 }
 
 #endif /* CONFIG_ZEPHTACORE_MESHTASTIC */

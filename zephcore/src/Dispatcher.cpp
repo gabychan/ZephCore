@@ -526,6 +526,7 @@ bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, ui
   return true;
 }
 
+// ZEPHCORE: how many foreign frames wait in the outbound queue.
 int Dispatcher::getForeignQueued() const {
   int n = 0, total = _mgr->getOutboundTotal();
   for (int i = 0; i < total; i++) {
