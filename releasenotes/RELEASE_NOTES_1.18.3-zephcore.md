@@ -36,6 +36,8 @@ default channels and node name in order.
   in between. Kept in RAM, so a reboot empties them.
 - Commands of the Meshtastic side and the new ones hang from `z.`: `z.mt.*`, `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`;
   `get tx.stalls` is now `get z.tx.stalls`.
+- `help` at the end of a `z.` command (`get z.mt.relay help`) tells its usage, and on a group (`get z.mt help`) lists its keys.
+  Every on/off `z.` setting (`z.mt.enable`, `z.mt.relay.opaque`, `z.ping.*`, `z.mc.ping.enable`, `z.mt.ping.enable`) also takes `1` and `0`.
 
 ## Radio
 

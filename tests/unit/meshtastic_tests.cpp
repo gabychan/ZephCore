@@ -1306,3 +1306,13 @@ TEST(mt_drop_orphans, "UNIT-MT-047", "An entry no slot holds is dropped when the
     CHECK(!findChannel(p, "#mt-test") && findChannel(p, "#mt-bots"));
     CHECK(!dropOrphans(p, slotIn, const_cast<void*>(static_cast<const void*>(slots))));
 }
+
+TEST(mt_config_on_off_digits, "UNIT-MT-048", "z.mt.enable and z.mt.relay.opaque take 1 and 0 as on and off") {
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_ALL);
+    bool ch = false;
+    CHECK(mtCmd(p, "set z.mt.enable 0", &ch) == "OK" && ch && p.enable == 0 && mtCmd(p, "get z.mt.enable") == "> off");
+    CHECK(mtCmd(p, "set z.mt.enable 1", &ch) == "OK" && ch && p.enable == 1);
+    CHECK(mtCmd(p, "set z.mt.relay.opaque 0", &ch) == "OK" && ch && p.relay_opaque == 0);
+    CHECK(mtCmd(p, "set z.mt.relay.opaque maybe", &ch) == "Error: on|off|1|0" && !ch);
+}

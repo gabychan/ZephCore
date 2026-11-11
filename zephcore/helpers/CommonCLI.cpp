@@ -15,6 +15,7 @@
 #include <helpers/MeshTimeSync.h>
 #include <helpers/meshtastic/MtConfig.h>
 #include <helpers/OffgridPolicy.h>
+#include <helpers/ZCommand.h>
 #include <helpers/LoopWakeStats.h>
 extern "C" void power_diag_line(int n, char *out, size_t cap);  /* TEMPORARY: helpers/power_diag.c */
 #include <helpers/time_sync.h>
@@ -393,6 +394,9 @@ static bool neighbourArgs(const char* command, const char* prefix, size_t& page,
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
+	if (zcmd::helpReply(command, IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC), reply, replyCap(sender_timestamp))) {
+		return;
+	}
 	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
 		return;
 	}

@@ -5,6 +5,8 @@
 
 #include "MtConfig.h"
 
+#include "ZCommand.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -395,8 +397,8 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 	}
 
 	if (strcmp(name, "enable") == 0) {
-		if (valueOf(kBools, val, b)) { changed = p.enable != b; p.enable = b; snprintf(reply, cap, "OK"); }
-		else { choices(kBools, reply, cap); }
+		if (zcmd::parseOnOff(val, b)) { changed = p.enable != b; p.enable = b; snprintf(reply, cap, "OK"); }
+		else { snprintf(reply, cap, "Error: on|off|1|0"); }
 	} else if (strcmp(name, "role") == 0) {
 		if (valueOf(kRoles, val, b)) { changed = p.role != b; p.role = b; snprintf(reply, cap, "OK"); }
 		else { choices(kRoles, reply, cap); }
@@ -404,8 +406,8 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 		if (valueOf(kRelays, val, b)) { changed = p.relay != b; p.relay = b; snprintf(reply, cap, "OK"); }
 		else { choices(kRelays, reply, cap); }
 	} else if (strcmp(name, "relay.opaque") == 0) {
-		if (valueOf(kBools, val, b)) { changed = p.relay_opaque != b; p.relay_opaque = b; snprintf(reply, cap, "OK"); }
-		else { choices(kBools, reply, cap); }
+		if (zcmd::parseOnOff(val, b)) { changed = p.relay_opaque != b; p.relay_opaque = b; snprintf(reply, cap, "OK"); }
+		else { snprintf(reply, cap, "Error: on|off|1|0"); }
 	} else if (strcmp(name, "hops") == 0) {
 		if (parseUint(val, 7, u)) { changed = p.hops != u; p.hops = (uint8_t)u; snprintf(reply, cap, "OK"); }
 		else { snprintf(reply, cap, "Error: 0-7"); }

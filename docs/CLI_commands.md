@@ -234,16 +234,20 @@ As upstream, the one setting is `gps` (`0`/`1`), listed only on a board with a G
 
 ---
 
+## Help for the `z.` commands
+
+Put `help` at the end of any `get` or `set` of a `z.` command to read its usage instead of running it: `get z.mt.relay help` answers `> z.mt.relay: get|set off|essential|all: what is repeated`. On a group it lists the keys under it: `get z.mt help`, `get z.mc help`, `get z.ping help` (the list stops at the last whole name that fits the reply). A line that names no key goes on to its own command, so `set z.mt.channel.add Foo help` still adds a channel with that key. Every on/off setting of the `z.` commands takes `on`, `off`, `1` or `0`; `get` keeps answering `on` or `off`. Without Meshtastic in the build there is no `z.mt` help.
+
 ## Meshtastic (Zephtacore, `CONFIG_ZEPHTACORE_MESHTASTIC`)
 
 The repeater and the companion repeat Meshtastic floods on the radio they share with MeshCore, with the same settings and commands. They work from the serial console (and, on the repeater, as remote admin commands) and persist in `prefs.json` (`mt{}`). Differences: the repeater starts with `z.mt.relay essential`, the companion with `off`; on the companion `z.mt.channel` and `z.mt.telemetry` are refused, because it has no channel of its own (the NodeInfo goes out on its first Meshtastic channel) and no metrics to send; its channels come from `z.mt.channel.add` and `.remove`, and the repeater refuses those; with `z.mt.enable off` it stops decoding Meshtastic frames, so the Meshtastic channels fall silent.
 
 | Command | Description |
 |---------|-------------|
-| `get z.mt.enable` / `set z.mt.enable on\|off` | Meshtastic side on or off (default on). Off: the receiver listens with MeshCore's sync word alone (Meshtastic frames are no longer heard), no frame is repeated as Meshtastic and the NodeInfo stops. |
+| `get z.mt.enable` / `set z.mt.enable on\|off\|1\|0` | Meshtastic side on or off (default on). Off: the receiver listens with MeshCore's sync word alone (Meshtastic frames are no longer heard), no frame is repeated as Meshtastic and the NodeInfo stops. |
 | `get z.mt.role` / `set z.mt.role client\|router\|router_late\|repeater` | Role announced in our NodeInfo and its timing (default `client`). `router` repeats in the first slots, before any client, and never gives way to an echo. `router_late` waits like a client and never gives way. `client` and `repeater` give way to an echo for frames that are not essential. |
 | `get z.mt.relay` / `set z.mt.relay off\|essential\|all` | What is repeated (default `essential` on the repeater, `off` on the companion). `essential`: text, direct messages, their ACKs, NodeInfo and traceroute. `all`: those, which are always sent even if another node repeated them first, plus the rest (position, telemetry, other ports), which are dropped if another node repeats them while ours waits. |
-| `get z.mt.relay.opaque` / `set z.mt.relay.opaque on\|off` | Also repeat frames of channels this node holds no key for (default on). Direct messages between nodes count as essential. |
+| `get z.mt.relay.opaque` / `set z.mt.relay.opaque on\|off\|1\|0` | Also repeat frames of channels this node holds no key for (default on). Direct messages between nodes count as essential. |
 | `get z.mt.channel` / `set z.mt.channel <name> [default\|<base64 key>]` | The primary channel the NodeInfo goes out on (default `SFNarrow`, default key). Name up to 11 characters; the key is 1 or 16 bytes in base64; the name alone keeps the key. The key is never printed. |
 | `set z.mt.channel.add <name> [default\|<base64 key>]` | *(companion)* Adds a Meshtastic channel. The key is written as Meshtastic shows it: 1 byte (`AQ==` the default key, `Ag==` its variant 2) or 16 bytes in base64; without it, the default key. The app lists the channel as `#mt-<name>` in lower case, with its own secret. At most 8 channels; a name whose `#mt-` form is already in use is refused, and so is one the app has no free slot for. |
 | `set z.mt.channel.remove <name>` | *(companion)* Removes the channel and its slot in the app. Deleting the channel in the app does the same, and renaming it to another `#mt-<name>` renames it here (lower case, same key). The app cannot create a `#mt-` channel: it gets an error, and the channel is added with `z.mt.channel.add`. |
@@ -283,14 +287,14 @@ MeshCore flood packets carry the hash of every repeater they crossed, first repe
 
 | Command | Description |
 |---------|-------------|
-| `set z.mc.ping.enable on <command>` / `set z.mt.ping.enable on <command>` | Answer `<command>` on that protocol and turn its bot on. `<command>` is 1 to 15 characters, no spaces (for example `/ping`). Without it, `on` works only when a command is already set. |
-| `get z.mc.ping.enable` / `set z.mc.ping.enable off` (same for `z.mt.ping.enable`) | Whether the bot answers (default off). Off keeps the command. |
+| `set z.mc.ping.enable on <command>` / `set z.mt.ping.enable on <command>` (`1` for `on`) | Answer `<command>` on that protocol and turn its bot on. `<command>` is 1 to 15 characters, no spaces (for example `/ping`). Without it, `on` works only when a command is already set. |
+| `get z.mc.ping.enable` / `set z.mc.ping.enable off` (or `0`; same for `z.mt.ping.enable`) | Whether the bot answers (default off). Off keeps the command. |
 | `get z.mc.ping.trigger` / `set z.mc.ping.trigger <command>` (same for `z.mt.ping.trigger`) | The command, changed without touching on or off. The whole message must equal it, without regard to case. Empty until set. |
 | `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters turned away since boot. |
-| `get z.ping.snr` / `set z.ping.snr on\|off` | Show the SNR (default on). Shared by both protocols. |
-| `get z.ping.rssi` / `set z.ping.rssi on\|off` | Show the RSSI (default off). Shared. |
-| `get z.ping.ignore.direct` / `set z.ping.ignore.direct on\|off` | Do not answer a ping heard with 0 hops (default off). Shared. |
-| `get z.ping.ignore.remote` / `set z.ping.ignore.remote on\|off` | Do not answer a ping heard with 1 or more hops (default off). Shared. |
+| `get z.ping.snr` / `set z.ping.snr on\|off\|1\|0` | Show the SNR (default on). Shared by both protocols. |
+| `get z.ping.rssi` / `set z.ping.rssi on\|off\|1\|0` | Show the RSSI (default off). Shared. |
+| `get z.ping.ignore.direct` / `set z.ping.ignore.direct on\|off\|1\|0` | Do not answer a ping heard with 0 hops (default off). Shared. |
+| `get z.ping.ignore.remote` / `set z.ping.ignore.remote on\|off\|1\|0` | Do not answer a ping heard with 1 or more hops (default off). Shared. |
 
 Anyone on the channel can trigger an answer, and every ping is answered. On the companion the answer is also shown to the app as a message from this node. On the repeater, while the Meshtastic bot is on, frames on `Bots` follow the normal repeat policy instead of `z.mt.relay.opaque`. `z.mt.ping.*` does not exist in builds without Meshtastic. The Meshtastic bot answers only while `z.mt.enable` is on.
 

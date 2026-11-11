@@ -903,6 +903,36 @@
       "source": "tests/unit/ping_tests.cpp"
     },
     {
+      "id": "UNIT-PING-014",
+      "name": "1 and 0 mean on and off in every on/off setting, with and without a command",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-001",
+      "name": "on and 1 are on, off and 0 are off, anything else is not a value",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-002",
+      "name": "help at the end of get or set gives the usage of that key",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-003",
+      "name": "help on a group lists its keys, whole words only, within the reply",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-004",
+      "name": "what is not a help request, or names no key, goes on to its own handler",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-005",
+      "name": "a build without Meshtastic has no z.mt help",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-042",
       "name": "A channel's slot is #mt-<name> in lower case; its secret is the first 16 bytes of the SHA-256 of that name, as for a # channel",
       "source": "tests/unit/meshtastic_tests.cpp"
@@ -930,6 +960,11 @@
     {
       "id": "UNIT-MT-047",
       "name": "An entry no slot holds is dropped when the app's writes stop; one a slot holds stays",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-048",
+      "name": "z.mt.enable and z.mt.relay.opaque take 1 and 0 as on and off",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {

@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ZCommand.h"
+
 namespace ping {
 
 static constexpr size_t kTriggerMax = 15;
@@ -341,16 +343,14 @@ inline bool isCommand(const char *command)
 
 inline bool boolOf(const char *v, uint8_t &b)
 {
-	if (strcmp(v, "on") == 0) { b = 1; return true; }
-	if (strcmp(v, "off") == 0) { b = 0; return true; }
-	return false;
+	return zcmd::parseOnOff(v, b);
 }
 
 /* The reply is always written when handled.
- *   z.<proto>.ping.enable        get; set on <command> | on | off ("on" alone needs a command already set)
+ *   z.<proto>.ping.enable        get; set on <command> | on | off, or 1/0 ("on" alone needs a command already set)
  *   z.<proto>.ping.trigger       the command
  *   z.<proto>.ping.status        get only: state, command and counters
- *   z.ping.rssi, .snr, .ignore.direct, .ignore.remote   on|off, shared by both protocols */
+ *   z.ping.rssi, .snr, .ignore.direct, .ignore.remote   on|off|1|0, shared by both protocols */
 inline CmdResult handleCommand(Prefs &p, const Stats &st, const char *command, char *reply, size_t cap)
 {
 	if (!isCommand(command)) {
@@ -397,7 +397,7 @@ inline CmdResult handleCommand(Prefs &p, const Stats &st, const char *command, c
 			*flag = b;
 			snprintf(reply, cap, "OK");
 		} else {
-			snprintf(reply, cap, "Error: on or off");
+			snprintf(reply, cap, "Error: on, off, 1 or 0");
 		}
 		return {true, changed};
 	}
@@ -430,14 +430,17 @@ inline CmdResult handleCommand(Prefs &p, const Stats &st, const char *command, c
 		const char *sp = strchr(val, ' ');
 		const size_t sn = sp ? (size_t)(sp - val) : strlen(val);
 		const char *trig = sp ? sp + 1 : "";
-		const bool is_on = sn == 2 && strncmp(val, "on", 2) == 0;
-		const bool is_off = sn == 3 && strncmp(val, "off", 3) == 0;
+		char word[4] = "";
+		uint8_t v = 0;
+		const bool is_bool = sn < sizeof(word) && (memcpy(word, val, sn), boolOf(word, v));
+		const bool is_on = is_bool && v;
+		const bool is_off = is_bool && !v;
 
 		while (*trig == ' ') {
 			trig++;
 		}
 		if ((!is_on && !is_off) || (is_off && *trig)) {
-			snprintf(reply, cap, "Error: on <command> or off");
+			snprintf(reply, cap, "Error: on <command>, off, 1 <command> or 0");
 		} else if (is_on && *trig && !validTrigger(trig)) {
 			snprintf(reply, cap, "Error: command is 1 to %u characters, no spaces", (unsigned)kTriggerMax);
 		} else if (is_on && !*trig && !validTrigger(x.trigger)) {

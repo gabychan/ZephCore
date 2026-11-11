@@ -25,6 +25,7 @@ add_executable(zephcore_unit
   unit/meshtastic_tests.cpp
   unit/neighbour_tests.cpp
   unit/ping_tests.cpp
+  unit/zcommand_tests.cpp
   support/hash_capture.cpp
   support/identity_utils_boundary.cpp
   ${PRODUCTION}/src/Dispatcher.cpp

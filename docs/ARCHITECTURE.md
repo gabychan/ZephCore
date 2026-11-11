@@ -795,7 +795,7 @@ Sensors: `sensor get/set/list` (upstream's `SensorManager` settings: `gps`)
 Companion extras: `get|set autoshutdown`, `get|set v.contact`, `get|set v.batteryalert`, `help`
 Stats: `stats-core/stats-radio/stats-packets`, `clear stats`
 Time: `clock`, `clock sync`, `time <epoch>`, `set meshtimesync on/off`
-Zephtacore (`z.` namespace, ADR 0014): `get|set z.mt.*` (Meshtastic side, `MtConfig`), `get z.tx.stalls`, the ping bot `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`, and `get z.mc.neighbors` / `get z.mt.neighbors` (alias `vecinos`).
+Zephtacore (`z.` namespace, ADR 0014): `get|set z.mt.*` (Meshtastic side, `MtConfig`), `get z.tx.stalls`, the ping bot `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`, and `get z.mc.neighbors` / `get z.mt.neighbors` (alias `vecinos`). `helpers/ZCommand.h` holds what they share: the on/off value (`on`, `off`, `1`, `0`) and `<get|set> z.<key> help`, answered in `CommonCLI::handleCommand` before any handler.
 The companion's Meshtastic channels (ADR 0015) are a table of up to 8 entries in `prefs.json` `mt{}` (`chs`, one `c0`..`c7` object each: name, key length, key), made and removed by `z.mt.channel.add` / `.remove`. Each has a slot in the app's channel list named `#mt-<name>` with the secret `SHA256("#mt-<name>")[0:16]`; `CompanionMesh::mtEntryOfSlot` ties a slot to its entry only while that secret matches, and the bridge decrypts with the table's key and delivers to the slot's index.
 
 The ping bot (`helpers/PingBot.h`, pure code, host tested) answers a command of the operator's choice on two fixed channels,
