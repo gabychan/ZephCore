@@ -16,6 +16,7 @@ on:
           - lilygo_techo
           - thinknode_m1
           - gat562_30s
+          - promicro_sx1262
       role:
         description: "Rol"
         required: true
