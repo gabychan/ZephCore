@@ -1,0 +1,80 @@
+name: Zephtacore build (ESP32-S3)
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: "Placa"
+        required: true
+        default: heltec_wifi_lora32_v4
+        type: choice
+        options:
+          - heltec_wifi_lora32_v4
+          - heltec_wifi_lora32_v4_r8
+          - heltec_wifi_lora32_v43
+          - heltec_wifi_lora32_v3
+      role:
+        description: "Rol"
+        required: true
+        default: companion
+        type: choice
+        options:
+          - companion
+          - repeater
+
+env:
+  zephyr_sdk: 1.0.1
+  python_version: 3.12
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '${{ env.python_version }}'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Setup Zephyr project
+        uses: zephyrproject-rtos/action-zephyr-setup@be8136a8bba01580485d98b7ad2d32477c36a49a # v1.0.15
+        with:
+          app-path: zephcore
+          toolchains: xtensa-espressif_esp32s3_zephyr-elf
+          sdk-version: ${{ env.zephyr_sdk }}
+          enable-ccache: 'false'
+
+      - name: Download Espressif BLE controller blobs
+        run: west blobs fetch hal_espressif
+
+      - name: Build
+        env:
+          BOARD: ${{ inputs.board }}
+          ROLE: ${{ inputs.role }}
+        run: |
+          if [ "$ROLE" = "repeater" ]; then
+            CONFS="boards/common/repeater.conf;boards/common/zephtacore.conf"
+          else
+            CONFS="boards/common/zephtacore.conf"
+          fi
+          west build -b "${BOARD}/esp32s3/procpu" zephcore --pristine --sysbuild -- -DEXTRA_CONF_FILE="$CONFS"
+          mkdir -p firmware
+          SHORT=$(git rev-parse --short HEAD)
+          FLASH=$(python3 zephcore/scripts/dts_flash_size.py build/zephcore/zephyr/zephyr.dts)
+          OUT="firmware/${BOARD}-${ROLE}-zephtacore-${SHORT}"
+          python -m esptool --chip esp32s3 merge-bin \
+            --output "${OUT}-merged.bin" \
+            --flash-mode dio --flash-freq 40m --flash-size "$FLASH" \
+            0x00000 build/mcuboot/zephyr/zephyr.bin \
+            0x10000 build/zephcore/zephyr/zephyr.signed.bin
+          cp build/zephcore/zephyr/zephyr.signed.bin "${OUT}-update.bin"
+          ls -l firmware
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zephtacore-${{ inputs.board }}-${{ inputs.role }}
+          path: firmware
+          if-no-files-found: error
+          retention-days: 30
