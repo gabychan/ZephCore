@@ -1,0 +1,74 @@
+name: Zephtacore build (nRF52)
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: "Placa"
+        required: true
+        default: t1000_e
+        type: choice
+        options:
+          - t1000_e
+          - heltec_t114
+          - rak4631
+          - xiao_nrf52840
+          - lilygo_techo
+          - thinknode_m1
+          - gat562_30s
+      role:
+        description: "Rol"
+        required: true
+        default: companion
+        type: choice
+        options:
+          - companion
+          - repeater
+
+env:
+  zephyr_sdk: 1.0.1
+  python_version: 3.12
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '${{ env.python_version }}'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Setup Zephyr project
+        uses: zephyrproject-rtos/action-zephyr-setup@be8136a8bba01580485d98b7ad2d32477c36a49a # v1.0.15
+        with:
+          app-path: zephcore
+          toolchains: arm-zephyr-eabi
+          sdk-version: ${{ env.zephyr_sdk }}
+          enable-ccache: 'false'
+
+      - name: Build
+        env:
+          BOARD: ${{ inputs.board }}
+          ROLE: ${{ inputs.role }}
+        run: |
+          if [ "$ROLE" = "repeater" ]; then
+            CONFS="boards/common/repeater.conf;boards/common/zephtacore.conf"
+          else
+            CONFS="boards/common/zephtacore.conf"
+          fi
+          west build -b "$BOARD" zephcore --pristine -- -DEXTRA_CONF_FILE="$CONFS"
+          mkdir -p firmware
+          SHORT=$(git rev-parse --short HEAD)
+          cp build/zephyr/zephyr.uf2 "firmware/${BOARD}-${ROLE}-zephtacore-${SHORT}.uf2"
+          cp build/zephyr/zephyr.zip "firmware/${BOARD}-${ROLE}-zephtacore-${SHORT}.zip"
+          ls -l firmware
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zephtacore-${{ inputs.board }}-${{ inputs.role }}
+          path: firmware
+          if-no-files-found: error
+          retention-days: 30
