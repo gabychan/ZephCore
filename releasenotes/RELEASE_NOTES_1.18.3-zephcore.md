@@ -150,3 +150,95 @@ default channels and node name in order.
   The hybrid receive word was `0x1B`, which made the LR1110 drop every strong MeshCore frame, so close nodes only
   arrived repeated and never showed as neighbours. It is now `0x22`, which favours MeshCore: on these chips only weak
   Meshtastic frames are received.
+
+## Adaptive CAD no longer mistakes undecodable packets for false alarms
+
+The node tunes its listen-before-talk sensitivity by testing it in quiet moments: if the test says
+"busy" and no packet follows, it counts a false alarm, and enough false alarms make it less
+sensitive. A packet the node can hear but not decode, too weak, or with a damaged header, also
+counted as a false alarm, which nudged the node toward ignoring real traffic. Now the radio notes
+whether a packet start (preamble) or header showed up after the test; if so it counts as real
+traffic. `get cad.stats` shows these as a new `u` column next to `t`.
+
+## LilyGo T-Impulse Plus charges its battery
+
+The T-Impulse Plus has a charger chip that starts with charging switched off and has to be set up
+by the firmware. ZephCore never did, so the battery only charged after LilyGo's own firmware had
+run, and stopped again once the battery ran flat. On USB the chip also restarted the whole
+wristband every few minutes, which showed up as dropped Bluetooth connections.
+
+- **The charger is now set up at every start**, the way LilyGo's firmware does it, so the battery
+  charges on USB without flashing anything else first.
+- **The restarts on USB stop.** ZephCore keeps the charger's watchdog switched off.
+- **The GPS works.** ZephCore switched the GPS off when it meant to switch it on, so the
+  wristband never found its GPS and the app showed GPS as not supported.
+
+## Other changes
+
+- **A node no longer falls silent after 25 days.** A node whose transmits had all gone out at the first try for
+  24.9 days stopped transmitting for up to another 24.9 days, and stopped receiving too once its queue had
+  filled. Only a reboot brought it back sooner. Repeaters on a quiet channel and companions that stay on for
+  weeks were the ones at risk.
+- **Idle nodes sleep longer.** Once a node had heard a packet repeated and then fell quiet, it woke every
+  5 seconds for as long as it ran. It now returns to waking only for its regular channel measurement (15 s).
+- **Companion: the app's airtime factor is limited to 0–9**, as `set af` is. A larger value used to apply until
+  the next restart and then become 9 without notice; from 200 up it switched the duty-cycle limit off. The app
+  now gets an error and the setting stays as it was.
+- **Duty-cycle budget refills exactly.** After about five days without a transmit (at 10 %) the budget could
+  come back almost empty and delay the next transmit, and rounding lost up to 5 % of the allowance while a
+  packet was waiting.
+- **`tempradio` takes at most 35000 minutes** (about 24 days). A longer time was accepted but never reverted.
+- **Heltec receive workaround stays enabled.** Boards using the Heltec `0x08B5` workaround now apply it while
+  the radio is awake during configuration and retain it across warm sleep, including the AGC reset path.
+  Previously it was written after receive started and was lost at the radio's first sleep.
+- **KISS modem: the encrypt command no longer overwrites memory.** A host that sent the
+  `EncryptData` command with a plaintext longer than 192 bytes wrote past a buffer in the modem's
+  memory. Plaintexts over 184 bytes, the most a packet can carry, are now refused with
+  `EncryptFailed`. Only the computer on the modem's serial port could send it.
+- **KISS modem: protocol version 2.** A host can now ask which radio controls the modem has
+  (`GetCapabilities`), switch the radio's boosted receive gain (`SetRxBoostedGain`) and, on boards
+  with a switchable LNA in the front end, turn that LNA on or off (`SetFemState`). These follow
+  MeshCore's KISS protocol 2. ZephCore does not take MeshCore's timed AGC reset: the modem keeps
+  resetting a stuck receiver only after a long silence, as every ZephCore role does, so the AGC
+  interval commands answer `Unsupported`. None of these settings is saved across a restart.
+- **SenseCAP Solar: dimmer heartbeat LED.** The white LED's heartbeat blink can now be dimmed with
+  `set leds.brightness <0-100>`, and a newly set-up node starts at 10%, as in MeshCore. A node you
+  already use keeps its current brightness (100%); `set leds.brightness 10` gives the new default.
+- **SX1262 and LR2021 boards at SF8 with 15.6 kHz bandwidth can talk to the rest of the mesh.** On this one
+  setting the two radio types left low-data-rate optimisation off, while LR1110 boards and MeshCore nodes
+  have it on, so packets between them failed. Other settings were not affected.
+- **SX1262 boards report signal-to-noise in quarter-dB steps.** They used to round it down to a whole dB, so
+  SNR values read up to 0.75 dB low. Neighbour lists, statistics and the app now show the finer value.
+- **A bandwidth that is not a LoRa bandwidth is refused.** `set radio`, `tempradio` and the app accepted any
+  number from 7 to 500 kHz. A value such as 42 (for 41.7) or 100 was saved and shown, but the radio ran at
+  125 kHz and the node dropped off the mesh. Now only 7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250 and
+  500 kHz are accepted, and only those the board's radio has (LR1110 from 10.4, LR2021 from 31.25 plus 203, 406, 812 and 1000, SX127x from 62.5). A node that
+  has such a value saved starts on the default radio settings after the update.
+- **LR1110 and LR2021 boards: receive duty cycle keeps its safety margin on fast presets.** The sleep time was rounded up
+  to a whole millisecond, which on presets with short symbols used up the margin against missing a packet.
+- **LR1110 and LR2021 boards never transmit when the channel check itself fails.** If the listen-before-talk check did
+  not complete, the node used to transmit anyway. It now restores reception and tries again later.
+- **LR1110 and LR2021 boards report signal-to-noise in quarter-dB steps**, like SX1262 boards.
+- **GPS commands follow MeshCore 1.18's.** `gps` now reads like `> on, waiting, 7 sats 3m ago, periodic (300s)`
+  (`> off, continuous` when off), and replies are `OK` or `Error, ...` as in MeshCore. New: `gps fix` (the last
+  position and its age), `gps once` (one fix now; a GPS that was off goes back off afterwards), `gps period <time>`
+  (MeshCore's name for `set gps duty`; takes `30m`, `48h`, `2d`, and also turns the GPS on) and `gps fix_stats`
+  (how long fixes take). A companion contact you gave remote CLI rights can now run these `gps` commands and
+  `get/set adc.multiplier` over the mesh, as on MeshCore. Scripts that read the old `gps` line (`on, active, fix, 7 sats`)
+  or the lowercase `ok` need updating.
+- **`get advert.loc` / `set advert.loc`.** MeshCore's new name for the location-in-adverts setting
+  (`none`, `share` or `prefs`) works on every node. `gps advert` still works and changes the same setting.
+- **GPS anti-spoofing guard, as a build option.** Builds with `CONFIG_ZEPHCORE_GPS_GUARD` (off in the
+  release builds, as MeshCore's `GPS_GUARD`) check each GPS fix before using it: enough satellites and precision,
+  no jumps faster than 250 km/h, and on repeaters and room servers no further than `gps fence` metres (1000 by
+  default) from the configured location. GPS time sets the clock only from a trusted fix and, once the clock is
+  right, only by small steps; a GPS that keeps disagreeing raises an alert that `gps guard accept` resolves. New
+  commands: `gps guard`, `gps guard on|off|accept`, `gps fence`, `gps ref`.
+- **E-paper boards (T-Echo, ThinkNode M1): the display controller sleeps while the screen is off.** The image
+  stays; the controller wakes on the next screen update. Saves a little standby current, as MeshCore now does.
+- **RAK3401 firmware on a RAK4631 core with a RAK13302: the core's own radio is put to sleep.** It used to idle
+  powered for as long as the board ran.
+- **RAK4631 and RAK3401 1W draw less when switched off.** `poweroff` and the low-battery shutdown left the
+  WisBlock slot power on, so a GPS module, slot sensors and display (and on the RAK3401 1W the amplifier's 5 V
+  supply) kept running while the node was off. They are now switched off too. MeshCore measured a RAK4631 with
+  GPS going from about 30 mA to about 1.3 mA when off.
