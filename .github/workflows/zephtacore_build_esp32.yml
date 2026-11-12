@@ -59,7 +59,7 @@ jobs:
           else
             CONFS="boards/common/zephtacore.conf"
           fi
-          west build -b "${BOARD}/esp32s3/procpu" zephcore --pristine --sysbuild -- -DEXTRA_CONF_FILE="$CONFS"
+          west build -b "${BOARD}/esp32s3/procpu" zephcore --pristine --sysbuild -- -DEXTRA_CONF_FILE="$CONFS" -DCONFIG_ZEPHCORE_MAX_CONTACTS=100
           mkdir -p firmware
           SHORT=$(git rev-parse --short HEAD)
           FLASH=$(python3 zephcore/scripts/dts_flash_size.py build/zephcore/zephyr/zephyr.dts)
