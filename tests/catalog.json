@@ -908,6 +908,66 @@
       "source": "tests/unit/ping_tests.cpp"
     },
     {
+      "id": "UNIT-ZINFO-001",
+      "name": "z.info gives version, uptime, battery, flash, heap and contacts in one line",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-002",
+      "name": "a field the role or build does not have is left out of the line",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-003",
+      "name": "uptime is days and hours, hours and minutes, or minutes",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-004",
+      "name": "a small reply buffer is cut, never overrun, and stays terminated",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-005",
+      "name": "z.stats gives the MeshCore counters, then the Meshtastic ones when there are any",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-001",
+      "name": "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-002",
+      "name": "an age is in seconds, minutes, hours or days",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-003",
+      "name": "SNR lights 0 to 4 bars, a step at 8, 3, -3 and -10 dB",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-004",
+      "name": "a gauge fills in proportion, shows any use, never passes full or divides by 0",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-005",
+      "name": "time on air is a percentage of the uptime, and the uptime is days and hours, hours and minutes, or minutes",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-006",
+      "name": "the best nodes come first, as many as asked for, and fewer when there are fewer",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-007",
+      "name": "with recent the node heard last comes first",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
       "id": "UNIT-ZCMD-001",
       "name": "on and 1 are on, off and 0 are off, anything else is not a value",
       "source": "tests/unit/zcommand_tests.cpp"

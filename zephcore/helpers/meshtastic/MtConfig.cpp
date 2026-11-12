@@ -71,6 +71,10 @@ bool parseUint(const char *s, uint32_t max, uint32_t &out)
 
 } /* namespace */
 
+const char *roleName(uint8_t role) { return nameOf(kRoles, role); }
+
+const char *relayName(uint8_t relay) { return nameOf(kRelays, relay); }
+
 int base64Decode(const char *s, uint8_t *out, size_t cap)
 {
 	uint32_t acc = 0;

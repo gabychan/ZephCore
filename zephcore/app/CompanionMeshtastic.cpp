@@ -177,6 +177,25 @@ void CompanionMesh::mtFormatNeighbours(char *reply, size_t cap, size_t page, boo
 			   MtNeighbours(_mtport.neighbours(), (uint32_t)(k_uptime_get() / 1000), *this), page, recent);
 }
 
+void CompanionMesh::mtFillDashboard(struct ui_dash &d)
+{
+	neighbours::Row rows[UI_DASH_NODES] = {};
+	const size_t n = neighbours::top(
+		MtNeighbours(_mtport.neighbours(), (uint32_t)(k_uptime_get() / 1000), *this), rows, UI_DASH_NODES);
+
+	for (size_t i = 0; i < n; i++) {
+		snprintf(d.mt_n[i].name, sizeof(d.mt_n[i].name), "%.*s", (int)sizeof(d.mt_n[i].name) - 1, rows[i].name);
+		d.mt_n[i].snr_x4 = rows[i].snr_x4;
+		d.mt_n[i].age_s = rows[i].age_s;
+	}
+	d.mt_on = prefs.mt.enable != 0;
+	d.mt_heard = _mtport.stats().heard;
+	d.mt_relayed = _mtport.stats().relayed;
+	d.mt_dropped = _mtport.stats().dropped;
+	snprintf(d.mt_cfg, sizeof(d.mt_cfg), "%s relay %s", mt::roleName(prefs.mt.role),
+		 mt::relayName(prefs.mt.relay));
+}
+
 void CompanionMesh::mtFormatStats(char *reply, size_t cap) const
 {
 	_mtport.formatStats(reply, cap);

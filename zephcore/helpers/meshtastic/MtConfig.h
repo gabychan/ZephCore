@@ -65,6 +65,10 @@ inline uint32_t clampInterval(uint32_t v, uint32_t min, uint32_t max)
 	return v == 0 ? 0 : (v < min ? min : (v > max ? max : v));
 }
 
+/* "client", "router", ... and "off", "essential", "all"; "?" for a value that is none of them. */
+const char *roleName(uint8_t role);
+const char *relayName(uint8_t relay);
+
 inline bool validName(const char *s)
 {
 	size_t n = strlen(s);

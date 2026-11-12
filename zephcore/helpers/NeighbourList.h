@@ -170,11 +170,9 @@ inline bool before(bool recent, int8_t snr_a, uint32_t age_a, int8_t snr_b, uint
 	return recent ? age_a < age_b : snr_a > snr_b;
 }
 
-/* "<title> (<total>) <page>/<pages>" and a line per node of that page, best SNR first or, with recent,
- * heard last first (ties in list order). A page past the last says so; "-none-" with no node. */
-inline void format(char *out, size_t cap, const char *title, const List &list, size_t page, bool recent = false)
+/* The slots in use, best first, into order (at most kListMax): strongest SNR or, with recent, heard last. */
+inline size_t rank(const List &list, uint8_t *order, bool recent)
 {
-	uint8_t order[kListMax];
 	size_t total = 0;
 
 	for (size_t i = 0; i < list.size() && i < kListMax; i++) {
@@ -200,6 +198,27 @@ inline void format(char *out, size_t cap, const char *title, const List &list, s
 		order[at] = (uint8_t)i;
 		total++;
 	}
+	return total;
+}
+
+/* The best n nodes (strongest SNR, or with recent heard last) into rows; returns how many there are. */
+inline size_t top(const List &list, Row *rows, size_t n, bool recent = false)
+{
+	uint8_t order[kListMax];
+	const size_t total = rank(list, order, recent);
+
+	for (size_t k = 0; k < n && k < total; k++) {
+		list.row(order[k], rows[k]);
+	}
+	return total < n ? total : n;
+}
+
+/* "<title> (<total>) <page>/<pages>" and a line per node of that page, best SNR first or, with recent,
+ * heard last first (ties in list order). A page past the last says so; "-none-" with no node. */
+inline void format(char *out, size_t cap, const char *title, const List &list, size_t page, bool recent = false)
+{
+	uint8_t order[kListMax];
+	const size_t total = rank(list, order, recent);
 	if (total == 0) {
 		snprintf(out, cap, "%s: -none-", title);
 		return;

@@ -268,6 +268,15 @@ void mc_display_hline(int x, int y, int w);
 void mc_display_invert_rect(int x, int y, int w, int h);
 
 /**
+ * Text in the 6x8 font, each dot `scale` pixels square, independent of the
+ * panel's font. Black on white; invert_rect over a bar makes it white on black.
+ */
+void mc_display_text_px(int x, int y, const char *text, int scale);
+
+/** Outline of a rectangle, one pixel wide. */
+void mc_display_rect(int x, int y, int w, int h);
+
+/**
  * Draw a monochrome bitmap (Adafruit/Arduino format).
  * MSB first, row-major, 1=foreground.
  * Compatible with Arduino's drawBitmap() and MeshCore icons.h data.

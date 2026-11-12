@@ -746,6 +746,22 @@ void CompanionMesh::formatMcNeighbours(char *reply, size_t cap, size_t page, boo
 			   McNeighbours(_mc_neighbours, (uint32_t)(k_uptime_get() / 1000), *this), page, recent);
 }
 
+void CompanionMesh::fillDashboardSides(struct ui_dash &d)
+{
+	neighbours::Row rows[UI_DASH_NODES] = {};
+	const size_t n = neighbours::top(
+		McNeighbours(_mc_neighbours, (uint32_t)(k_uptime_get() / 1000), *this), rows, UI_DASH_NODES);
+
+	for (size_t i = 0; i < n; i++) {
+		snprintf(d.mc_n[i].name, sizeof(d.mc_n[i].name), "%.*s", (int)sizeof(d.mc_n[i].name) - 1, rows[i].name);
+		d.mc_n[i].snr_x4 = rows[i].snr_x4;
+		d.mc_n[i].age_s = rows[i].age_s;
+	}
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	mtFillDashboard(d);
+#endif
+}
+
 void CompanionMesh::snapshotAdvertPrev(const ContactInfo *c)
 {
 	_advert_prev.known = c && c->type != ADV_TYPE_NONE;

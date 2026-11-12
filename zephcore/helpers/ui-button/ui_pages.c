@@ -18,6 +18,7 @@
 #include "ui_task.h"
 #include "ui_mesh_actions.h"
 #include "display.h"
+#include "ui_dash_fmt.h"
 #include <helpers/buzzer_gate.h>
 #include <helpers/tz_offset.h>
 
@@ -165,7 +166,14 @@ static const enum ui_page active_pages[] = {
 	UI_PAGE_SHUTDOWN,
 };
 #else
+/* The dashboard needs a panel of at least 192x192. */
+#define UI_DASH_PANEL (!MC_DISPLAY_COLOR_PANEL && \
+		       DT_PROP_OR(MC_DISPLAY_NODE, width, 0) >= 192 && \
+		       DT_PROP_OR(MC_DISPLAY_NODE, height, 0) >= 192)
 static const enum ui_page active_pages[] = {
+#if UI_DASH_PANEL
+	UI_PAGE_DASHBOARD,
+#endif
 	UI_PAGE_MESSAGES,
 	UI_PAGE_RECENT,
 	UI_PAGE_RADIO,
@@ -613,6 +621,7 @@ static const char *tiny_page_title(enum ui_page p)
 	case UI_PAGE_DFU:       return "DFU";
 	case UI_PAGE_SHUTDOWN:  return "SHUTDOWN";
 	case UI_PAGE_STATUS:    return "STATUS";
+	case UI_PAGE_DASHBOARD: return "DASHBOARD";
 	default:                return "";
 	}
 }
@@ -1763,6 +1772,183 @@ static void render_status(void)
 
 /* ========== Page render dispatch ========== */
 
+
+/* ========== Dashboard (200x200 panels) ========== */
+
+#define DASH_W        200
+#define DASH_COL_W    98
+#define DASH_GAP      2      /* between the columns: a 1 px rule */
+#define DASH_BAR_H    11
+
+static void dash_text(int x, int y, const char *s)
+{
+	mc_display_text_px(x, y, s, 1);
+}
+
+static void dash_right(int right_x, int y, const char *s, int scale)
+{
+	mc_display_text_px(right_x - (int)strlen(s) * 6 * scale, y, s, scale);
+}
+
+/* White on black: the text drawn first, the area turned over after. */
+static void dash_title(int x, int y, int w, const char *s)
+{
+	mc_display_text_px(x + (w - (int)strlen(s) * 6) / 2, y + 1, s, 1);
+	mc_display_invert_rect(x, y, w, DASH_BAR_H);
+}
+
+static void dash_header(void)
+{
+	char buf[16];
+	const int bx = DASH_W - 22;
+
+	/* Right to left: battery, percentage, clock. The name takes what is left. */
+	mc_display_rect(bx, 3, 16, 8);
+	mc_display_fill_rect(bx + 16, 5, 2, 4);
+	mc_display_fill_rect(bx + 2, 5, (12 * state.battery_pct) / 100, 4);
+	snprintf(buf, sizeof(buf), "%u%%", state.battery_pct);
+	dash_right(bx - 4, 3, buf, 1);
+
+	int clock_x = bx - 4 - 6 * 4 - 6 - 30;
+
+	if (state.rtc_epoch > 1735689600) {
+		uint32_t day_sec = local_epoch() % 86400;
+
+		snprintf(buf, sizeof(buf), "%02u:%02u", (unsigned)(day_sec / 3600),
+			 (unsigned)((day_sec % 3600) / 60));
+		dash_text(clock_x, 3, buf);
+	}
+
+	char name[19];
+
+	utf8_to_latin1(name, state.node_name, sizeof(name));
+	name[(clock_x - 8) / 6 < 18 ? (clock_x - 8) / 6 : 18] = '\0';
+	dash_text(4, 3, name);
+	mc_display_invert_rect(0, 0, DASH_W, 14);
+}
+
+static void dash_neighbours(int x, const struct ui_dash_node *nodes)
+{
+	dash_text(x + 2, 75, "NEIGHBORS");
+	for (int i = 0; i < UI_DASH_NODES; i++) {
+		int y = 87 + i * 10;
+		char name[9], age[12];
+
+		if (nodes[i].name[0] == '\0') {
+			dash_text(x + 2, y, "-");
+			continue;
+		}
+		utf8_to_latin1(name, nodes[i].name, sizeof(name));
+		dash_text(x + 2, y, name);
+		int lit = ui_dash_bars(nodes[i].snr_x4);
+
+		for (int b = 0; b < 4; b++) {
+			int h = 2 * (b + 1);
+
+			if (b < lit) {
+				mc_display_fill_rect(x + 54 + b * 3, y + 8 - h, 2, h);
+			} else {
+				mc_display_hline(x + 54 + b * 3, y + 7, 2);
+			}
+		}
+		ui_dash_age(age, sizeof(age), nodes[i].age_s);
+		dash_right(x + DASH_COL_W - 2, y, age, 1);
+	}
+}
+
+/* One side: title, the hero count and two more, then the nearest nodes. */
+static void dash_column(int x, const char *title, const char *l0, uint32_t v0,
+			const char *l1, uint32_t v1, const char *l2, uint32_t v2,
+			const struct ui_dash_node *nodes, bool on)
+{
+	char buf[12];
+
+	dash_title(x, 17, DASH_COL_W, title);
+	if (!on) {
+		dash_right(x + DASH_COL_W - 2, 38, "OFF", 2);
+		dash_neighbours(x, nodes);
+		return;
+	}
+	dash_text(x + 2, 32, l0);
+	ui_dash_count(buf, sizeof(buf), v0);
+	dash_right(x + DASH_COL_W - 2, 32, buf, 2);
+	dash_text(x + 2, 50, l1);
+	ui_dash_count(buf, sizeof(buf), v1);
+	dash_right(x + DASH_COL_W - 2, 50, buf, 1);
+	dash_text(x + 2, 60, l2);
+	ui_dash_count(buf, sizeof(buf), v2);
+	dash_right(x + DASH_COL_W - 2, 60, buf, 1);
+	dash_neighbours(x, nodes);
+}
+
+static void dash_gauge(int y, const char *label, uint32_t used, uint32_t total, const char *value)
+{
+	dash_text(2, y, label);
+	mc_display_rect(34, y, 100, 7);
+	mc_display_fill_rect(36, y + 2, ui_dash_fill(used, total, 96), 3);
+	dash_right(DASH_W - 2, y, value, 1);
+}
+
+static void render_dashboard(void)
+{
+	const struct ui_dash *d = &state.dash;
+	char a[64], b[16];
+
+	dash_header();
+	dash_column(1, "MESHCORE", "RX", d->mc_rx, "TX", d->mc_tx, "ERR", d->mc_err, d->mc_n, true);
+	dash_column(DASH_COL_W + DASH_GAP + 1, "MESHTASTIC", "HEARD", d->mt_heard, "RELAY", d->mt_relayed,
+		    "DROP", d->mt_dropped, d->mt_n, d->mt_on);
+	mc_display_fill_rect(DASH_W / 2, 29, 1, 88);
+	mc_display_hline(0, 72, DASH_W);
+	mc_display_hline(0, 117, DASH_W);
+
+	uint32_t mhz = state.lora_freq_hz / 1000000;
+	uint32_t khz = (state.lora_freq_hz % 1000000 + 500) / 1000;
+	uint16_t bw_int = state.lora_bw_khz_x10 / 10;
+	uint16_t bw_frac = state.lora_bw_khz_x10 % 10;
+
+	if (bw_frac) {
+		snprintf(a, sizeof(a), "%u.%03uMHz SF%u BW%u.%u CR%u", (unsigned)mhz, (unsigned)khz,
+			 state.lora_sf, bw_int, bw_frac, state.lora_cr);
+	} else {
+		snprintf(a, sizeof(a), "%u.%03uMHz SF%u BW%u CR%u", (unsigned)mhz, (unsigned)khz,
+			 state.lora_sf, bw_int, state.lora_cr);
+	}
+	dash_text(2, 122, a);
+	ui_dash_uptime(b, sizeof(b), d->uptime_s);
+	snprintf(a, sizeof(a), "%+ddBm  NF %d  UP %s", state.lora_tx_power, state.lora_noise_floor, b);
+	dash_text(2, 133, a);
+	mc_display_hline(0, 144, DASH_W);
+
+	if (d->heap_total != 0) {
+		snprintf(a, sizeof(a), "%u/%uK", (unsigned)(d->heap_used / 1024), (unsigned)(d->heap_total / 1024));
+	} else {
+		snprintf(a, sizeof(a), "n/a");
+	}
+	dash_gauge(148, "HEAP", d->heap_used, d->heap_total, a);
+	snprintf(a, sizeof(a), "%u/%uK", (unsigned)d->flash_used_kb, (unsigned)d->flash_total_kb);
+	dash_gauge(160, "FLASH", d->flash_used_kb, d->flash_total_kb, a);
+
+	char tx[12], rx[12];
+
+	ui_dash_duty(tx, sizeof(tx), d->air_tx_s, d->uptime_s);
+	ui_dash_duty(rx, sizeof(rx), d->air_rx_s, d->uptime_s);
+	snprintf(a, sizeof(a), "T%s R%s", tx, rx);
+	dash_gauge(172, "AIR", d->air_tx_s + d->air_rx_s, d->uptime_s, a);
+
+	/* Foot: how the traffic of each side is made up. */
+	char f[4][12];
+
+	ui_dash_count(f[0], sizeof(f[0]), d->mc_flood_tx);
+	ui_dash_count(f[1], sizeof(f[1]), d->mc_flood_rx);
+	ui_dash_count(f[2], sizeof(f[2]), d->mc_direct_tx);
+	ui_dash_count(f[3], sizeof(f[3]), d->mc_direct_rx);
+	snprintf(a, sizeof(a), "F%s/%s D%s/%s", f[0], f[1], f[2], f[3]);
+	dash_text(4, 189, a);
+	dash_text(DASH_COL_W + DASH_GAP + 5, 189, d->mt_on ? d->mt_cfg : "off");
+	mc_display_invert_rect(0, 186, DASH_W, 14);
+}
+
 typedef void (*page_render_fn)(void);
 
 static const page_render_fn renderers[] = {
@@ -1783,6 +1969,7 @@ static const page_render_fn renderers[] = {
 	[UI_PAGE_DFU]       = render_dfu,
 	[UI_PAGE_SHUTDOWN]  = render_shutdown,
 	[UI_PAGE_STATUS]    = render_status,
+	[UI_PAGE_DASHBOARD] = render_dashboard,
 };
 
 /* ========== Public API ========== */
@@ -1810,10 +1997,13 @@ void ui_pages_render(void)
 		return;
 	}
 
-	render_top_bar();
-	render_page_indicator();
-
 	enum ui_page page = active_pages[current_page_idx];
+
+	/* The dashboard has its own header and uses the whole panel. */
+	if (page != UI_PAGE_DASHBOARD) {
+		render_top_bar();
+		render_page_indicator();
+	}
 
 	if (page < UI_PAGE_COUNT && renderers[page]) {
 		renderers[page]();
@@ -1902,6 +2092,11 @@ void ui_pages_set(enum ui_page page)
 enum ui_page ui_pages_current(void)
 {
 	return active_pages[current_page_idx];
+}
+
+enum ui_page ui_pages_home(void)
+{
+	return active_pages[0];
 }
 
 void ui_pages_set_node_name(const char *name)

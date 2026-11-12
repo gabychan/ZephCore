@@ -51,6 +51,8 @@ static const Help kHelp[] = {
 	{"ping.rssi", "get|set on|off|1|0: show the RSSI in the answer"},
 	{"ping.ignore.direct", "get|set on|off|1|0: do not answer pings heard with 0 hops"},
 	{"ping.ignore.remote", "get|set on|off|1|0: do not answer pings heard with 1 or more hops"},
+	{"info", "get: version, uptime, battery, flash, heap and contacts"},
+	{"stats", "get: MeshCore counters, then the Meshtastic ones"},
 	{"tx.stalls", "get: times TX could not go out for 4 s, per cause"},
 };
 

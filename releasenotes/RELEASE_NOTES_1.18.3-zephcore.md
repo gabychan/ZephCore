@@ -34,6 +34,11 @@ default channels and node name in order.
 - New `get z.mc.neighbors` and `get z.mt.neighbors` (alias `vecinos`) on the companion and the repeater: the nodes heard directly,
   best SNR first, as `name (SNR, age)`, 4 to a page (`get z.mt.neighbors 2`), or the latest heard first with `recent` (`get z.mt.neighbors recent`). MeshCore lists repeaters heard with no hops, Meshtastic nodes heard with no relay
   in between. Kept in RAM, so a reboot empties them.
+- New `get z.info` (version, uptime, battery, flash, heap and contacts in use) and `get z.stats` (MeshCore and Meshtastic counters), each in
+  one line that fits a radio reply.
+- New dashboard page on 200x200 e-paper companions (ThinkNode M1): MeshCore and Meshtastic side by side, with packet counts, nearest
+  neighbours and their signal, radio setup, heap, flash and time on air. It is the first page, and redraws when opened, on a button press
+  and once an hour.
 - Commands of the Meshtastic side and the new ones hang from `z.`: `z.mt.*`, `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`;
   `get tx.stalls` is now `get z.tx.stalls`.
 - `help` at the end of a `z.` command (`get z.mt.relay help`) tells its usage, and on a group (`get z.mt help`) lists its keys.
