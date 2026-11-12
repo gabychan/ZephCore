@@ -959,7 +959,7 @@
     },
     {
       "id": "UNIT-UIDASH-006",
-      "name": "the best nodes come first, as many as asked for, and fewer when there are fewer",
+      "name": "the best nodes come first, as many as asked for, and the call says how many there are in all",
       "source": "tests/unit/uidash_tests.cpp"
     },
     {

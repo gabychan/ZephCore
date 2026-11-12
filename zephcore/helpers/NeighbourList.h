@@ -201,7 +201,7 @@ inline size_t rank(const List &list, uint8_t *order, bool recent)
 	return total;
 }
 
-/* The best n nodes (strongest SNR, or with recent heard last) into rows; returns how many there are. */
+/* The best n nodes (strongest SNR, or with recent heard last) into rows; returns how many nodes there are in all. */
 inline size_t top(const List &list, Row *rows, size_t n, bool recent = false)
 {
 	uint8_t order[kListMax];
@@ -210,7 +210,7 @@ inline size_t top(const List &list, Row *rows, size_t n, bool recent = false)
 	for (size_t k = 0; k < n && k < total; k++) {
 		list.row(order[k], rows[k]);
 	}
-	return total < n ? total : n;
+	return total;
 }
 
 /* "<title> (<total>) <page>/<pages>" and a line per node of that page, best SNR first or, with recent,

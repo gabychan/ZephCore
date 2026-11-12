@@ -1827,9 +1827,13 @@ static void dash_header(void)
 	mc_display_invert_rect(0, 0, DASH_W, 14);
 }
 
-static void dash_neighbours(int x, const struct ui_dash_node *nodes)
+static void dash_neighbours(int x, const struct ui_dash_node *nodes, uint8_t total)
 {
+	char count[12];
+
 	dash_text(x + 2, 75, "NEIGHBORS");
+	snprintf(count, sizeof(count), "%u", (unsigned)total);
+	dash_right(x + DASH_COL_W - 2, 75, count, 1);
 	for (int i = 0; i < UI_DASH_NODES; i++) {
 		int y = 87 + i * 10;
 		char name[9], age[12];
@@ -1859,14 +1863,14 @@ static void dash_neighbours(int x, const struct ui_dash_node *nodes)
 /* One side: title, the hero count and two more, then the nearest nodes. */
 static void dash_column(int x, const char *title, const char *l0, uint32_t v0,
 			const char *l1, uint32_t v1, const char *l2, uint32_t v2,
-			const struct ui_dash_node *nodes, bool on)
+			const struct ui_dash_node *nodes, uint8_t total, bool on)
 {
 	char buf[12];
 
 	dash_title(x, 17, DASH_COL_W, title);
 	if (!on) {
 		dash_right(x + DASH_COL_W - 2, 38, "OFF", 2);
-		dash_neighbours(x, nodes);
+		dash_neighbours(x, nodes, total);
 		return;
 	}
 	dash_text(x + 2, 32, l0);
@@ -1878,7 +1882,7 @@ static void dash_column(int x, const char *title, const char *l0, uint32_t v0,
 	dash_text(x + 2, 60, l2);
 	ui_dash_count(buf, sizeof(buf), v2);
 	dash_right(x + DASH_COL_W - 2, 60, buf, 1);
-	dash_neighbours(x, nodes);
+	dash_neighbours(x, nodes, total);
 }
 
 static void dash_gauge(int y, const char *label, uint32_t used, uint32_t total, const char *value)
@@ -1895,9 +1899,9 @@ static void render_dashboard(void)
 	char a[64], b[16];
 
 	dash_header();
-	dash_column(1, "MESHCORE", "RX", d->mc_rx, "TX", d->mc_tx, "ERR", d->mc_err, d->mc_n, true);
+	dash_column(1, "MESHCORE", "RX", d->mc_rx, "TX", d->mc_tx, "ERR", d->mc_err, d->mc_n, d->mc_n_total, true);
 	dash_column(DASH_COL_W + DASH_GAP + 1, "MESHTASTIC", "HEARD", d->mt_heard, "RELAY", d->mt_relayed,
-		    "DROP", d->mt_dropped, d->mt_n, d->mt_on);
+		    "DROP", d->mt_dropped, d->mt_n, d->mt_n_total, d->mt_on);
 	mc_display_fill_rect(DASH_W / 2, 29, 1, 88);
 	mc_display_hline(0, 72, DASH_W);
 	mc_display_hline(0, 117, DASH_W);

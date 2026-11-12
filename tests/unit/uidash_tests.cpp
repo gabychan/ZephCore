@@ -85,14 +85,14 @@ TEST(uidash_duty_uptime, "UNIT-UIDASH-005", "time on air is a percentage of the 
     CHECK(std::string(u) == "11m");
 }
 
-TEST(uidash_top, "UNIT-UIDASH-006", "the best nodes come first, as many as asked for, and fewer when there are fewer") {
+TEST(uidash_top, "UNIT-UIDASH-006", "the best nodes come first, as many as asked for, and the call says how many there are in all") {
     Rows rows;
     rows.v = {row("low", -20, 10), row("", 0, 0), row("high", 40, 30), row("mid", 8, 20)};
     neighbours::Row out[3] = {};
 
     CHECK(neighbours::top(rows, out, 3) == 3);
     CHECK(std::string(out[0].name) == "high" && std::string(out[1].name) == "mid" && std::string(out[2].name) == "low");
-    CHECK(neighbours::top(rows, out, 2) == 2);
+    CHECK(neighbours::top(rows, out, 2) == 3);  /* the total, not the rows filled */
     CHECK(std::string(out[1].name) == "mid");
     rows.v = {row("only", 4, 5)};
     CHECK(neighbours::top(rows, out, 3) == 1 && std::string(out[0].name) == "only");

@@ -26,6 +26,7 @@ struct ui_dash {
 	uint32_t mt_heard, mt_relayed, mt_dropped;
 	char mt_cfg[20];             /* "client relay off" */
 	struct ui_dash_node mc_n[UI_DASH_NODES], mt_n[UI_DASH_NODES];
+	uint8_t mc_n_total, mt_n_total;  /* nodes heard in all, not only those listed */
 	uint32_t heap_used, heap_total;  /* bytes; total 0: not counted */
 	uint32_t flash_used_kb, flash_total_kb;
 	uint32_t uptime_s;

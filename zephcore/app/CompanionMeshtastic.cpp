@@ -180,8 +180,11 @@ void CompanionMesh::mtFormatNeighbours(char *reply, size_t cap, size_t page, boo
 void CompanionMesh::mtFillDashboard(struct ui_dash &d)
 {
 	neighbours::Row rows[UI_DASH_NODES] = {};
-	const size_t n = neighbours::top(
+	const size_t total = neighbours::top(
 		MtNeighbours(_mtport.neighbours(), (uint32_t)(k_uptime_get() / 1000), *this), rows, UI_DASH_NODES);
+	const size_t n = total < UI_DASH_NODES ? total : UI_DASH_NODES;
+
+	d.mt_n_total = (uint8_t)total;
 
 	for (size_t i = 0; i < n; i++) {
 		snprintf(d.mt_n[i].name, sizeof(d.mt_n[i].name), "%.*s", (int)sizeof(d.mt_n[i].name) - 1, rows[i].name);
