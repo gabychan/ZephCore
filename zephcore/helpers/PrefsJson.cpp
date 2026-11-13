@@ -82,6 +82,8 @@ protected:
 		def("ping_snr", _p->ping.snr);
 		def("ping_nd", _p->ping.ignore_direct);
 		def("ping_nr", _p->ping.ignore_remote);
+		def("fw_gap", _p->fw.advert_gap_min);
+		def("fw_rate", _p->fw.hop_rate);
 	}
 
 public:

@@ -635,6 +635,27 @@ bool RepeaterMesh::allowPacketForward(const mesh::Packet *packet) {
   return true;
 }
 
+// ZEPHCORE: ours. The receive limits of "z.mc.fw.*": an advert inside its key's gap, or a frame over
+// the ceiling of the repeater it came through, is neither processed nor repeated.
+bool RepeaterMesh::filterRecvFloodPacket(mesh::Packet* packet) {
+  const uint32_t now = (uint32_t)_ms->getMillis();
+
+  if (packet->getPayloadType() == PAYLOAD_TYPE_ADVERT && packet->payload_len >= PUB_KEY_SIZE) {
+    uint32_t key;
+    memcpy(&key, packet->payload, sizeof(key));
+    if (_firewall.advertInGap(_prefs.fw, key, now)) {
+      return true;
+    }
+  }
+  const uint8_t hops = packet->getPathHashCount();
+
+  if (hops == 0) {
+    return false;
+  }
+  const uint8_t size = packet->getPathHashSize();
+  return _firewall.hopOverRate(_prefs.fw, &packet->path[(hops - 1) * size], size, now);
+}
+
 // ZEPHCORE: ours. Zephyr clock formatting.
 const char* RepeaterMesh::getLogDateTime() {
   static char tmp[48];
@@ -827,6 +848,11 @@ static bool isShare(const mesh::Packet *packet) {
 void RepeaterMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp,
         const uint8_t* app_data, size_t app_data_len) {
   mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
+
+  /* Only a verified advert opens its key's gap (z.mc.fw.gap). */
+  uint32_t key;
+  memcpy(&key, id.pub_key, sizeof(key));
+  _firewall.advertKept(_prefs.fw, key, (uint32_t)_ms->getMillis());
 
   /* Signature already verified by mesh::Mesh before this hook fires.
    * Skip share rebroadcasts — they replay stale stored adverts and would

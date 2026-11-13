@@ -299,3 +299,21 @@ TEST(pjson_mt_channels, "UNIT-PJSON-012", "A companion's Meshtastic channels sur
     CHECK(companionPrefsFromJson(d, old));
     CHECK(d.mt.channels[0].name[0] == '\0');
 }
+
+TEST(pjson_fw, "UNIT-PJSON-013", "The MeshCore receive limits survive prefs.json; a file without them leaves no limit") {
+    NodePrefs p = defaults();
+    CHECK(p.fw.advert_gap_min == 0 && p.fw.hop_rate == 0);
+    p.fw.advert_gap_min = 30;
+    p.fw.hop_rate = 200;
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.fw.advert_gap_min == 30 && q.fw.hop_rate == 200);
+
+    MemStream empty;
+    CHECK(serverPrefsToJson(defaults(), empty));
+    NodePrefs r = defaults();
+    CHECK(serverPrefsFromJson(r, empty));
+    CHECK(r.fw.advert_gap_min == 0 && r.fw.hop_rate == 0);
+}

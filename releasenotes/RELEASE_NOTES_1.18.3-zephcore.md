@@ -5,6 +5,14 @@ default channels and node name in order.
 
 ---
 
+## MeshCore receive limits (repeater)
+
+- `set z.mc.fw.gap <minutes>` keeps one advert per key per window, and `set z.mc.fw.rate <frames>` caps the flood
+  frames a minute accepted from one neighbouring repeater. Both are off by default; `get z.mc.fw.stats` counts what
+  they dropped. See `docs/CLI_commands.md`.
+
+---
+
 ## Meshtastic (Zephtacore builds)
 
 - Meshtastic channels on the companion are made by command, and the app no longer mixes channels that share a

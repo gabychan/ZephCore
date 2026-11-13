@@ -477,6 +477,18 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		}
 		return;
 	}
+	if (fw::isCommand(command)) {
+		fw::Firewall* firewall = _callbacks->firewall();
+
+		if (!firewall) {
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
+			return;
+		}
+		if (fw::handleCommand(_prefs->fw, *firewall, command, reply, replyCap(sender_timestamp)).changed) {
+			savePrefs();
+		}
+		return;
+	}
 	if (handleMtCmd(sender_timestamp, command, reply)) {
 		return;
 	}

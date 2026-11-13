@@ -12,6 +12,7 @@
 #include <string.h>
 #include "LoRaConfig.h"
 #include "PingBot.h"
+#include "McFirewall.h"
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 #include "meshtastic/MtConfig.h"
 #endif
@@ -202,6 +203,7 @@ struct NodePrefs {
 	char wifi_pwd[64];
 	uint8_t wifi_enabled;           // 1 = join wifi_ssid when set (upstream default)
 	ping::Prefs ping;               // ping bot; prefs.json zc{} ping_*
+	fw::Prefs fw;                   // MeshCore receive limits (repeater); prefs.json zc{} fw_*
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 	/* The Meshtastic side of Zephtacore; prefs.json mt{} (ADR 0013). */
 	mt::RepeaterPrefs mt;

@@ -913,6 +913,51 @@
       "source": "tests/unit/ping_tests.cpp"
     },
     {
+      "id": "UNIT-FW-001",
+      "name": "With no limit set nothing is dropped, however often a key or a repeater is heard",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-002",
+      "name": "A kept advert closes its key's gap until the window passes; other keys are not affected",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-003",
+      "name": "An advert nobody kept opens no gap, so a forged one cannot silence the real key",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-004",
+      "name": "The gap survives the 32-bit millisecond wrap",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-005",
+      "name": "Sixteen keys are remembered; the seventeenth takes the oldest slot",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-006",
+      "name": "A repeater gets hop_rate frames a minute through, then none until the window passes",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-007",
+      "name": "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash names none",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-008",
+      "name": "Eight repeaters are counted; the ninth takes the oldest slot and starts a fresh count",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-009",
+      "name": "z.mc.fw.gap and z.mc.fw.rate get and set 0 to 255; anything else is refused; stats is read only",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
       "id": "UNIT-ZINFO-001",
       "name": "z.info gives version, uptime, battery, flash, heap and contacts in one line",
       "source": "tests/unit/zinfo_tests.cpp"
@@ -1065,6 +1110,11 @@
     {
       "id": "UNIT-PJSON-012",
       "name": "A companion's Meshtastic channels survive prefs.json; a file without them has none",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-013",
+      "name": "The MeshCore receive limits survive prefs.json; a file without them leaves no limit",
       "source": "tests/unit/prefs_json_tests.cpp"
     },
     {

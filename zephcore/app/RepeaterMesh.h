@@ -144,6 +144,7 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
 #endif
   mesh::GroupChannel _ping_channel;  // PING_MC_CHANNEL
   ping::Stats _ping_stats = {};
+  fw::Firewall _firewall;
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
@@ -196,6 +197,7 @@ protected:
   }
 
   bool allowPacketForward(const mesh::Packet* packet) override;
+  bool filterRecvFloodPacket(mesh::Packet* packet) override;
   const char* getLogDateTime() override;
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
 
@@ -337,6 +339,7 @@ public:
 #endif
   void formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) override;
   ping::Stats* pingStats() override { return &_ping_stats; }
+  fw::Firewall* firewall() override { return &_firewall; }
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   void onPingPrefsChanged() override { mtSetChannels(); }
 #endif

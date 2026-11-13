@@ -71,6 +71,7 @@ public:
 	 * (repeater); the role applies the settings after a change. */
 	virtual ping::Stats* pingStats() { return nullptr; }  /* null: the role has no ping bot */
 	virtual void onPingPrefsChanged() {}
+	virtual fw::Firewall* firewall() { return nullptr; }  /* null: the role has no MeshCore receive limits */
 	virtual bool mtStandalone() const { return false; }
 	virtual void onMtPrefsChanged() {}
 	/* False when the app has no room for the channel just added. */
