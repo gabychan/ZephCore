@@ -1306,3 +1306,33 @@ TEST(mt_drop_orphans, "UNIT-MT-047", "An entry no slot holds is dropped when the
     CHECK(!findChannel(p, "#mt-test") && findChannel(p, "#mt-bots"));
     CHECK(!dropOrphans(p, slotIn, const_cast<void*>(static_cast<const void*>(slots))));
 }
+
+TEST(mt_config_edges, "UNIT-MT-048", "base64 keys decode with or without padding and in the URL-safe alphabet; a reply never writes past a short buffer") {
+    uint8_t a[4], b[4];
+    CHECK(base64Decode("", a, sizeof(a)) == 0);
+    CHECK(base64Decode("AQ", a, sizeof(a)) == 1 && a[0] == 1);  // padding is optional
+    CHECK(base64Decode("+/8=", a, sizeof(a)) == 2 && base64Decode("-_8=", b, sizeof(b)) == 2);
+    CHECK(a[0] == 0xFB && a[1] == 0xFF && std::memcmp(a, b, 2) == 0);
+    CHECK(base64Decode("A!Q=", a, sizeof(a)) == -1);
+
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_ALL);
+    for (const char* name : {"SFNarrow", "Bots", "Mine", "Catalunya", "Barcelona", "Test", "Bots2", "Last"}) {
+        char cmd[48];
+        snprintf(cmd, sizeof(cmd), "set z.mt.channel.add %s", name);
+        mtCmd(p, cmd, nullptr, false);
+    }
+    const char* cmds[] = {"get z.mt.channels", "get z.mt.channel", "set z.mt.role boss",
+                          "set z.mt.relay x", "get z.mt.nope", "set z.mt.hops 9"};
+    for (const char* cmd : cmds) {
+        for (size_t cap = 1; cap <= 48; cap++) {
+            char buf[64];
+            std::memset(buf, 0x7E, sizeof(buf));
+            handleCommand(p, cmd, buf, cap, cmd[8] == 'c' && cmd[15] == 's' ? false : true);
+            CHECK(std::memchr(buf, '\0', cap) != nullptr);  // terminated inside the buffer
+            bool guard = true;
+            for (size_t i = cap; i < sizeof(buf); i++) guard = guard && buf[i] == 0x7E;
+            CHECK(guard);
+        }
+    }
+}
