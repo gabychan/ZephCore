@@ -13,12 +13,13 @@ default channels and node name in order.
 
 ---
 
-## MeshCore receive limits (repeater)
+## Receive limits (repeater)
 
 - `set z.mc.fw.drop <rule> on` drops the flood frames of a payload type (`advert`, `request`, `text`, `group`, `ack`,
   `path`, `trace`). `set z.mc.fw.gap <minutes>` keeps one advert per key per window, and `set z.mc.fw.rate <frames>` caps the flood
   frames a minute accepted from one neighbouring repeater. Both are off by default; `get z.mc.fw.stats` counts what
-  they dropped. See `docs/CLI_commands.md`.
+  they dropped. The same commands exist for Meshtastic as `z.mt.fw.drop`, `.gap` and `.rate` (rules are ports;
+  the gap is per NodeInfo). See `docs/CLI_commands.md`.
 
 ---
 

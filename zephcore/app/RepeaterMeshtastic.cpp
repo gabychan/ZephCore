@@ -77,6 +77,7 @@ void RepeaterMesh::mtApplyPrefs()
 	const mt::RepeaterPrefs &p = _prefs.mt;
 
 	_radio->setMtListen(p.enable != 0);
+	_mt.setScreen(&_mt_screen);
 	if (!_mt_ready) {
 		MtRelayPort::initSelf(_mt, self_id, _prefs.node_name, *getRNG());
 		_mt_ready = true;
@@ -148,6 +149,7 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
 	(void)rssi;
+	_mt_screen.setNow((uint32_t)_ms->getMillis());
 	const mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(_prefs.mt));
 	mt::Header h;
 

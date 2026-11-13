@@ -14,6 +14,7 @@
 #endif
 #include <helpers/MeshTimeSync.h>
 #include <helpers/meshtastic/MtConfig.h>
+#include <helpers/meshtastic/MtFirewall.h>
 #include <helpers/OffgridPolicy.h>
 #include <helpers/ZCommand.h>
 #include <helpers/ZInfo.h>
@@ -489,13 +490,21 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		return;
 	}
 	if (fw::isCommand(command)) {
-		fw::Firewall* firewall = _callbacks->firewall();
+		const bool mt = fw::isMeshtastic(command);
+		fw::Firewall* firewall = IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !mt ? _callbacks->firewall(mt) : nullptr;
 
 		if (!firewall) {
 			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
 			return;
 		}
-		if (fw::handleCommand(_prefs->fw, *firewall, command, reply, replyCap(sender_timestamp)).changed) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		const fw::Rules& rules = mt ? mt::kFwRules : fw::kMcRules;
+		fw::Prefs& fwprefs = mt ? _prefs->mtfw : _prefs->fw;
+#else
+		const fw::Rules& rules = fw::kMcRules;
+		fw::Prefs& fwprefs = _prefs->fw;
+#endif
+		if (fw::handleCommand(fwprefs, *firewall, rules, command, reply, replyCap(sender_timestamp)).changed) {
 			savePrefs();
 		}
 		return;

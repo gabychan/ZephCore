@@ -205,6 +205,7 @@ struct NodePrefs {
 	uint8_t wifi_enabled;           // 1 = join wifi_ssid when set (upstream default)
 	ping::Prefs ping;               // ping bot; prefs.json zc{} ping_*
 	fw::Prefs fw;                   // MeshCore receive limits (repeater); prefs.json zc{} fw_*
+	fw::Prefs mtfw;                 // the same for Meshtastic (repeater); prefs.json zc{} mfw_*
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 	/* The Meshtastic side of Zephtacore; prefs.json mt{} (ADR 0013). */
 	mt::RepeaterPrefs mt;

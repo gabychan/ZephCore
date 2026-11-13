@@ -291,6 +291,9 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		}
 		return r;
 	}
+	if (r == mt::RX_DROPPED) {
+		return r;
+	}
 	_stats.heard++;
 	noteDirect(raw, len, snr_x4);
 	if (r == mt::RX_OPAQUE) {

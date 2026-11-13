@@ -278,6 +278,9 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		if (heardBefore(h, raw, len, relay_out, relay_len)) {
 			return RX_DUPLICATE;
 		}
+		if (_screen && _screen->drops(h, 0)) {
+			return RX_DROPPED;
+		}
 		Seen *s = remember(h.from, h.id);
 
 		if (fillRelay(h, raw, len, relay_out, relay_len)) {
@@ -291,6 +294,9 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 	}
 	if (heardBefore(h, raw, len, relay_out, relay_len)) {
 		return RX_DUPLICATE;
+	}
+	if (_screen && _screen->drops(h, d.portnum)) {
+		return RX_DROPPED;
 	}
 	Seen *seen_now = remember(h.from, h.id);
 

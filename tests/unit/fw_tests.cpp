@@ -9,7 +9,7 @@ namespace {
 std::string cmd(fw::Prefs &p, const fw::Firewall &f, const char *line, bool *changed = nullptr)
 {
     char out[80];
-    fw::CmdResult r = fw::handleCommand(p, f, line, out, sizeof(out));
+    fw::CmdResult r = fw::handleCommand(p, f, fw::kMcRules, line, out, sizeof(out));
     if (changed) *changed = r.changed;
     return r.handled ? std::string(out) : std::string("(not handled)");
 }
@@ -128,16 +128,16 @@ TEST(fw_commands, "UNIT-FW-009", "z.mc.fw.gap and z.mc.fw.rate get and set 0 to 
 TEST(fw_drop_types, "UNIT-FW-010", "A rule drops its payload types and no others; CONTROL and unknown types always pass; each rule counts its own") {
     fw::Prefs p = {};
     fw::Firewall f;
-    CHECK(!f.typeDropped(p, PAYLOAD_TYPE_ADVERT));
+    CHECK(!f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_ADVERT)));
     p.drop = (1u << fw::RULE_ADVERT) | (1u << fw::RULE_REQUEST) | (1u << fw::RULE_ACK);
-    CHECK(f.typeDropped(p, PAYLOAD_TYPE_ADVERT));
-    CHECK(f.typeDropped(p, PAYLOAD_TYPE_REQ) && f.typeDropped(p, PAYLOAD_TYPE_RESPONSE) && f.typeDropped(p, PAYLOAD_TYPE_ANON_REQ));
-    CHECK(f.typeDropped(p, PAYLOAD_TYPE_ACK) && f.typeDropped(p, PAYLOAD_TYPE_MULTIPART));
-    CHECK(!f.typeDropped(p, PAYLOAD_TYPE_TXT_MSG) && !f.typeDropped(p, PAYLOAD_TYPE_GRP_TXT) && !f.typeDropped(p, PAYLOAD_TYPE_GRP_DATA));
-    CHECK(!f.typeDropped(p, PAYLOAD_TYPE_PATH) && !f.typeDropped(p, PAYLOAD_TYPE_TRACE));
+    CHECK(f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_ADVERT)));
+    CHECK(f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_REQ)) && f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_RESPONSE)) && f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_ANON_REQ)));
+    CHECK(f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_ACK)) && f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_MULTIPART)));
+    CHECK(!f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_TXT_MSG)) && !f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_GRP_TXT)) && !f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_GRP_DATA)));
+    CHECK(!f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_PATH)) && !f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_TRACE)));
     p.drop = 0xFF;
-    CHECK(!f.typeDropped(p, PAYLOAD_TYPE_CONTROL) && !f.typeDropped(p, PAYLOAD_TYPE_RAW_CUSTOM));
-    CHECK(f.typeDropped(p, PAYLOAD_TYPE_TXT_MSG) && f.typeDropped(p, PAYLOAD_TYPE_PATH) && f.typeDropped(p, PAYLOAD_TYPE_TRACE));
+    CHECK(!f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_CONTROL)) && !f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_RAW_CUSTOM)));
+    CHECK(f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_TXT_MSG)) && f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_PATH)) && f.ruleDropped(p, fw::ruleOf(PAYLOAD_TYPE_TRACE)));
     CHECK(f.counters().rule[fw::RULE_ADVERT] == 1 && f.counters().rule[fw::RULE_REQUEST] == 3 && f.counters().rule[fw::RULE_ACK] == 2);
 }
 

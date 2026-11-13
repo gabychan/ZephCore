@@ -7,6 +7,7 @@
 #include <helpers/meshtastic/MtPolicy.h>
 #include <helpers/meshtastic/MtDiscriminate.h>
 #include <helpers/meshtastic/MtConfig.h>
+#include <helpers/meshtastic/MtFirewall.h>
 #include <helpers/meshtastic/MtZeroHop.h>
 #include <mesh/ContentionTracker.h>
 #include <mesh/Packet.h>
@@ -1488,4 +1489,83 @@ TEST(mt_roles_by_firmware, "UNIT-MT-053", "A repeater may be client, client_base
     CHECK(p.role == ROLE_CLIENT_BASE);                             // a stored role is kept
     CHECK(!roleRepeats(ROLE_CLIENT_MUTE) && roleRepeats(ROLE_CLIENT) && roleRepeats(ROLE_CLIENT_BASE));
     CHECK(roleYieldsToEcho(ROLE_CLIENT_BASE) && !roleSendsEarly(ROLE_CLIENT_BASE));
+}
+
+static Header fwHeader(uint32_t from, uint8_t relay) {
+    Header h = {};
+    h.from = from;
+    h.relay = relay;
+    return h;
+}
+
+TEST(mt_fw_screen, "UNIT-FW-012", "Meshtastic: a rule drops its port, a NodeInfo gap and a relay ceiling follow, routing and unopened frames have no type") {
+    fw::Prefs p = {};
+    fw::Firewall f;
+    FwScreen screen(f, p);
+    screen.setNow(0);
+    CHECK(!screen.drops(fwHeader(1, 0x11), PORT_TEXT));
+    p.drop = (1u << FW_TEXT) | (1u << FW_OTHER);
+    CHECK(screen.drops(fwHeader(1, 0x11), PORT_TEXT));
+    CHECK(screen.drops(fwHeader(1, 0x11), 7));
+    CHECK(!screen.drops(fwHeader(1, 0x11), PORT_ROUTING) && !screen.drops(fwHeader(1, 0x11), 0));
+    CHECK(!screen.drops(fwHeader(1, 0x11), PORT_POSITION));
+    p = {};
+    p.advert_gap_min = 10;
+    CHECK(!screen.drops(fwHeader(5, 0x11), PORT_NODEINFO));
+    screen.setNow(9 * 60000u);
+    CHECK(screen.drops(fwHeader(5, 0x11), PORT_NODEINFO));
+    CHECK(!screen.drops(fwHeader(6, 0x11), PORT_NODEINFO) && !screen.drops(fwHeader(5, 0x11), PORT_TEXT));
+    screen.setNow(10 * 60000u);
+    CHECK(!screen.drops(fwHeader(5, 0x11), PORT_NODEINFO));
+    p = {};
+    p.hop_rate = 2;
+    p.advert_gap_min = 10;
+    screen.setNow(20 * 60000u);
+    CHECK(!screen.drops(fwHeader(8, 0x22), PORT_TEXT) && !screen.drops(fwHeader(8, 0x22), 0));
+    CHECK(screen.drops(fwHeader(9, 0x22), PORT_NODEINFO));
+    CHECK(!screen.drops(fwHeader(9, 0x33), PORT_NODEINFO));   // another relay, so the gap was not opened by the dropped one
+    CHECK(!screen.drops(fwHeader(8, 0), PORT_TEXT) && !screen.drops(fwHeader(8, 0), PORT_TEXT));  // no relay byte: no ceiling
+}
+
+TEST(mt_fw_bridge, "UNIT-FW-013", "A frame the screen drops is not delivered, repeated or remembered; a copy of an accepted one is a duplicate, not screened") {
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 31), r = makeNode(0xD4D4D4D4u, "relay", 32);
+    r.setRelay(true);
+    fw::Prefs p = {};
+    fw::Firewall f;
+    FwScreen screen(f, p);
+    r.setScreen(&screen);
+    uint8_t one[kMaxFrame], two[kMaxFrame], out[kMaxFrame];
+    size_t out_len = 0;
+    size_t n1 = a.buildText(3, kBroadcast, "uno", 3, one, sizeof(one));
+    size_t n2 = a.buildText(3, kBroadcast, "dos", 3, two, sizeof(two));
+    Capture cap;
+    p.drop = 1u << FW_TEXT;
+    CHECK(r.handleFrame(one, n1, 0, cap, out, &out_len) == RX_DROPPED && out_len == 0 && cap.texts.empty());
+    CHECK(r.handleFrame(one, n1, 0, cap, out, &out_len) == RX_DROPPED);
+    p.drop = 0;
+    p.hop_rate = 1;
+    CHECK(r.handleFrame(one, n1, 0, cap, out, &out_len) == RX_HANDLED && out_len == n1 && cap.texts.size() == 1);
+    CHECK(r.handleFrame(two, n2, 0, cap, out, &out_len) == RX_DROPPED && out_len == 0 && cap.texts.size() == 1);
+    CHECK(r.handleFrame(one, n1, 0, cap, out, &out_len) == RX_DUPLICATE);
+    CHECK(f.counters().rule[FW_TEXT] == 2 && f.counters().rate == 1);
+}
+
+TEST(mt_fw_commands, "UNIT-FW-014", "z.mt.fw.* use the Meshtastic rule names and refuse the MeshCore ones") {
+    fw::Prefs p = {};
+    fw::Firewall f;
+    char out[100];
+    auto run = [&](const char *line, bool *changed = nullptr) {
+        fw::CmdResult r = fw::handleCommand(p, f, kFwRules, line, out, sizeof(out));
+        if (changed) *changed = r.changed;
+        return std::string(out);
+    };
+    bool changed = false;
+    CHECK(fw::isCommand("get z.mt.fw.gap") && fw::isMeshtastic("get z.mt.fw.gap") && !fw::isMeshtastic("get z.mc.fw.gap"));
+    CHECK(run("set z.mt.fw.drop nodeinfo on", &changed) == "OK" && p.drop == (1u << FW_NODEINFO) && changed);
+    CHECK(run("set z.mt.fw.drop traceroute 1") == "OK" && run("get z.mt.fw.drop") == "> nodeinfo 0 traceroute 0");
+    CHECK(run("set z.mt.fw.drop advert on").rfind("Error", 0) == 0 && run("set z.mt.fw.drop group on").rfind("Error", 0) == 0);
+    CHECK(run("set z.mt.fw.gap 30", &changed) == "OK" && p.advert_gap_min == 30 && changed);
+    CHECK(run("set z.mt.fw.rate 12") == "OK" && p.hop_rate == 12 && run("get z.mt.fw.rate") == "> 12");
+    CHECK(run("get z.mt.fw.stats") == "> gap 0, rate 0, drop 0");
+    CHECK(run("set z.mt.fw.drop none", &changed) == "OK" && p.drop == 0 && changed);
 }

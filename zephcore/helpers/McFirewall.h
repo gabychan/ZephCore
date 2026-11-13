@@ -1,9 +1,9 @@
 /*
  * SPDX-License-Identifier: MIT
- * MeshCore receive limits of the repeater: payload types dropped, one advert per
- * key per window, and a ceiling of flood frames a minute from one neighbouring
- * repeater. A frame over a limit is not repeated and not processed. Pure code, host tested;
- * persistence is prefs.json's zc{}.
+ * Receive limits of the repeater, one set per protocol: frame types dropped, one
+ * advert (MeshCore) or NodeInfo (Meshtastic) per node per window, and a ceiling of
+ * frames a minute from one neighbouring repeater. A frame over a limit is not
+ * repeated and not processed. Pure code, host tested; persistence is prefs.json's zc{}.
  */
 
 #pragma once
@@ -18,16 +18,25 @@
 
 namespace fw {
 
-static constexpr size_t kAdvertSlots = 16;  /* keys remembered */
+static constexpr size_t kAdvertSlots = 16;  /* nodes remembered */
 static constexpr size_t kHopSlots = 8;      /* neighbouring repeaters counted */
 static constexpr uint32_t kRateWindowMs = 60000;
-static constexpr size_t kHopMax = 3;        /* bytes of a path hash */
+static constexpr size_t kHopMax = 3;        /* bytes of a relay name: a MeshCore path hash is up to 3 */
+static constexpr size_t kRuleMax = 8;       /* one bit of Prefs::drop each */
+static constexpr uint8_t kNoRule = 0xFF;    /* a frame no rule covers */
 
-/* The payload types a drop rule silences. CONTROL (neighbour discovery) is none of them. */
-enum Rule : uint8_t { RULE_ADVERT, RULE_REQUEST, RULE_TEXT, RULE_GROUP, RULE_ACK, RULE_PATH, RULE_TRACE, RULE_COUNT };
-static const char *const kRuleName[RULE_COUNT] = {"advert", "request", "text", "group", "ack", "path", "trace"};
+/* The frame types a protocol lets the operator drop, by name. */
+struct Rules {
+	const char *const *names;
+	uint8_t count;
+};
 
-/* The rule of a payload type, RULE_COUNT for a type no rule covers. */
+/* MeshCore: the payload types a drop rule silences. CONTROL (neighbour discovery) is none of them. */
+enum McRule : uint8_t { RULE_ADVERT, RULE_REQUEST, RULE_TEXT, RULE_GROUP, RULE_ACK, RULE_PATH, RULE_TRACE, RULE_COUNT };
+static const char *const kMcRuleName[RULE_COUNT] = {"advert", "request", "text", "group", "ack", "path", "trace"};
+static constexpr Rules kMcRules = {kMcRuleName, RULE_COUNT};
+
+/* The rule of a payload type, kNoRule for a type no rule covers. */
 inline uint8_t ruleOf(uint8_t payload_type)
 {
 	switch (payload_type) {
@@ -50,22 +59,22 @@ inline uint8_t ruleOf(uint8_t payload_type)
 	case PAYLOAD_TYPE_TRACE:
 		return RULE_TRACE;
 	default:
-		return RULE_COUNT;
+		return kNoRule;
 	}
 }
 
-/* Plain data: NodePrefs holds one and is cleared with memset. 0 = no limit. */
+/* Plain data: NodePrefs holds one per protocol and is cleared with memset. 0 = no limit. */
 struct Prefs {
-	uint8_t drop;            /* bit per Rule: that payload type is dropped */
-	uint8_t advert_gap_min;  /* minutes between two adverts of one key that are kept */
-	uint8_t hop_rate;        /* flood frames a minute accepted from one last-hop repeater */
+	uint8_t drop;            /* bit per rule: that frame type is dropped */
+	uint8_t advert_gap_min;  /* minutes between two adverts (NodeInfo) of one node that are kept */
+	uint8_t hop_rate;        /* frames a minute accepted from one neighbouring repeater */
 };
 
 /* Since boot; not persisted. */
 struct Counters {
 	uint32_t gap;   /* adverts dropped inside the window */
 	uint32_t rate;  /* frames dropped over the ceiling */
-	uint32_t rule[RULE_COUNT];  /* frames dropped by each drop rule */
+	uint32_t rule[kRuleMax];  /* frames dropped by each drop rule */
 };
 
 inline bool within(uint32_t now, uint32_t since, uint32_t span)
@@ -95,12 +104,10 @@ class Firewall {
 public:
 	const Counters &counters() const { return _counters; }
 
-	/* True when a drop rule silences this payload type: drop the frame. */
-	bool typeDropped(const Prefs &p, uint8_t payload_type)
+	/* True when a drop rule silences this frame type: drop the frame. */
+	bool ruleDropped(const Prefs &p, uint8_t rule)
 	{
-		const uint8_t rule = ruleOf(payload_type);
-
-		if (rule == RULE_COUNT || !(p.drop & (1u << rule))) {
+		if (rule == kNoRule || rule >= kRuleMax || !(p.drop & (1u << rule))) {
 			return false;
 		}
 		_counters.rule[rule]++;
@@ -125,8 +132,8 @@ public:
 		return false;
 	}
 
-	/* An advert of this key passed the signature check: it opens the gap. Only a
-	 * verified advert may, or a forged one could silence the real node. */
+	/* An advert of this key was accepted: it opens the gap. MeshCore calls it only for an
+	 * advert that passed the signature check, or a forged one could silence the real node. */
 	void advertKept(const Prefs &p, uint32_t key, uint32_t now)
 	{
 		if (p.advert_gap_min == 0) {
@@ -149,18 +156,17 @@ public:
 		slot->at_ms = now;
 	}
 
-	/* True when this repeater, named by the last hash of the path, already got
-	 * hop_rate frames through this minute: drop the frame. Counts the ones it
-	 * lets through. A 1-byte hash names no repeater, so it is not counted. */
-	bool hopOverRate(const Prefs &p, const uint8_t *last_hop, size_t size, uint32_t now)
+	/* True when this repeater, named by its relay bytes, already got hop_rate frames
+	 * through this minute: drop the frame. Counts the ones it lets through. */
+	bool relayOverRate(const Prefs &p, const uint8_t *relay, size_t size, uint32_t now)
 	{
-		if (p.hop_rate == 0 || size < 2 || size > kHopMax) {
+		if (p.hop_rate == 0 || size == 0 || size > kHopMax) {
 			return false;
 		}
 		HopRate *slot = nullptr;
 
 		for (HopRate &h : _hops) {
-			if (h.size == size && memcmp(h.prefix, last_hop, size) == 0) {
+			if (h.size == size && memcmp(h.prefix, relay, size) == 0) {
 				slot = &h;
 				break;
 			}
@@ -169,7 +175,7 @@ public:
 			slot = &_hops[_hop_next];
 			_hop_next = (uint8_t)((_hop_next + 1) % kHopSlots);
 			slot->size = (uint8_t)size;
-			memcpy(slot->prefix, last_hop, size);
+			memcpy(slot->prefix, relay, size);
 			slot->window_ms = now;
 			slot->count = 0;
 		}
@@ -184,6 +190,12 @@ public:
 		slot->count++;
 		return false;
 	}
+
+	/* MeshCore: a 1-byte path hash names no repeater, so it is not counted. */
+	bool hopOverRate(const Prefs &p, const uint8_t *last_hop, size_t size, uint32_t now)
+	{
+		return size >= 2 && relayOverRate(p, last_hop, size, now);
+	}
 };
 
 struct CmdResult {
@@ -191,11 +203,15 @@ struct CmdResult {
 	bool changed;  /* a setting changed: save it */
 };
 
-/* "get|set z.mc.fw.<key>". */
+/* "get|set z.mc.fw.<key>" for MeshCore, "z.mt.fw.<key>" for Meshtastic. */
 inline bool isCommand(const char *command)
 {
-	return (strncmp(command, "get z.mc.fw.", 12) == 0) || (strncmp(command, "set z.mc.fw.", 12) == 0);
+	return (strncmp(command, "get z.m", 7) == 0 || strncmp(command, "set z.m", 7) == 0) &&
+	       (command[7] == 'c' || command[7] == 't') && strncmp(command + 8, ".fw.", 4) == 0;
 }
+
+/* True for the Meshtastic one. */
+inline bool isMeshtastic(const char *command) { return command[7] == 't'; }
 
 inline bool parseLimit(const char *v, uint8_t &out)
 {
@@ -213,15 +229,17 @@ inline bool parseLimit(const char *v, uint8_t &out)
 	return true;
 }
 
-inline CmdResult handleDrop(Prefs &p, const Firewall &f, bool get, const char *val, char *reply, size_t cap)
+inline CmdResult handleDrop(Prefs &p, const Firewall &f, const Rules &rules, bool get, const char *val, char *reply,
+			    size_t cap)
 {
 	if (get) {
 		size_t used = (size_t)snprintf(reply, cap, ">");
 		bool any = false;
 
-		for (uint8_t r = 0; r < RULE_COUNT && used < cap; r++) {
+		for (uint8_t r = 0; r < rules.count && used < cap; r++) {
 			if (p.drop & (1u << r)) {
-				used += (size_t)snprintf(reply + used, cap - used, " %s %u", kRuleName[r], (unsigned)f.counters().rule[r]);
+				used += (size_t)snprintf(reply + used, cap - used, " %s %u", rules.names[r],
+							 (unsigned)f.counters().rule[r]);
 				any = true;
 			}
 		}
@@ -237,19 +255,19 @@ inline CmdResult handleDrop(Prefs &p, const Firewall &f, bool get, const char *v
 		snprintf(reply, cap, "OK");
 		return {true, changed};
 	}
-	char word[10];
+	char word[16];
 	const char *sp = strchr(val, ' ');
 	const size_t n = sp ? (size_t)(sp - val) : strlen(val);
 	uint8_t on = 0;
 
 	if (n == 0 || n >= sizeof(word) || !sp || !zcmd::parseOnOff(sp + 1, on)) {
-		snprintf(reply, cap, "Error: <rule> on|off|1|0, or none; rules: advert request text group ack path trace");
+		snprintf(reply, cap, "Error: <rule> on|off|1|0, or none");
 		return {true, false};
 	}
 	memcpy(word, val, n);
 	word[n] = '\0';
-	for (uint8_t r = 0; r < RULE_COUNT; r++) {
-		if (strcmp(word, kRuleName[r]) == 0) {
+	for (uint8_t r = 0; r < rules.count; r++) {
+		if (strcmp(word, rules.names[r]) == 0) {
 			const uint8_t before = p.drop;
 
 			p.drop = on ? (uint8_t)(p.drop | (1u << r)) : (uint8_t)(p.drop & ~(1u << r));
@@ -257,16 +275,17 @@ inline CmdResult handleDrop(Prefs &p, const Firewall &f, bool get, const char *v
 			return {true, p.drop != before};
 		}
 	}
-	snprintf(reply, cap, "Error: unknown rule; rules: advert request text group ack path trace");
+	snprintf(reply, cap, "Error: unknown rule");
 	return {true, false};
 }
 
 /* The reply is always written when handled.
- *   z.mc.fw.gap    get|set 0-255: minutes between two adverts of one key (0 = no limit)
- *   z.mc.fw.rate   get|set 0-255: flood frames a minute from one neighbouring repeater (0 = no limit)
- *   z.mc.fw.drop   get: the rules on, with what each dropped; set <rule> on|off|1|0, or set none
- *   z.mc.fw.stats  get only: frames dropped by each limit since boot */
-inline CmdResult handleCommand(Prefs &p, const Firewall &f, const char *command, char *reply, size_t cap)
+ *   z.<proto>.fw.gap    get|set 0-255: minutes between two adverts (NodeInfo) of one node (0 = no limit)
+ *   z.<proto>.fw.rate   get|set 0-255: frames a minute from one neighbouring repeater (0 = no limit)
+ *   z.<proto>.fw.drop   get: the rules on, with what each dropped; set <rule> on|off|1|0, or set none
+ *   z.<proto>.fw.stats  get only: frames dropped by each limit since boot */
+inline CmdResult handleCommand(Prefs &p, const Firewall &f, const Rules &rules, const char *command, char *reply,
+			       size_t cap)
 {
 	if (!isCommand(command)) {
 		return {false, false};
@@ -286,7 +305,7 @@ inline CmdResult handleCommand(Prefs &p, const Firewall &f, const char *command,
 	uint8_t v;
 
 	if (strcmp(name, "drop") == 0) {
-		return handleDrop(p, f, get, val, reply, cap);
+		return handleDrop(p, f, rules, get, val, reply, cap);
 	}
 	if (strcmp(name, "stats") == 0) {
 		if (get) {

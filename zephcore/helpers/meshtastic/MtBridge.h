@@ -91,6 +91,15 @@ enum RxResult {
 	RX_DUPLICATE,       /* seen before; nothing to deliver */
 	RX_OPAQUE,          /* Meshtastic on a channel we hold no key for; only relayed */
 	RX_IGNORED,         /* not for MeshCore either, and Meshtastic is off */
+	RX_DROPPED,         /* Meshtastic, new, and the screen drops it: nothing is delivered or repeated */
+};
+
+/* Decides, for a frame the bridge accepted as new, whether it is dropped. portnum is 0 for a
+ * frame no channel of ours opens. */
+class Screen {
+public:
+	virtual ~Screen() {}
+	virtual bool drops(const Header &h, uint32_t portnum) = 0;
 };
 
 class Bridge {
@@ -118,6 +127,7 @@ public:
 	void setPki(const PkiCrypto *crypto, const uint8_t seed[32]);
 	bool hasPki() const { return _pki != nullptr; }
 
+	void setScreen(Screen *screen) { _screen = screen; }
 	void setRelay(bool on) { _relay = on; }
 	/* Also repeat frames no channel of ours opens (needs setRelay). */
 	void setRelayOpaque(bool on) { _relay_opaque = on; }
@@ -171,6 +181,7 @@ private:
 	uint32_t _id_counter = 0;
 	bool _relay = false;
 	bool _relay_opaque = false;
+	Screen *_screen = nullptr;
 	uint8_t _hops = 3;  /* Meshtastic's own default */
 	User _user = {};
 	const PkiCrypto *_pki = nullptr;

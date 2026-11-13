@@ -85,6 +85,9 @@ protected:
 		def("fw_drop", _p->fw.drop);
 		def("fw_gap", _p->fw.advert_gap_min);
 		def("fw_rate", _p->fw.hop_rate);
+		def("mfw_drop", _p->mtfw.drop);
+		def("mfw_gap", _p->mtfw.advert_gap_min);
+		def("mfw_rate", _p->mtfw.hop_rate);
 	}
 
 public:

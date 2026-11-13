@@ -640,7 +640,7 @@ bool RepeaterMesh::allowPacketForward(const mesh::Packet *packet) {
 bool RepeaterMesh::filterRecvFloodPacket(mesh::Packet* packet) {
   const uint32_t now = (uint32_t)_ms->getMillis();
 
-  if (_firewall.typeDropped(_prefs.fw, packet->getPayloadType())) {
+  if (_firewall.ruleDropped(_prefs.fw, fw::ruleOf(packet->getPayloadType()))) {
     return true;
   }
   if (packet->getPayloadType() == PAYLOAD_TYPE_ADVERT && packet->payload_len >= PUB_KEY_SIZE) {

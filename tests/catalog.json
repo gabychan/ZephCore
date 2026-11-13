@@ -968,6 +968,21 @@
       "source": "tests/unit/fw_tests.cpp"
     },
     {
+      "id": "UNIT-FW-012",
+      "name": "Meshtastic: a rule drops its port, a NodeInfo gap and a relay ceiling follow, routing and unopened frames have no type",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-013",
+      "name": "A frame the screen drops is not delivered, repeated or remembered; a copy of an accepted one is a duplicate, not screened",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-014",
+      "name": "z.mt.fw.* use the Meshtastic rule names and refuse the MeshCore ones",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-RX-001",
       "name": "Frames are counted by hops crossed, 7 or more together, unknown apart; empty buckets are left out",
       "source": "tests/unit/rxstats_tests.cpp"

@@ -272,9 +272,9 @@ Gracia RPT (-5.5, 3h)
 
 Each line is `name (SNR in dB, time since the last frame)`. MeshCore: repeaters whose zero-hop advert was heard; on the repeater it is the table `neighbors` already shows, and since the repeater keeps no names the line carries the first 4 bytes of the key in hex, on the companion the name from the contacts. Meshtastic: nodes whose frame arrived with no relay in between (`hop_start` set and equal to `hop_limit`), on a channel we hold or not; the name is the contact on the companion, else the short name of a NodeInfo heard, else `!<node number>`. 16 nodes are kept per protocol and a full table drops the one heard longest ago. Kept in RAM only: a reboot empties them. `-none-` when there are none; `not available` on the room server and, for `z.mt.neighbors`, in builds without Meshtastic.
 
-## MeshCore receive limits (*ZephCore only*, repeater)
+## Receive limits (*ZephCore only*, repeater)
 
-Drop rules and two limits on what the repeater accepts from the MeshCore side, all off by default. A frame over a limit is neither processed nor repeated. They persist in `prefs.json` (`zc{}`, keys `fw_*`); the counters are in RAM and a reboot empties them. The room server and the companion answer `Error: not available in this role`.
+Drop rules and two limits on what the repeater accepts, MeshCore as `z.mc.fw.*` and, where built, Meshtastic as `z.mt.fw.*`, all off by default. A frame over a limit is neither processed nor repeated. They persist in `prefs.json` (`zc{}`, keys `fw_*`); the counters are in RAM and a reboot empties them. `z.mt.fw.*` is below. The room server and the companion answer `Error: not available in this role`.
 
 | Command | Description |
 |---------|-------------|
@@ -283,6 +283,14 @@ Drop rules and two limits on what the repeater accepts from the MeshCore side, a
 | `get z.mc.fw.rate` / `set z.mc.fw.rate <0-255>` | Flood frames a minute accepted from one neighbouring repeater, named by the last hash of the path; `0` no limit. Only 2- and 3-byte path hashes name a repeater (`path.hash.mode` 1 and 2). 8 repeaters are counted. |
 | `get z.mc.fw.stats` | `> gap 3, rate 12, drop 5`: adverts dropped by the gap, frames dropped by the rate and frames dropped by the drop rules, since boot. |
 
+
+### Meshtastic (`z.mt.fw.*`, `CONFIG_ZEPHTACORE_MESHTASTIC`)
+
+The same four commands, `get|set z.mt.fw.drop`, `.gap`, `.rate` and `get z.mt.fw.stats`, with their own settings and counters (`prefs.json` `zc{}`, keys `mfw_*`). They apply to a frame that is **new**: a copy of one already heard is a duplicate and is not screened, so a repeat of ours is still cancelled when a neighbour echoes it, and a frame dropped is not remembered. Differences:
+
+- `drop` rules are ports: `text`, `position`, `nodeinfo`, `telemetry`, `traceroute`, `other` (any port not named, admin and store-and-forward among them). Routing (ACK and NAK) is never dropped. A frame of a channel this node holds no key for has no readable port, so no rule reaches it.
+- `gap` is minutes between two NodeInfo of one node that are kept, by node number. A NodeInfo on a channel carries no signature, so anyone with the channel key can send one; the gap opens only for a frame that passed every other check.
+- `rate` is frames a minute accepted from one neighbouring repeater, named by the relay byte of the header (the last byte of a node number; `0` means unknown and is not counted). Opaque frames count too. 8 repeaters are counted.
 
 ## Reception statistics (*ZephCore only*, repeater)
 
