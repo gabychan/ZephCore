@@ -305,11 +305,12 @@ TEST(pjson_fw, "UNIT-PJSON-013", "The MeshCore receive limits survive prefs.json
     CHECK(p.fw.advert_gap_min == 0 && p.fw.hop_rate == 0);
     p.fw.advert_gap_min = 30;
     p.fw.hop_rate = 200;
+    p.fw.drop = 0x41;
     MemStream s;
     CHECK(serverPrefsToJson(p, s));
     NodePrefs q = defaults();
     CHECK(serverPrefsFromJson(q, s));
-    CHECK(q.fw.advert_gap_min == 30 && q.fw.hop_rate == 200);
+    CHECK(q.fw.advert_gap_min == 30 && q.fw.hop_rate == 200 && q.fw.drop == 0x41);
 
     MemStream empty;
     CHECK(serverPrefsToJson(defaults(), empty));

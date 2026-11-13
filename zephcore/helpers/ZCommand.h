@@ -48,6 +48,7 @@ static const Help kHelp[] = {
 	{"mc.ping.enable", "get|set on [<command>]|off|1 [<command>]|0: bot on (needs a command) or off"},
 	{"mc.ping.trigger", "get|set <command>: text to answer, 1-15 characters, no spaces"},
 	{"mc.ping.status", "get: state, command, answered and ignored"},
+	{"mc.fw.drop", "get|set <rule> on|off|1|0 or none: payload types dropped: advert request text group ack path trace (repeater)"},
 	{"mc.fw.gap", "get|set 0-255: minutes between two adverts of one key that are kept, 0 no limit (repeater)"},
 	{"mc.fw.rate", "get|set 0-255: flood frames a minute from one neighbouring repeater, 0 no limit (repeater)"},
 	{"mc.fw.stats", "get: frames dropped by each limit since boot (repeater)"},

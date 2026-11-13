@@ -274,13 +274,14 @@ Each line is `name (SNR in dB, time since the last frame)`. MeshCore: repeaters 
 
 ## MeshCore receive limits (*ZephCore only*, repeater)
 
-Two limits on what the repeater accepts from the MeshCore side, both off (`0`) by default. A frame over a limit is neither processed nor repeated. They persist in `prefs.json` (`zc{}`, keys `fw_*`); the counters are in RAM and a reboot empties them. The room server and the companion answer `Error: not available in this role`.
+Drop rules and two limits on what the repeater accepts from the MeshCore side, all off by default. A frame over a limit is neither processed nor repeated. They persist in `prefs.json` (`zc{}`, keys `fw_*`); the counters are in RAM and a reboot empties them. The room server and the companion answer `Error: not available in this role`.
 
 | Command | Description |
 |---------|-------------|
+| `get z.mc.fw.drop` / `set z.mc.fw.drop <rule> on\|off\|1\|0` / `set z.mc.fw.drop none` | Payload types of flood frames that are dropped. Rules: `advert`, `request` (request, response, anonymous request), `text`, `group` (group text and data), `ack` (ack, multipart), `path`, `trace`; control frames (neighbour discovery) are never dropped. `get` lists the rules on with the frames each dropped: `> advert 12 trace 0`, or `> none`. Direct frames are not covered. `advert` on stops the repeater learning neighbours from adverts. |
 | `get z.mc.fw.gap` / `set z.mc.fw.gap <0-255>` | Minutes between two adverts of one key that are kept; `0` no limit. A key's gap opens when an advert of it passes the signature check, so a forged advert cannot silence the real node. 16 keys are remembered. A dropped advert does not refresh `neighbors`. |
 | `get z.mc.fw.rate` / `set z.mc.fw.rate <0-255>` | Flood frames a minute accepted from one neighbouring repeater, named by the last hash of the path; `0` no limit. Only 2- and 3-byte path hashes name a repeater (`path.hash.mode` 1 and 2). 8 repeaters are counted. |
-| `get z.mc.fw.stats` | `> gap 3, rate 12`: adverts dropped by the gap and frames dropped by the rate since boot. |
+| `get z.mc.fw.stats` | `> gap 3, rate 12, drop 5`: adverts dropped by the gap, frames dropped by the rate and frames dropped by the drop rules, since boot. |
 
 
 The companion and the repeater answer a ping with how the frame was heard and the route it took. It listens only on two fixed channels, which cannot be changed: MeshCore `#bot` and Meshtastic `Bots` (default key variant 2). On the companion they are the channels with those names (`#bot` and `#mt-bots`, both added by default); the repeater holds them only while its protocol's bot is on, so with the bot off it opens no group packet it did not open before. Each protocol is switched on, and given the command it answers to, on its own, and it cannot be switched on without that command, which can be changed later. Settings persist in `prefs.json` (`zc{}`, keys `ping_*`). The room server and direct messages do not answer, and the frequency error is not reported.

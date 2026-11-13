@@ -1,6 +1,7 @@
 // helpers/McFirewall.h: the advert gap, the per-repeater frame ceiling and the "z.mc.fw.*" commands.
 #include "test.h"
 #include "McFirewall.h"
+#include <mesh/Packet.h>
 
 #include <string>
 
@@ -118,8 +119,40 @@ TEST(fw_commands, "UNIT-FW-009", "z.mc.fw.gap and z.mc.fw.rate get and set 0 to 
     CHECK(cmd(p, f, "set z.mc.fw.rate -1").rfind("Error", 0) == 0);
     CHECK(cmd(p, f, "set z.mc.fw.rate").rfind("Error", 0) == 0);
     CHECK(cmd(p, f, "set z.mc.fw.rate 1x").rfind("Error", 0) == 0);
-    CHECK(cmd(p, f, "get z.mc.fw.stats") == "> gap 0, rate 0");
+    CHECK(cmd(p, f, "get z.mc.fw.stats") == "> gap 0, rate 0, drop 0");
     CHECK(cmd(p, f, "set z.mc.fw.stats 1").rfind("Error", 0) == 0);
     CHECK(cmd(p, f, "get z.mc.fw.other").rfind("Error", 0) == 0);
     CHECK(cmd(p, f, "get z.mc.ping.enable") == "(not handled)");
+}
+
+TEST(fw_drop_types, "UNIT-FW-010", "A rule drops its payload types and no others; CONTROL and unknown types always pass; each rule counts its own") {
+    fw::Prefs p = {};
+    fw::Firewall f;
+    CHECK(!f.typeDropped(p, PAYLOAD_TYPE_ADVERT));
+    p.drop = (1u << fw::RULE_ADVERT) | (1u << fw::RULE_REQUEST) | (1u << fw::RULE_ACK);
+    CHECK(f.typeDropped(p, PAYLOAD_TYPE_ADVERT));
+    CHECK(f.typeDropped(p, PAYLOAD_TYPE_REQ) && f.typeDropped(p, PAYLOAD_TYPE_RESPONSE) && f.typeDropped(p, PAYLOAD_TYPE_ANON_REQ));
+    CHECK(f.typeDropped(p, PAYLOAD_TYPE_ACK) && f.typeDropped(p, PAYLOAD_TYPE_MULTIPART));
+    CHECK(!f.typeDropped(p, PAYLOAD_TYPE_TXT_MSG) && !f.typeDropped(p, PAYLOAD_TYPE_GRP_TXT) && !f.typeDropped(p, PAYLOAD_TYPE_GRP_DATA));
+    CHECK(!f.typeDropped(p, PAYLOAD_TYPE_PATH) && !f.typeDropped(p, PAYLOAD_TYPE_TRACE));
+    p.drop = 0xFF;
+    CHECK(!f.typeDropped(p, PAYLOAD_TYPE_CONTROL) && !f.typeDropped(p, PAYLOAD_TYPE_RAW_CUSTOM));
+    CHECK(f.typeDropped(p, PAYLOAD_TYPE_TXT_MSG) && f.typeDropped(p, PAYLOAD_TYPE_PATH) && f.typeDropped(p, PAYLOAD_TYPE_TRACE));
+    CHECK(f.counters().rule[fw::RULE_ADVERT] == 1 && f.counters().rule[fw::RULE_REQUEST] == 3 && f.counters().rule[fw::RULE_ACK] == 2);
+}
+
+TEST(fw_drop_command, "UNIT-FW-011", "z.mc.fw.drop turns each rule on or off, lists the ones on with their counts, and none clears them") {
+    fw::Prefs p = {};
+    fw::Firewall f;
+    bool changed = false;
+    CHECK(cmd(p, f, "get z.mc.fw.drop") == "> none");
+    CHECK(cmd(p, f, "set z.mc.fw.drop advert on", &changed) == "OK" && p.drop == (1u << fw::RULE_ADVERT) && changed);
+    CHECK(cmd(p, f, "set z.mc.fw.drop advert 1", &changed) == "OK" && !changed);
+    CHECK(cmd(p, f, "set z.mc.fw.drop trace 1", &changed) == "OK" && changed);
+    CHECK(cmd(p, f, "get z.mc.fw.drop") == "> advert 0 trace 0");
+    CHECK(cmd(p, f, "set z.mc.fw.drop advert off", &changed) == "OK" && p.drop == (1u << fw::RULE_TRACE) && changed);
+    CHECK(cmd(p, f, "set z.mc.fw.drop bogus on").rfind("Error", 0) == 0);
+    CHECK(cmd(p, f, "set z.mc.fw.drop advert maybe").rfind("Error", 0) == 0);
+    CHECK(cmd(p, f, "set z.mc.fw.drop advert").rfind("Error", 0) == 0);
+    CHECK(cmd(p, f, "set z.mc.fw.drop none", &changed) == "OK" && p.drop == 0 && changed);
 }

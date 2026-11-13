@@ -958,6 +958,16 @@
       "source": "tests/unit/fw_tests.cpp"
     },
     {
+      "id": "UNIT-FW-010",
+      "name": "A rule drops its payload types and no others; CONTROL and unknown types always pass; each rule counts its own",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-011",
+      "name": "z.mc.fw.drop turns each rule on or off, lists the ones on with their counts, and none clears them",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
       "id": "UNIT-ZINFO-001",
       "name": "z.info gives version, uptime, battery, flash, heap and contacts in one line",
       "source": "tests/unit/zinfo_tests.cpp"
