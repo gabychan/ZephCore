@@ -137,6 +137,8 @@ protected:
 		def("hops", _p->mt.hops);
 		def("relay", _p->mt.relay);
 		def("opaque", _p->mt.relay_opaque);
+		def("zh", _p->mt.zerohop);
+		def("zh_nodes", (void *)_p->mt.zerohop_nodes, sizeof(_p->mt.zerohop_nodes));
 		def("ni_s", _p->mt.nodeinfo_s);
 		def("tel_s", _p->mt.telemetry_s);
 		def("ch", _p->mt.channel, sizeof(_p->mt.channel));

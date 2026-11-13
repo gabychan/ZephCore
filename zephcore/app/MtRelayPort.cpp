@@ -85,14 +85,14 @@ static constexpr uint32_t kFirstTelemetryMs = 60000;
 MtRelayPort::Policy MtRelayPort::policyFor(const mt::RepeaterPrefs &p)
 {
 	return {p.enable != 0, p.relay == mt::RELAY_ALL, mt::roleYieldsToEcho(p.role),
-		mt::roleSendsEarly(p.role)};
+		mt::roleSendsEarly(p.role), p.zerohop == mt::ZEROHOP_AUTO, p.zerohop_nodes};
 }
 
 void MtRelayPort::apply(const mt::RepeaterPrefs &p)
 {
 	_bridge.setRole(p.role);
 	_bridge.setHopLimit(p.hops);
-	_bridge.setRelay(p.enable && p.relay != mt::RELAY_OFF);
+	_bridge.setRelay(p.enable && p.relay != mt::RELAY_OFF && mt::roleRepeats(p.role));
 	_bridge.setRelayOpaque(p.relay_opaque != 0);
 }
 
@@ -161,9 +161,10 @@ bool MtRelayPort::nextAt(uint32_t &at_ms) const
 
 void MtRelayPort::formatStats(char *out, size_t cap) const
 {
-	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u shed=%u",
+	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u shed=%u kept=%u",
 		 (unsigned)_stats.heard, (unsigned)_stats.relayed, (unsigned)_stats.opaque,
-		 (unsigned)_stats.yielded, (unsigned)_stats.dropped, (unsigned)_stats.shed);
+		 (unsigned)_stats.yielded, (unsigned)_stats.dropped, (unsigned)_stats.shed,
+		 (unsigned)_stats.kept);
 }
 
 bool MtRelayPort::send(const uint8_t *frame, size_t len)
@@ -252,6 +253,18 @@ void MtRelayPort::noteDirect(const uint8_t raw[], int len, int8_t snr_x4)
 	}
 }
 
+/* Zero hop: the repeat goes out with the hop_limit the frame came with. */
+void MtRelayPort::keepHop(const uint8_t raw[], int len, uint8_t *relay, const Policy &policy)
+{
+	mt::Header h;
+
+	if (policy.zerohop && mt::parseHeader(raw, (size_t)len, h) &&
+	    _zerohop.keepsHop(h, policy.zerohop_nodes, _neighbours, (uint32_t)(k_uptime_get() / 1000))) {
+		relay[12] = raw[12];
+		_stats.kept++;
+	}
+}
+
 mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::Sink &sink,
 				  const Policy &policy)
 {
@@ -288,6 +301,7 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		return r;
 	}
 	if (relay_len > 0 && (policy.relay_all || cls != mt::RelayClass::CancelOnEcho)) {
+		keepHop(raw, len, relay, policy);
 		queue(relay, relay_len, snr_x4, cls, policy);
 	}
 	return r;

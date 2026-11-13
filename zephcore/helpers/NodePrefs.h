@@ -469,9 +469,9 @@ static inline void initNodePrefs(NodePrefs* prefs) {
 	const uint8_t mt_hops = 3;
 #endif
 #ifdef CONFIG_ZEPHCORE_ROLE_COMPANION
-	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_OFF);  // a companion does not repeat unless asked
+	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_OFF, mt::ROLE_CLIENT_MUTE);  // a companion does not repeat unless asked
 #else
-	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_ESSENTIAL);
+	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_ESSENTIAL, mt::ROLE_CLIENT_BASE);
 #endif
 #endif
 	/* Companion-only default, set here so every caller of initNodePrefs() sees

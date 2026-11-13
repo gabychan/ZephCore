@@ -12,6 +12,7 @@
 #include <helpers/meshtastic/MtBridge.h>
 #include <helpers/meshtastic/MtConfig.h>
 #include <helpers/meshtastic/MtPolicy.h>
+#include <helpers/meshtastic/MtZeroHop.h>
 #include <mesh/Mesh.h>
 
 class MtRelayPort {
@@ -21,9 +22,11 @@ public:
 		bool relay_all;  /* false: all but mt::RelayClass::CancelOnEcho */
 		bool yields;     /* a repeat that may give way to an echo does */
 		bool early;      /* router timing: before every client */
+		bool zerohop;    /* hops are kept for what a fixed neighbour repeated */
+		const uint32_t *zerohop_nodes;  /* mt::kZeroHopNodesMax nodes listed by hand */
 	};
 	struct Stats {
-		uint32_t heard, relayed, opaque, yielded, dropped, shed;
+		uint32_t heard, relayed, opaque, yielded, dropped, shed, kept;
 	};
 	/* What a role adds to the NodeInfo: its position and its metrics, if it has them. */
 	struct Source {
@@ -71,6 +74,8 @@ public:
 	/* The nodes heard directly: hop_start set and equal to hop_limit. */
 	neighbours::Table &neighbours() { return _neighbours; }
 	const neighbours::Table &neighbours() const { return _neighbours; }
+	/* The role a node announces in its NodeInfo. */
+	void noteRole(uint32_t node, uint32_t role) { _zerohop.noteRole(node, role, _neighbours); }
 	/* "heard=.. relayed=.." for get z.mt.stats. */
 	void formatStats(char *out, size_t cap) const;
 
@@ -81,12 +86,14 @@ private:
 	mt::Bridge &_bridge;
 	Stats _stats = {};
 	neighbours::Table _neighbours;
+	mt::ZeroHop _zerohop;
 	uint32_t _yield[kYieldKeep] = {};  /* hashes of queued repeats that give way to an echo */
 	uint8_t _yield_next = 0;
 	mt::Timer _nodeinfo, _telemetry;
 
 	uint32_t slotMs() const;
 	void noteDirect(const uint8_t raw[], int len, int8_t snr_x4);
+	void keepHop(const uint8_t raw[], int len, uint8_t *relay, const Policy &policy);
 	bool yields(uint32_t hash) const;
 	void echoHeard(const uint8_t raw[], int len, bool yields);
 	void queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::RelayClass cls,

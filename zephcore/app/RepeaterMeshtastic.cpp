@@ -105,6 +105,7 @@ void RepeaterMesh::mtSetChannels()
 void RepeaterMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
 {
 	m._mtport.neighbours().setName(from, user.short_name);
+	m._mtport.noteRole(from, user.role);
 }
 
 void RepeaterMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,

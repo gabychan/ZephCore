@@ -15,9 +15,17 @@ namespace mt {
 /* Meshtastic's Config.DeviceConfig.Role, the value NodeInfo carries. */
 enum Role : uint8_t {
 	ROLE_CLIENT = 0,
+	ROLE_CLIENT_MUTE = 1,
 	ROLE_ROUTER = 2,
 	ROLE_REPEATER = 4,
 	ROLE_ROUTER_LATE = 11,
+	ROLE_CLIENT_BASE = 12,
+};
+
+/* Whether hops are kept for frames a fixed neighbour repeated to us. */
+enum ZeroHopMode : uint8_t {
+	ZEROHOP_OFF = 0,
+	ZEROHOP_AUTO = 1,  /* the neighbours that announce a fixed role, and the nodes listed */
 };
 
 /* What a repeater repeats. */
@@ -34,6 +42,7 @@ static constexpr size_t kChannelNameMax = 11;
 static constexpr size_t kPskMax = 16;
 /* Channels a companion carries: the bridge's own limit. */
 static constexpr int kTableMax = 8;
+static constexpr size_t kZeroHopNodesMax = 8;
 /* "#mt-" and a channel name, terminator included. */
 static constexpr size_t kSlotNameMax = 4 + kChannelNameMax + 1;
 
@@ -57,6 +66,8 @@ struct RepeaterPrefs {
 	uint32_t telemetry_s;
 	char channel[kChannelNameMax + 1];
 	ChannelEntry channels[kTableMax];  /* a companion's channels, see ADR 0015 */
+	uint8_t zerohop;
+	uint32_t zerohop_nodes[kZeroHopNodesMax];  /* listed by hand; 0: free entry */
 };
 
 /* 0 (off) or at least min, at most max. */
@@ -86,7 +97,8 @@ inline bool validName(const char *s)
 
 inline bool validRole(uint8_t r)
 {
-	return r == ROLE_CLIENT || r == ROLE_ROUTER || r == ROLE_REPEATER || r == ROLE_ROUTER_LATE;
+	return r == ROLE_CLIENT || r == ROLE_CLIENT_MUTE || r == ROLE_ROUTER || r == ROLE_REPEATER ||
+	       r == ROLE_ROUTER_LATE || r == ROLE_CLIENT_BASE;
 }
 
 /* Puts every field back in range. */
@@ -99,6 +111,7 @@ inline void sanitize(RepeaterPrefs &p)
 	p.hops = p.hops > 7 ? 7 : p.hops;
 	p.relay = p.relay > RELAY_ALL ? RELAY_ALL : p.relay;
 	p.relay_opaque = p.relay_opaque > 1 ? 1 : p.relay_opaque;
+	p.zerohop = p.zerohop > ZEROHOP_AUTO ? ZEROHOP_OFF : p.zerohop;
 	if (p.psk_len != 1 && p.psk_len != kPskMax) {
 		p.psk_len = 1;
 		p.psk[0] = 1;
@@ -121,14 +134,15 @@ inline void sanitize(RepeaterPrefs &p)
 	}
 }
 
-/* hops depends on the network joined (Kconfig); a companion starts with relay off, a repeater on. */
-inline void setDefaults(RepeaterPrefs &p, uint8_t hops, uint8_t relay)
+/* hops depends on the network joined (Kconfig); a companion starts muted with relay off,
+ * a repeater as a fixed client with relay on. */
+inline void setDefaults(RepeaterPrefs &p, uint8_t hops, uint8_t relay, uint8_t role)
 {
 	for (size_t i = 0; i < sizeof(p); i++) {
 		((uint8_t *)&p)[i] = 0;
 	}
 	p.enable = 1;
-	p.role = ROLE_CLIENT;
+	p.role = role;
 	p.hops = hops;
 	p.relay = relay;
 	p.relay_opaque = 1;
@@ -165,6 +179,8 @@ inline void shortName(const char *name, char out[5])
  * but with the client's delay. */
 inline bool roleSendsEarly(uint8_t role) { return role == ROLE_ROUTER; }
 inline bool roleYieldsToEcho(uint8_t role) { return role != ROLE_ROUTER && role != ROLE_ROUTER_LATE; }
+/* A muted client repeats nothing, whatever z.mt.relay says. */
+inline bool roleRepeats(uint8_t role) { return role != ROLE_CLIENT_MUTE; }
 
 struct CmdResult {
 	bool handled;  /* the command was a "z.mt." one */

@@ -744,7 +744,7 @@
     },
     {
       "id": "UNIT-MT-030",
-      "name": "Text, ACK, NodeInfo and traceroute survive an echo; the rest yields to it",
+      "name": "Text, ACK, NodeInfo and traceroute survive an echo; position is repeated but yields; the rest only in all",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
@@ -1025,6 +1025,31 @@
     {
       "id": "UNIT-MT-048",
       "name": "z.mt.enable and z.mt.relay.opaque take 1 and 0 as on and off",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-049",
+      "name": "Hops are kept only past the first hop, for one live neighbour with a fixed role or a listed node",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-050",
+      "name": "router, router_late and client_base are fixed; a node that changes role is forgotten; the table favours neighbours",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-051",
+      "name": "Two repeaters that keep each other's hops do not pass a frame back and forth",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-052",
+      "name": "z.mt.zerohop starts off, takes off or auto, and keeps a list of up to eight nodes",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-053",
+      "name": "A repeater may be client, client_base, router, router_late or repeater; a companion client_mute or client; a muted client repeats nothing",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {

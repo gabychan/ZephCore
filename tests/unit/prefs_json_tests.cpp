@@ -224,6 +224,8 @@ TEST(pjson_server_mt, "UNIT-PJSON-010", "The repeater's Meshtastic settings surv
     p.mt.hops = 5;
     p.mt.relay = mt::RELAY_ESSENTIAL;
     p.mt.relay_opaque = 0;
+    p.mt.zerohop = mt::ZEROHOP_AUTO;
+    p.mt.zerohop_nodes[1] = 0xA1B2C3D4u;
     p.mt.nodeinfo_s = 3600;
     p.mt.telemetry_s = 900;
     strcpy(p.mt.channel, "Mesh");
@@ -235,13 +237,15 @@ TEST(pjson_server_mt, "UNIT-PJSON-010", "The repeater's Meshtastic settings surv
     CHECK(serverPrefsFromJson(q, s));
     CHECK(q.mt.enable == 0 && q.mt.role == mt::ROLE_ROUTER && q.mt.hops == 5);
     CHECK(q.mt.relay == mt::RELAY_ESSENTIAL && q.mt.relay_opaque == 0);
+    CHECK(q.mt.zerohop == mt::ZEROHOP_AUTO && q.mt.zerohop_nodes[0] == 0 && q.mt.zerohop_nodes[1] == 0xA1B2C3D4u);
     CHECK(q.mt.nodeinfo_s == 3600 && q.mt.telemetry_s == 900);
     CHECK(std::string(q.mt.channel) == "Mesh" && q.mt.psk_len == 16 && q.mt.psk[15] == 0x3F);
 
     MemStream old("{name:\"R\",lat:0,lon:0,radio:{freq:869.6180,bw:62.5000,sf:8,cr:5,tx:20}}");
     NodePrefs d = defaults();
     CHECK(serverPrefsFromJson(d, old));
-    CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT && d.mt.relay == mt::RELAY_ESSENTIAL);
+    CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT_BASE && d.mt.relay == mt::RELAY_ESSENTIAL);
+    CHECK(d.mt.zerohop == mt::ZEROHOP_OFF);
     CHECK(std::string(d.mt.channel) == "SFNarrow" && d.mt.psk_len == 1 && d.mt.psk[0] == 1);
 }
 

@@ -604,6 +604,7 @@ void CompanionMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
 	const char *name = user.long_name[0] ? user.long_name : user.short_name;
 
 	m._mtport.neighbours().setName(from, user.short_name);
+	m._mtport.noteRole(from, user.role);
 	m.mtUpsertContact(from, name, false, 0, 0);
 	if (user.has_public_key) {
 		m.mtStoreKey(from, user.public_key);

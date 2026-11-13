@@ -132,6 +132,7 @@ Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI
 | What companion and repeater share: hearing a frame, repeating it with the role's timing, giving way to an echo, our own frames, AES, self identity | `zephcore/app/MtRelayPort.h/.cpp` |
 | Settings, command parser, defaults | `zephcore/helpers/meshtastic/MtConfig.h/.cpp` |
 | What gives way to an echo, and what `essential` repeats | `mt::relayClassOf` in `MtPolicy.h` |
+| Zero hop: when a repeat keeps its `hop_limit` (ADR 0016) | `mt::ZeroHop` in `MtZeroHop.h`, applied in `MtRelayPort::onFrame` |
 | MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. A frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser, whatever the `z.mt.*` settings (`MtRelayPort::unopened`) |
 | Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard`, `cancelForeignRelay` |
 

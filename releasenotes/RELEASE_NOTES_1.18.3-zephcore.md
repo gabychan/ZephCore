@@ -22,6 +22,15 @@ default channels and node name in order.
   Before, `essential` repeated only the channels the node held a key for.
 - The companion repeats nothing unless asked (`set z.mt.relay essential` or `all`), and when asked it
   never drops a repeat because another node sent it first.
+- New Meshtastic roles. A repeater now announces `client_base` (a fixed node) and can be set to `client`, `client_base`,
+  `router`, `router_late` or `repeater`. A companion announces `client_mute` and can be set to `client_mute` or `client`;
+  as `client_mute` it repeats nothing, so a companion that should repeat needs `set z.mt.role client` as well as
+  `z.mt.relay`. A node already set up keeps its stored role: on a repeater run `set z.mt.role client_base` to adopt
+  the new one.
+- New zero hop, off by default: `set z.mt.zerohop auto` repeats a frame without spending a hop when it came through a
+  fixed neighbour (heard directly, announcing `router`, `router_late` or `client_base`), so a chain of fixed nodes costs
+  one hop. `set z.mt.zerohop.add <node>` lists a neighbour by hand, `get z.mt.zerohop` shows the mode and the list,
+  and `get z.mt.stats` counts the frames kept (`kept`).
 - The default `MT:` channels and `#test` / `#bot` are added once per firmware revision. Deleting one in the
   app now sticks; before, it came back on the next restart.
 - A Meshtastic node heard for the first time is added as a contact only as your auto-add settings
