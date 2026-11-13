@@ -218,6 +218,11 @@ extern "C" void ui_set_radio_runtime(uint8_t sync_word,
 	(void)in_rx; (void)tx_active;
 }
 
+extern "C" void ui_set_dashboard(const struct ui_dash *d)
+{
+	(void)d;
+}
+
 extern "C" void ui_set_radio_stats(uint32_t pkt_recv, uint32_t pkt_sent,
 	uint32_t pkt_errors)
 {

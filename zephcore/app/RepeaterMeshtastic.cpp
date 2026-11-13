@@ -77,6 +77,7 @@ void RepeaterMesh::mtApplyPrefs()
 	const mt::RepeaterPrefs &p = _prefs.mt;
 
 	_radio->setMtListen(p.enable != 0);
+	_mt.setScreen(&_mt_screen);
 	if (!_mt_ready) {
 		MtRelayPort::initSelf(_mt, self_id, _prefs.node_name, *getRNG());
 		_mt_ready = true;
@@ -105,6 +106,7 @@ void RepeaterMesh::mtSetChannels()
 void RepeaterMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
 {
 	m._mtport.neighbours().setName(from, user.short_name);
+	m._mtport.noteRole(from, user.role);
 }
 
 void RepeaterMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
@@ -147,7 +149,15 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
 	(void)rssi;
-	return _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(_prefs.mt)) != mt::RX_NOT_MESHTASTIC;
+	_mt_screen.setNow((uint32_t)_ms->getMillis());
+	const mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(_prefs.mt));
+	mt::Header h;
+
+	if (r != mt::RX_NOT_MESHTASTIC && r != mt::RX_IGNORED && mt::parseHeader(raw, (size_t)len, h)) {
+		_rx_mt.heard(h.hopStart() ? (h.hopStart() >= h.hopLimit() ? h.hopStart() - h.hopLimit() : 0) : rxstats::kUnknownHops,
+			     &h.relay, h.relay ? 1 : 0);
+	}
+	return r != mt::RX_NOT_MESHTASTIC;
 }
 
 /* NodeInfo, position and telemetry on the primary channel, as Meshtastic's own default does. */

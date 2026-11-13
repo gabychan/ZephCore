@@ -5,6 +5,8 @@
 
 #include "MtConfig.h"
 
+#include "ZCommand.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,9 +21,19 @@ struct Name {
 };
 
 const Name kRoles[] = {{"client", ROLE_CLIENT},
+		       {"client_mute", ROLE_CLIENT_MUTE},
+		       {"client_base", ROLE_CLIENT_BASE},
 		       {"router", ROLE_ROUTER},
 		       {"router_late", ROLE_ROUTER_LATE},
 		       {"repeater", ROLE_REPEATER}};
+/* What each firmware may be set to: a repeater is fixed, a companion is carried. */
+const Name kRepeaterRoles[] = {{"client", ROLE_CLIENT},
+			       {"client_base", ROLE_CLIENT_BASE},
+			       {"router", ROLE_ROUTER},
+			       {"router_late", ROLE_ROUTER_LATE},
+			       {"repeater", ROLE_REPEATER}};
+const Name kCompanionRoles[] = {{"client_mute", ROLE_CLIENT_MUTE}, {"client", ROLE_CLIENT}};
+const Name kZeroHops[] = {{"off", ZEROHOP_OFF}, {"auto", ZEROHOP_AUTO}};
 const Name kRelays[] = {{"off", RELAY_OFF}, {"essential", RELAY_ESSENTIAL}, {"all", RELAY_ALL}};
 const Name kBools[] = {{"off", 0}, {"on", 1}};
 
@@ -67,7 +79,93 @@ bool parseUint(const char *s, uint32_t max, uint32_t &out)
 	return true;
 }
 
+/* "!a1b2c3d4" or "a1b2c3d4": a node number, never 0. */
+bool parseNode(const char *s, uint32_t &out)
+{
+	char *end;
+
+	if (*s == '!') {
+		s++;
+	}
+	unsigned long v = strtoul(s, &end, 16);
+
+	if (end - s != 8 || *end != '\0' || v == 0) {
+		return false;
+	}
+	out = (uint32_t)v;
+	return true;
+}
+
+uint32_t *findZeroHopNode(RepeaterPrefs &p, uint32_t node)
+{
+	for (uint32_t &n : p.zerohop_nodes) {
+		if (n == node) {
+			return &n;
+		}
+	}
+	return nullptr;
+}
+
+void zeroHopAdd(RepeaterPrefs &p, const char *val, char *reply, size_t cap, bool &changed)
+{
+	uint32_t node;
+
+	if (!parseNode(val, node)) {
+		snprintf(reply, cap, "Error: set z.mt.zerohop.add <node, 8 hex digits>");
+		return;
+	}
+	if (!findZeroHopNode(p, node)) {
+		uint32_t *free_entry = findZeroHopNode(p, 0);
+
+		if (!free_entry) {
+			snprintf(reply, cap, "Error: %u nodes at most", (unsigned)kZeroHopNodesMax);
+			return;
+		}
+		*free_entry = node;
+		changed = true;
+	}
+	snprintf(reply, cap, "OK");
+}
+
+void zeroHopRemove(RepeaterPrefs &p, const char *val, char *reply, size_t cap, bool &changed)
+{
+	uint32_t node;
+	uint32_t *entry = parseNode(val, node) ? findZeroHopNode(p, node) : nullptr;
+
+	if (!entry) {
+		snprintf(reply, cap, "Error: no such node");
+		return;
+	}
+	*entry = 0;
+	changed = true;
+	snprintf(reply, cap, "OK");
+}
+
+void zeroHopClear(RepeaterPrefs &p, char *reply, size_t cap, bool &changed)
+{
+	for (uint32_t &n : p.zerohop_nodes) {
+		changed = changed || n != 0;
+		n = 0;
+	}
+	snprintf(reply, cap, "OK");
+}
+
+void zeroHopShow(const RepeaterPrefs &p, char *reply, size_t cap)
+{
+	size_t n = (size_t)snprintf(reply, cap, "> %s", nameOf(kZeroHops, p.zerohop));
+
+	for (uint32_t node : p.zerohop_nodes) {
+		if (node != 0 && n < cap) {
+			n += (size_t)snprintf(reply + n, cap - n, " !%08x", (unsigned)node);
+		}
+	}
+}
+
 } /* namespace */
+
+const char *roleName(uint8_t role) { return nameOf(kRoles, role); }
+
+const char *relayName(uint8_t relay) { return nameOf(kRelays, relay); }
 
 int base64Decode(const char *s, uint8_t *out, size_t cap)
 {
@@ -379,6 +477,8 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 			snprintf(reply, cap, "> %s", nameOf(kRelays, p.relay));
 		} else if (strcmp(name, "relay.opaque") == 0) {
 			snprintf(reply, cap, "> %s", nameOf(kBools, p.relay_opaque));
+		} else if (strcmp(name, "zerohop") == 0) {
+			zeroHopShow(p, reply, cap);
 		} else if (strcmp(name, "nodeinfo") == 0) {
 			snprintf(reply, cap, "> %u", (unsigned)p.nodeinfo_s);
 		} else if (strcmp(name, "telemetry") == 0) {
@@ -395,17 +495,29 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 	}
 
 	if (strcmp(name, "enable") == 0) {
-		if (valueOf(kBools, val, b)) { changed = p.enable != b; p.enable = b; snprintf(reply, cap, "OK"); }
-		else { choices(kBools, reply, cap); }
+		if (zcmd::parseOnOff(val, b)) { changed = p.enable != b; p.enable = b; snprintf(reply, cap, "OK"); }
+		else { snprintf(reply, cap, "Error: on|off|1|0"); }
 	} else if (strcmp(name, "role") == 0) {
-		if (valueOf(kRoles, val, b)) { changed = p.role != b; p.role = b; snprintf(reply, cap, "OK"); }
-		else { choices(kRoles, reply, cap); }
+		const bool known = standalone ? valueOf(kRepeaterRoles, val, b) : valueOf(kCompanionRoles, val, b);
+
+		if (known) { changed = p.role != b; p.role = b; snprintf(reply, cap, "OK"); }
+		else if (standalone) { choices(kRepeaterRoles, reply, cap); }
+		else { choices(kCompanionRoles, reply, cap); }
 	} else if (strcmp(name, "relay") == 0) {
 		if (valueOf(kRelays, val, b)) { changed = p.relay != b; p.relay = b; snprintf(reply, cap, "OK"); }
 		else { choices(kRelays, reply, cap); }
 	} else if (strcmp(name, "relay.opaque") == 0) {
-		if (valueOf(kBools, val, b)) { changed = p.relay_opaque != b; p.relay_opaque = b; snprintf(reply, cap, "OK"); }
-		else { choices(kBools, reply, cap); }
+		if (zcmd::parseOnOff(val, b)) { changed = p.relay_opaque != b; p.relay_opaque = b; snprintf(reply, cap, "OK"); }
+		else { snprintf(reply, cap, "Error: on|off|1|0"); }
+	} else if (strcmp(name, "zerohop") == 0) {
+		if (valueOf(kZeroHops, val, b)) { changed = p.zerohop != b; p.zerohop = b; snprintf(reply, cap, "OK"); }
+		else { choices(kZeroHops, reply, cap); }
+	} else if (strcmp(name, "zerohop.add") == 0) {
+		zeroHopAdd(p, val, reply, cap, changed);
+	} else if (strcmp(name, "zerohop.remove") == 0) {
+		zeroHopRemove(p, val, reply, cap, changed);
+	} else if (strcmp(name, "zerohop.clear") == 0) {
+		zeroHopClear(p, reply, cap, changed);
 	} else if (strcmp(name, "hops") == 0) {
 		if (parseUint(val, 7, u)) { changed = p.hops != u; p.hops = (uint8_t)u; snprintf(reply, cap, "OK"); }
 		else { snprintf(reply, cap, "Error: 0-7"); }

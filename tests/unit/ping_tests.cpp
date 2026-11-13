@@ -247,3 +247,16 @@ TEST(ping_relayed_unknown_hops, "UNIT-PING-013", "No hop_start but a relay: not 
     p.ignore_remote = 1;
     CHECK(answer(p, c, ping::PROTO_MT, "Ana: /ping", h) == "");
 }
+
+TEST(ping_on_off_digits, "UNIT-PING-014", "1 and 0 mean on and off in every on/off setting, with and without a command") {
+    ping::Prefs p = on();
+    bool changed = false;
+    CHECK(cmd(p, "set z.ping.rssi 1", &changed) == "OK" && p.rssi == 1 && changed);
+    CHECK(cmd(p, "set z.ping.rssi 0", &changed) == "OK" && p.rssi == 0 && changed);
+    CHECK(cmd(p, "set z.ping.ignore.direct 2").rfind("Error", 0) == 0);
+    CHECK(cmd(p, "set z.mc.ping.enable 0", &changed) == "OK" && p.mc.enable == 0 && changed);
+    CHECK(cmd(p, "set z.mc.ping.enable 1", &changed) == "OK" && p.mc.enable == 1 && changed);
+    CHECK(cmd(p, "set z.mt.ping.enable 1 /hola", &changed) == "OK" && p.mt.enable == 1 && std::string(p.mt.trigger) == "/hola");
+    CHECK(cmd(p, "set z.mt.ping.enable 0 /hola").rfind("Error", 0) == 0);
+    CHECK(cmd(p, "set z.mt.ping.enable 10").rfind("Error", 0) == 0);
+}

@@ -82,6 +82,12 @@ protected:
 		def("ping_snr", _p->ping.snr);
 		def("ping_nd", _p->ping.ignore_direct);
 		def("ping_nr", _p->ping.ignore_remote);
+		def("fw_drop", _p->fw.drop);
+		def("fw_gap", _p->fw.advert_gap_min);
+		def("fw_rate", _p->fw.hop_rate);
+		def("mfw_drop", _p->mtfw.drop);
+		def("mfw_gap", _p->mtfw.advert_gap_min);
+		def("mfw_rate", _p->mtfw.hop_rate);
 	}
 
 public:
@@ -137,6 +143,8 @@ protected:
 		def("hops", _p->mt.hops);
 		def("relay", _p->mt.relay);
 		def("opaque", _p->mt.relay_opaque);
+		def("zh", _p->mt.zerohop);
+		def("zh_nodes", (void *)_p->mt.zerohop_nodes, sizeof(_p->mt.zerohop_nodes));
 		def("ni_s", _p->mt.nodeinfo_s);
 		def("tel_s", _p->mt.telemetry_s);
 		def("ch", _p->mt.channel, sizeof(_p->mt.channel));
