@@ -18,7 +18,7 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Nodes in the contact list | NodeInfo creates a contact `<long name> (MT)`. |
 | Nodes on the map | Position packets set the contact's coordinates. |
 | Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every `z.mt.nodeinfo` seconds (12 h), on the first Meshtastic channel. |
-| Repeat Meshtastic floods | `z.mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. |
+| Repeat Meshtastic floods | `z.mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. `essential` (default on the repeater): text, direct messages, ACKs, NodeInfo, traceroute and position, on every channel including those without a key; only the first four are never dropped on an echo. `all` adds telemetry and the other ports. |
 
 MeshCore behaves as before. A frame that does not decrypt on one of our Meshtastic channels is handled as MeshCore.
 
@@ -131,7 +131,7 @@ Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI
 | Repeater glue (RX hook, NodeInfo, position, telemetry, `z.mt.` commands) | `zephcore/app/RepeaterMeshtastic.cpp` |
 | What companion and repeater share: hearing a frame, repeating it with the role's timing, giving way to an echo, our own frames, AES, self identity | `zephcore/app/MtRelayPort.h/.cpp` |
 | Settings, command parser, defaults | `zephcore/helpers/meshtastic/MtConfig.h/.cpp` |
-| What gives way to an echo | `mt::relayClassOf` in `MtPolicy.h` |
+| What gives way to an echo, and what `essential` repeats | `mt::relayClassOf` in `MtPolicy.h` |
 | MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. A frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser, whatever the `z.mt.*` settings (`MtRelayPort::unopened`) |
 | Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard`, `cancelForeignRelay` |
 

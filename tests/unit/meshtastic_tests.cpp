@@ -853,12 +853,12 @@ TEST(contact_change, "UNIT-MT-029", "Only a new record or a changed name, type o
     CHECK(contactChangedSubstantively(nm, c));
 }
 
-TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive an echo; the rest yields to it") {
+TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive an echo; position is repeated but yields; the rest only in all") {
     CHECK(relayClassOf(PORT_TEXT) == RelayClass::Always);
     CHECK(relayClassOf(PORT_ROUTING) == RelayClass::Always);
     CHECK(relayClassOf(PORT_NODEINFO) == RelayClass::Always);
     CHECK(relayClassOf(PORT_TRACEROUTE) == RelayClass::Always);
-    CHECK(relayClassOf(PORT_POSITION) == RelayClass::CancelOnEcho);
+    CHECK(relayClassOf(PORT_POSITION) == RelayClass::Essential);
     CHECK(relayClassOf(67) == RelayClass::CancelOnEcho);  // telemetry
     CHECK(relayClassOf(0) == RelayClass::CancelOnEcho);
 
@@ -877,7 +877,7 @@ TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive 
     pos.lon_i = 21700000;
     n = a.buildPosition(3, pos, frame, sizeof(frame));
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_HANDLED);
-    CHECK(relay_len == n && cls == RelayClass::CancelOnEcho);
+    CHECK(relay_len == n && cls == RelayClass::Essential);
 }
 
 TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore") {
@@ -903,7 +903,7 @@ TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is
     Header h, hr;
     CHECK(parseHeader(frame, n, h) && relay_len == n && parseHeader(relay, relay_len, hr));
     CHECK(hr.hopLimit() == h.hopLimit() - 1 && hr.relay == 0xD4 && hr.id == h.id && hr.from == h.from);
-    CHECK(cls == RelayClass::CancelOnEcho && cap.texts.empty());
+    CHECK(cls == RelayClass::Essential && cap.texts.empty());
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_DUPLICATE && relay_len == n);  // the originator again
     frame[12] = (uint8_t)((frame[12] & ~0x07) | 1);  // a copy through a repeater
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_DUPLICATE && relay_len == 0);

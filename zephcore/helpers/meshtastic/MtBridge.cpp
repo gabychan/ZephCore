@@ -267,9 +267,10 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		if (!_relay || !_relay_opaque || looksLikeMeshCore(raw, len, _self)) {
 			return RX_NOT_MESHTASTIC;
 		}
-		/* Channel 0 to one node is a PKI direct message or its ACK. */
+		/* Channel 0 to one node is a PKI direct message or its ACK; what is in
+		 * the rest we cannot tell, so it is repeated and gives way to an echo. */
 		const RelayClass cls = h.channel == 0 && h.to != kBroadcast ? RelayClass::Always
-									    : RelayClass::CancelOnEcho;
+									    : RelayClass::Essential;
 
 		if (relay_class) {
 			*relay_class = cls;

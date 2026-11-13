@@ -18,7 +18,7 @@ class MtRelayPort {
 public:
 	struct Policy {
 		bool enabled;    /* off: nothing is heard or repeated as Meshtastic */
-		bool relay_all;  /* false: only what mt::RelayClass::Always names */
+		bool relay_all;  /* false: all but mt::RelayClass::CancelOnEcho */
 		bool yields;     /* a repeat that may give way to an echo does */
 		bool early;      /* router timing: before every client */
 	};

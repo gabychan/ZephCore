@@ -211,7 +211,7 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::Rel
 		return;
 	}
 	_stats.relayed++;
-	if (policy.yields && cls == mt::RelayClass::CancelOnEcho) {
+	if (policy.yields && cls != mt::RelayClass::Always) {
 		_yield[_yield_next] = mesh::ContentionTracker::computeForeignHash32(relay, (int)len);
 		_yield_next = (uint8_t)((_yield_next + 1) % kYieldKeep);
 	}
@@ -287,7 +287,7 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		echoHeard(raw, len, policy.yields);
 		return r;
 	}
-	if (relay_len > 0 && (policy.relay_all || cls == mt::RelayClass::Always)) {
+	if (relay_len > 0 && (policy.relay_all || cls != mt::RelayClass::CancelOnEcho)) {
 		queue(relay, relay_len, snr_x4, cls, policy);
 	}
 	return r;
