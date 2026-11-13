@@ -13,6 +13,7 @@
 #define ZEPHCORE_UI_TASK_H
 
 #include <stdbool.h>
+#include "ui_dash.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -94,6 +95,12 @@ void ui_set_radio_params(uint32_t freq_hz, uint8_t sf, uint16_t bw_khz_x10,
 void ui_set_radio_runtime(uint8_t sync_word,
 			  uint16_t preamble_len, bool rx_duty_cycle,
 			  bool radio_ready, bool in_rx, bool tx_active);
+
+/**
+ * Update what the dashboard page shows. Never redraws by itself: an e-paper
+ * panel shows the new values on the next refresh of the page.
+ */
+void ui_set_dashboard(const struct ui_dash *d);
 
 /**
  * Update radio packet counters for display.

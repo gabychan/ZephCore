@@ -19,3 +19,4 @@ restructure; most describe decisions taken earlier. The system view is in [../DE
 | [0013](0013-meshtastic-settings-in-prefs-json.md) | Zephtacore: Meshtastic settings in `prefs.json` `mt{}`, only in builds with the bridge |
 | [0014](0014-cli-z-namespace.md) | Zephtacore: the commands this fork adds hang from `z.` (`z.mt.*`, `z.mc.ping.*`, `z.tx.stalls`, ...) |
 | [0015](0015-meshtastic-channels-by-command.md) | Zephtacore: Meshtastic channels by command, shown to the app as `#mt-<name>` hashtag channels with the key kept in `prefs.json` |
+| [0016](0016-meshtastic-zero-hop-and-roles.md) | Zephtacore: zero hop between fixed Meshtastic neighbours, off by default; repeaters announce `client_base`, companions `client_mute` |

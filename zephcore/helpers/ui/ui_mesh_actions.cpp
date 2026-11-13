@@ -36,6 +36,7 @@ LOG_MODULE_REGISTER(zephcore_ui_actions, CONFIG_ZEPHCORE_UI_ACTIONS_LOG_LEVEL);
 #include <joystick_ui_hooks.h>
 #include "ui_mesh_actions.h"
 #include "ui_radio_state.h"
+#include <helpers/HeapStats.h>
 
 /* UI action bit flags — set from input thread, consumed by mesh event loop */
 #define UI_ACTION_FLOOD_ADVERT      BIT(0)
@@ -431,4 +432,27 @@ extern "C" void mesh_housekeeping_ui_refresh(void)
 
 	/* Update offline queue message count */
 	ui_set_msg_count(s_mesh->getOfflineQueueCount());
+
+	/* The dashboard page: MeshCore and Meshtastic side by side. */
+	{
+		struct ui_dash d = {};
+		const HeapTotals heap = heapTotals();
+
+		d.mc_rx = s_lora_radio->getPacketsRecv();
+		d.mc_tx = s_lora_radio->getPacketsSent();
+		d.mc_err = s_lora_radio->getPacketsRecvErrors();
+		d.mc_flood_tx = s_mesh->getNumSentFlood();
+		d.mc_flood_rx = s_mesh->getNumRecvFlood();
+		d.mc_direct_tx = s_mesh->getNumSentDirect();
+		d.mc_direct_rx = s_mesh->getNumRecvDirect();
+		d.air_tx_s = s_mesh->getTotalAirTime() / 1000;
+		d.air_rx_s = s_mesh->getReceiveAirTime() / 1000;
+		d.heap_used = heap.used;
+		d.heap_total = heap.total;
+		d.flash_used_kb = s_data_store->getStorageUsedKb();
+		d.flash_total_kb = s_data_store->getStorageTotalKb();
+		d.uptime_s = (uint32_t)(k_uptime_get() / 1000);
+		s_mesh->fillDashboardSides(d);
+		ui_set_dashboard(&d);
+	}
 }

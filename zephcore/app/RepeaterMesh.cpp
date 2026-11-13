@@ -635,6 +635,30 @@ bool RepeaterMesh::allowPacketForward(const mesh::Packet *packet) {
   return true;
 }
 
+// ZEPHCORE: ours. The receive limits of "z.mc.fw.*": an advert inside its key's gap, or a frame over
+// the ceiling of the repeater it came through, or a type a drop rule silences, is neither processed nor repeated.
+bool RepeaterMesh::filterRecvFloodPacket(mesh::Packet* packet) {
+  const uint32_t now = (uint32_t)_ms->getMillis();
+
+  if (_firewall.ruleDropped(_prefs.fw, fw::ruleOf(packet->getPayloadType()))) {
+    return true;
+  }
+  if (packet->getPayloadType() == PAYLOAD_TYPE_ADVERT && packet->payload_len >= PUB_KEY_SIZE) {
+    uint32_t key;
+    memcpy(&key, packet->payload, sizeof(key));
+    if (_firewall.advertInGap(_prefs.fw, key, now)) {
+      return true;
+    }
+  }
+  const uint8_t hops = packet->getPathHashCount();
+
+  if (hops == 0) {
+    return false;
+  }
+  const uint8_t size = packet->getPathHashSize();
+  return _firewall.hopOverRate(_prefs.fw, &packet->path[(hops - 1) * size], size, now);
+}
+
 // ZEPHCORE: ours. Zephyr clock formatting.
 const char* RepeaterMesh::getLogDateTime() {
   static char tmp[48];
@@ -722,6 +746,12 @@ mesh::DispatcherAction RepeaterMesh::onRecvPacket(mesh::Packet* pkt) {
   // Determine the request packet's region so sendFloodReply() can echo the same
   // scope. Runs for every packet (not just floods) so recv_pkt_region is cleared
   // for direct packets instead of inheriting the last flood's region.
+  if (pkt->isRouteFlood()) {
+    const uint8_t hops = pkt->getPathHashCount();
+    const uint8_t size = pkt->getPathHashSize();
+
+    _rx_mc.heard(hops, hops ? &pkt->path[(hops - 1) * size] : nullptr, hops ? size : 0);
+  }
   recv_pkt_unscoped_flood = mesh::isUnscopedFlood(pkt);
   if (recv_pkt_unscoped_flood) {
     if (region_map.getWildcard().flags & REGION_DENY_FLOOD) {
@@ -827,6 +857,11 @@ static bool isShare(const mesh::Packet *packet) {
 void RepeaterMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp,
         const uint8_t* app_data, size_t app_data_len) {
   mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
+
+  /* Only a verified advert opens its key's gap (z.mc.fw.gap). */
+  uint32_t key;
+  memcpy(&key, id.pub_key, sizeof(key));
+  _firewall.advertKept(_prefs.fw, key, (uint32_t)_ms->getMillis());
 
   /* Signature already verified by mesh::Mesh before this hook fires.
    * Skip share rebroadcasts — they replay stale stored adverts and would
@@ -1382,6 +1417,21 @@ void RepeaterMesh::formatPacketStatsReply(char* reply) {
                getNumRecvFlood(), getNumRecvDirect());
 }
 
+// ZEPHCORE: ours. The counters of "get z.stats".
+void RepeaterMesh::fillZStats(zinfo::Stats& s) {
+  auto& radio_driver = getRadioDriver(_radio);
+  s.recv = radio_driver.getPacketsRecv();
+  s.sent = radio_driver.getPacketsSent();
+  s.errors = radio_driver.getPacketsRecvErrors();
+  s.flood_tx = getNumSentFlood();
+  s.direct_tx = getNumSentDirect();
+  s.flood_rx = getNumRecvFlood();
+  s.direct_rx = getNumRecvDirect();
+  s.tx_air_s = getTotalAirTime() / 1000;
+  s.rx_air_s = getReceiveAirTime() / 1000;
+  s.queue = _mgr->getOutboundTotal();
+}
+
 // ZEPHCORE: ours. Through RepeaterDataStore.
 void RepeaterMesh::saveIdentity(const mesh::LocalIdentity& new_id) {
   if (_store) {
@@ -1396,6 +1446,10 @@ void RepeaterMesh::clearStats() {
   radio_driver.resetDutyCycleTimeoutRestarts();
   resetStats();
   ((SimpleMeshTables *)getTables())->resetStats();
+  _rx_mc.clear();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  _rx_mt.clear();
+#endif
 }
 
 // ZEPHCORE: ours. Reply-header budget, blank lines, uplink and neighbour CLI.

@@ -148,6 +148,11 @@ static struct k_work_delayable render_work;
 static struct k_work_delayable splash_work;
 /* Deferred zero-hop advert — waits for possible double-press upgrade to flood */
 static struct k_work_delayable advert_defer_work;
+static struct k_work_delayable dash_refresh_work;
+
+/* The dashboard page on an e-paper panel: redrawn on its own once an hour,
+ * and whenever the page is opened or a button is pressed. */
+#define DASH_REFRESH_MIN 60
 
 /* ========== Work Handlers ========== */
 
@@ -176,6 +181,18 @@ static void render_work_handler(struct k_work *work)
 #endif
 }
 
+static void dash_refresh_handler(struct k_work *work)
+{
+	ARG_UNUSED(work);
+#ifdef CONFIG_ZEPHCORE_UI_DISPLAY
+	if (ui_initialized && !splash_active && mc_display_is_epd() &&
+	    ui_pages_current() == UI_PAGE_DASHBOARD) {
+		k_work_reschedule(&render_work, K_NO_WAIT);
+	}
+	k_work_reschedule(&dash_refresh_work, K_MINUTES(DASH_REFRESH_MIN));
+#endif
+}
+
 static void splash_work_handler(struct k_work *work)
 {
 	ARG_UNUSED(work);
@@ -185,12 +202,9 @@ static void splash_work_handler(struct k_work *work)
 	mc_display_epd_full_reset();
 
 	/* Transition from splash to home page (first active page for this role) */
-#ifdef ZEPHCORE_REPEATER
-	ui_pages_set(UI_PAGE_STATUS);
-#else
-	ui_pages_set(UI_PAGE_MESSAGES);
-#endif
+	ui_pages_set(ui_pages_home());
 	k_work_reschedule(&render_work, K_NO_WAIT);
+	k_work_reschedule(&dash_refresh_work, K_MINUTES(DASH_REFRESH_MIN));
 #endif
 }
 
@@ -744,6 +758,7 @@ int ui_init(void)
 	k_work_init_delayable(&render_work, render_work_handler);
 	k_work_init_delayable(&splash_work, splash_work_handler);
 	k_work_init_delayable(&advert_defer_work, advert_defer_handler);
+	k_work_init_delayable(&dash_refresh_work, dash_refresh_handler);
 
 	/* Initialize buzzer (optional - may not be present) */
 #ifdef CONFIG_ZEPHCORE_UI_BUZZER
@@ -973,6 +988,11 @@ void ui_set_radio_runtime(uint8_t sync_word,
 	if (changed) {
 		schedule_render_auto();
 	}
+}
+
+void ui_set_dashboard(const struct ui_dash *d)
+{
+	get_state()->dash = *d;
 }
 
 void ui_set_radio_stats(uint32_t packets_rx, uint32_t packets_tx,

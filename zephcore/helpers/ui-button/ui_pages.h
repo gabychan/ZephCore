@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <helpers/ui/ui_dash.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,6 +36,7 @@ enum ui_page {
 	UI_PAGE_DFU,            /* BLE DFU bootloader entry */
 	UI_PAGE_SHUTDOWN,       /* Hibernate / power off */
 	UI_PAGE_STATUS,         /* Repeater status (uptime, time, packets) */
+	UI_PAGE_DASHBOARD,      /* MeshCore and Meshtastic side by side (200x200 panels) */
 	UI_PAGE_COUNT
 };
 
@@ -109,6 +111,9 @@ struct ui_state {
 
 	/* Sensors page */
 
+	/* Dashboard page */
+	struct ui_dash dash;
+
 	/* Current page */
 	enum ui_page current_page;
 
@@ -172,6 +177,9 @@ void ui_pages_set(enum ui_page page);
  * Get the current page.
  */
 enum ui_page ui_pages_current(void);
+
+/** The page the node opens on: the first of its role. */
+enum ui_page ui_pages_home(void);
 
 /**
  * Set the node name displayed in the top bar.

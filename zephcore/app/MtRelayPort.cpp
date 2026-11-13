@@ -85,14 +85,14 @@ static constexpr uint32_t kFirstTelemetryMs = 60000;
 MtRelayPort::Policy MtRelayPort::policyFor(const mt::RepeaterPrefs &p)
 {
 	return {p.enable != 0, p.relay == mt::RELAY_ALL, mt::roleYieldsToEcho(p.role),
-		mt::roleSendsEarly(p.role)};
+		mt::roleSendsEarly(p.role), p.zerohop == mt::ZEROHOP_AUTO, p.zerohop_nodes};
 }
 
 void MtRelayPort::apply(const mt::RepeaterPrefs &p)
 {
 	_bridge.setRole(p.role);
 	_bridge.setHopLimit(p.hops);
-	_bridge.setRelay(p.enable && p.relay != mt::RELAY_OFF);
+	_bridge.setRelay(p.enable && p.relay != mt::RELAY_OFF && mt::roleRepeats(p.role));
 	_bridge.setRelayOpaque(p.relay_opaque != 0);
 }
 
@@ -161,9 +161,10 @@ bool MtRelayPort::nextAt(uint32_t &at_ms) const
 
 void MtRelayPort::formatStats(char *out, size_t cap) const
 {
-	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u shed=%u",
+	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u shed=%u kept=%u",
 		 (unsigned)_stats.heard, (unsigned)_stats.relayed, (unsigned)_stats.opaque,
-		 (unsigned)_stats.yielded, (unsigned)_stats.dropped, (unsigned)_stats.shed);
+		 (unsigned)_stats.yielded, (unsigned)_stats.dropped, (unsigned)_stats.shed,
+		 (unsigned)_stats.kept);
 }
 
 bool MtRelayPort::send(const uint8_t *frame, size_t len)
@@ -211,7 +212,7 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::Rel
 		return;
 	}
 	_stats.relayed++;
-	if (policy.yields && cls == mt::RelayClass::CancelOnEcho) {
+	if (policy.yields && mt::yieldsOnEcho(cls)) {
 		_yield[_yield_next] = mesh::ContentionTracker::computeForeignHash32(relay, (int)len);
 		_yield_next = (uint8_t)((_yield_next + 1) % kYieldKeep);
 	}
@@ -252,6 +253,18 @@ void MtRelayPort::noteDirect(const uint8_t raw[], int len, int8_t snr_x4)
 	}
 }
 
+/* Zero hop: the repeat goes out with the hop_limit the frame came with. */
+void MtRelayPort::keepHop(const uint8_t raw[], int len, uint8_t *relay, const Policy &policy)
+{
+	mt::Header h;
+
+	if (policy.zerohop && mt::parseHeader(raw, (size_t)len, h) &&
+	    _zerohop.keepsHop(h, policy.zerohop_nodes, _neighbours, (uint32_t)(k_uptime_get() / 1000))) {
+		relay[12] = raw[12];
+		_stats.kept++;
+	}
+}
+
 mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::Sink &sink,
 				  const Policy &policy)
 {
@@ -278,6 +291,9 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		}
 		return r;
 	}
+	if (r == mt::RX_DROPPED) {
+		return r;
+	}
 	_stats.heard++;
 	noteDirect(raw, len, snr_x4);
 	if (r == mt::RX_OPAQUE) {
@@ -287,7 +303,8 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		echoHeard(raw, len, policy.yields);
 		return r;
 	}
-	if (relay_len > 0 && (policy.relay_all || cls == mt::RelayClass::Always)) {
+	if (relay_len > 0 && mt::repeatsInMode(policy.relay_all, cls)) {
+		keepHop(raw, len, relay, policy);
 		queue(relay, relay_len, snr_x4, cls, policy);
 	}
 	return r;

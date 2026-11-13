@@ -12,6 +12,8 @@
 #include <string.h>
 #include "LoRaConfig.h"
 #include "PingBot.h"
+#include "McFirewall.h"
+#include "RxStats.h"
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 #include "meshtastic/MtConfig.h"
 #endif
@@ -202,6 +204,8 @@ struct NodePrefs {
 	char wifi_pwd[64];
 	uint8_t wifi_enabled;           // 1 = join wifi_ssid when set (upstream default)
 	ping::Prefs ping;               // ping bot; prefs.json zc{} ping_*
+	fw::Prefs fw;                   // MeshCore receive limits (repeater); prefs.json zc{} fw_*
+	fw::Prefs mtfw;                 // the same for Meshtastic (repeater); prefs.json zc{} mfw_*
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 	/* The Meshtastic side of Zephtacore; prefs.json mt{} (ADR 0013). */
 	mt::RepeaterPrefs mt;
@@ -469,9 +473,9 @@ static inline void initNodePrefs(NodePrefs* prefs) {
 	const uint8_t mt_hops = 3;
 #endif
 #ifdef CONFIG_ZEPHCORE_ROLE_COMPANION
-	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_OFF);  // a companion does not repeat unless asked
+	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_OFF, mt::ROLE_CLIENT_MUTE);  // a companion does not repeat unless asked
 #else
-	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_ESSENTIAL);
+	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_ESSENTIAL, mt::ROLE_CLIENT_BASE);
 #endif
 #endif
 	/* Companion-only default, set here so every caller of initNodePrefs() sees

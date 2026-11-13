@@ -224,6 +224,8 @@ TEST(pjson_server_mt, "UNIT-PJSON-010", "The repeater's Meshtastic settings surv
     p.mt.hops = 5;
     p.mt.relay = mt::RELAY_ESSENTIAL;
     p.mt.relay_opaque = 0;
+    p.mt.zerohop = mt::ZEROHOP_AUTO;
+    p.mt.zerohop_nodes[1] = 0xA1B2C3D4u;
     p.mt.nodeinfo_s = 3600;
     p.mt.telemetry_s = 900;
     strcpy(p.mt.channel, "Mesh");
@@ -235,13 +237,15 @@ TEST(pjson_server_mt, "UNIT-PJSON-010", "The repeater's Meshtastic settings surv
     CHECK(serverPrefsFromJson(q, s));
     CHECK(q.mt.enable == 0 && q.mt.role == mt::ROLE_ROUTER && q.mt.hops == 5);
     CHECK(q.mt.relay == mt::RELAY_ESSENTIAL && q.mt.relay_opaque == 0);
+    CHECK(q.mt.zerohop == mt::ZEROHOP_AUTO && q.mt.zerohop_nodes[0] == 0 && q.mt.zerohop_nodes[1] == 0xA1B2C3D4u);
     CHECK(q.mt.nodeinfo_s == 3600 && q.mt.telemetry_s == 900);
     CHECK(std::string(q.mt.channel) == "Mesh" && q.mt.psk_len == 16 && q.mt.psk[15] == 0x3F);
 
     MemStream old("{name:\"R\",lat:0,lon:0,radio:{freq:869.6180,bw:62.5000,sf:8,cr:5,tx:20}}");
     NodePrefs d = defaults();
     CHECK(serverPrefsFromJson(d, old));
-    CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT && d.mt.relay == mt::RELAY_ESSENTIAL);
+    CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT_BASE && d.mt.relay == mt::RELAY_ESSENTIAL);
+    CHECK(d.mt.zerohop == mt::ZEROHOP_OFF);
     CHECK(std::string(d.mt.channel) == "SFNarrow" && d.mt.psk_len == 1 && d.mt.psk[0] == 1);
 }
 
@@ -294,4 +298,27 @@ TEST(pjson_mt_channels, "UNIT-PJSON-012", "A companion's Meshtastic channels sur
     NodePrefs d = defaults();
     CHECK(companionPrefsFromJson(d, old));
     CHECK(d.mt.channels[0].name[0] == '\0');
+}
+
+TEST(pjson_fw, "UNIT-PJSON-013", "The MeshCore receive limits survive prefs.json; a file without them leaves no limit") {
+    NodePrefs p = defaults();
+    CHECK(p.fw.advert_gap_min == 0 && p.fw.hop_rate == 0);
+    p.fw.advert_gap_min = 30;
+    p.fw.hop_rate = 200;
+    p.fw.drop = 0x41;
+    p.mtfw.drop = 0x12;
+    p.mtfw.advert_gap_min = 5;
+    p.mtfw.hop_rate = 9;
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.fw.advert_gap_min == 30 && q.fw.hop_rate == 200 && q.fw.drop == 0x41);
+    CHECK(q.mtfw.drop == 0x12 && q.mtfw.advert_gap_min == 5 && q.mtfw.hop_rate == 9);
+
+    MemStream empty;
+    CHECK(serverPrefsToJson(defaults(), empty));
+    NodePrefs r = defaults();
+    CHECK(serverPrefsFromJson(r, empty));
+    CHECK(r.fw.advert_gap_min == 0 && r.fw.hop_rate == 0 && r.mtfw.drop == 0 && r.mtfw.hop_rate == 0);
 }

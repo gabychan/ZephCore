@@ -744,7 +744,12 @@
     },
     {
       "id": "UNIT-MT-030",
-      "name": "Text, ACK, NodeInfo and traceroute survive an echo; the rest yields to it",
+      "name": "Text, ACK, NodeInfo and traceroute survive an echo; position is repeated but yields; the rest only in all",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-054",
+      "name": "Repeat and echo decision for every port in off, essential and all, held or opaque channel",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
@@ -903,6 +908,196 @@
       "source": "tests/unit/ping_tests.cpp"
     },
     {
+      "id": "UNIT-PING-014",
+      "name": "1 and 0 mean on and off in every on/off setting, with and without a command",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-001",
+      "name": "With no limit set nothing is dropped, however often a key or a repeater is heard",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-002",
+      "name": "A kept advert closes its key's gap until the window passes; other keys are not affected",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-003",
+      "name": "An advert nobody kept opens no gap, so a forged one cannot silence the real key",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-004",
+      "name": "The gap survives the 32-bit millisecond wrap",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-005",
+      "name": "Sixteen keys are remembered; the seventeenth takes the oldest slot",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-006",
+      "name": "A repeater gets hop_rate frames a minute through, then none until the window passes",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-007",
+      "name": "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash names none",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-008",
+      "name": "Eight repeaters are counted; the ninth takes the oldest slot and starts a fresh count",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-009",
+      "name": "z.mc.fw.gap and z.mc.fw.rate get and set 0 to 255; anything else is refused; stats is read only",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-010",
+      "name": "A rule drops its payload types and no others; CONTROL and unknown types always pass; each rule counts its own",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-011",
+      "name": "z.mc.fw.drop turns each rule on or off, lists the ones on with their counts, and none clears them",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-012",
+      "name": "Meshtastic: a rule drops its port, a NodeInfo gap and a relay ceiling follow, routing and unopened frames have no type",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-013",
+      "name": "A frame the screen drops is not delivered, repeated or remembered; a copy of an accepted one is a duplicate, not screened",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-014",
+      "name": "z.mt.fw.* use the Meshtastic rule names and refuse the MeshCore ones",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-001",
+      "name": "Frames are counted by hops crossed, 7 or more together, unknown apart; empty buckets are left out",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-002",
+      "name": "Frames are counted per relay of 1 to 3 bytes, most frames first; no relay counts none",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-003",
+      "name": "A full table drops the relay that carried least to make room",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-004",
+      "name": "A line that does not fit the reply is left out whole",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-005",
+      "name": "clear empties both tables",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-006",
+      "name": "get answers the histogram or the relays of its protocol; set is refused; other z commands are not handled",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-001",
+      "name": "z.info gives version, uptime, battery, flash, heap and contacts in one line",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-002",
+      "name": "a field the role or build does not have is left out of the line",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-003",
+      "name": "uptime is days and hours, hours and minutes, or minutes",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-004",
+      "name": "a small reply buffer is cut, never overrun, and stays terminated",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-005",
+      "name": "z.stats gives the MeshCore counters, then the Meshtastic ones when there are any",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-001",
+      "name": "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-002",
+      "name": "an age is in seconds, minutes, hours or days",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-003",
+      "name": "SNR lights 0 to 4 bars, a step at 8, 3, -3 and -10 dB",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-004",
+      "name": "a gauge fills in proportion, shows any use, never passes full or divides by 0",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-005",
+      "name": "time on air is a percentage of the uptime, and the uptime is days and hours, hours and minutes, or minutes",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-006",
+      "name": "the best nodes come first, as many as asked for, and the call says how many there are in all",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-007",
+      "name": "with recent the node heard last comes first",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-001",
+      "name": "on and 1 are on, off and 0 are off, anything else is not a value",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-002",
+      "name": "help at the end of get or set gives the usage of that key",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-003",
+      "name": "help on a group lists its keys, whole words only, within the reply",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-004",
+      "name": "what is not a help request, or names no key, goes on to its own handler",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-005",
+      "name": "a build without Meshtastic has no z.mt help",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-042",
       "name": "A channel's slot is #mt-<name> in lower case; its secret is the first 16 bytes of the SHA-256 of that name, as for a # channel",
       "source": "tests/unit/meshtastic_tests.cpp"
@@ -934,7 +1129,32 @@
     },
     {
       "id": "UNIT-MT-048",
-      "name": "base64 keys decode with or without padding and in the URL-safe alphabet; a reply never writes past a short buffer",
+      "name": "z.mt.enable and z.mt.relay.opaque take 1 and 0 as on and off",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-049",
+      "name": "Hops are kept only past the first hop, for one live neighbour with a fixed role or a listed node",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-050",
+      "name": "router, router_late and client_base are fixed; a node that changes role is forgotten; the table favours neighbours",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-051",
+      "name": "Two repeaters that keep each other's hops do not pass a frame back and forth",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-052",
+      "name": "z.mt.zerohop starts off, takes off or auto, and keeps a list of up to eight nodes",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-053",
+      "name": "A repeater may be client, client_base, router, router_late or repeater; a companion client_mute or client; a muted client repeats nothing",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
@@ -945,6 +1165,11 @@
     {
       "id": "UNIT-PJSON-012",
       "name": "A companion's Meshtastic channels survive prefs.json; a file without them has none",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-013",
+      "name": "The MeshCore receive limits survive prefs.json; a file without them leaves no limit",
       "source": "tests/unit/prefs_json_tests.cpp"
     },
     {

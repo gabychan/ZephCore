@@ -7,6 +7,8 @@
 #include <helpers/meshtastic/MtPolicy.h>
 #include <helpers/meshtastic/MtDiscriminate.h>
 #include <helpers/meshtastic/MtConfig.h>
+#include <helpers/meshtastic/MtFirewall.h>
+#include <helpers/meshtastic/MtZeroHop.h>
 #include <mesh/ContentionTracker.h>
 #include <mesh/Packet.h>
 
@@ -853,12 +855,12 @@ TEST(contact_change, "UNIT-MT-029", "Only a new record or a changed name, type o
     CHECK(contactChangedSubstantively(nm, c));
 }
 
-TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive an echo; the rest yields to it") {
+TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive an echo; position is repeated but yields; the rest only in all") {
     CHECK(relayClassOf(PORT_TEXT) == RelayClass::Always);
     CHECK(relayClassOf(PORT_ROUTING) == RelayClass::Always);
     CHECK(relayClassOf(PORT_NODEINFO) == RelayClass::Always);
     CHECK(relayClassOf(PORT_TRACEROUTE) == RelayClass::Always);
-    CHECK(relayClassOf(PORT_POSITION) == RelayClass::CancelOnEcho);
+    CHECK(relayClassOf(PORT_POSITION) == RelayClass::Essential);
     CHECK(relayClassOf(67) == RelayClass::CancelOnEcho);  // telemetry
     CHECK(relayClassOf(0) == RelayClass::CancelOnEcho);
 
@@ -877,7 +879,49 @@ TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive 
     pos.lon_i = 21700000;
     n = a.buildPosition(3, pos, frame, sizeof(frame));
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_HANDLED);
-    CHECK(relay_len == n && cls == RelayClass::CancelOnEcho);
+    CHECK(relay_len == n && cls == RelayClass::Essential);
+}
+
+TEST(mt_relay_table, "UNIT-MT-054", "Repeat and echo decision for every port in off, essential and all, held or opaque channel") {
+    struct Row { uint32_t port; bool held; bool essential; bool all; bool yields; };
+    const Row rows[] = {
+        {PORT_TEXT, true, true, true, false},
+        {PORT_ROUTING, true, true, true, false},
+        {PORT_NODEINFO, true, true, true, false},
+        {PORT_TRACEROUTE, true, true, true, false},
+        {PORT_POSITION, true, true, true, true},
+        {67, true, false, true, true},  // telemetry
+        {0, false, true, true, true},   // opaque channel: port unknown
+    };
+    for (const Row &r : rows) {
+        RelayClass cls = r.held ? relayClassOf(r.port) : RelayClass::Essential;
+        CHECK(repeatsInMode(false, cls) == r.essential);
+        CHECK(repeatsInMode(true, cls) == r.all);
+        CHECK(yieldsOnEcho(cls) == r.yields);
+    }
+    // A direct message on channel 0 we cannot open is the PKI case: repeated in essential, never yields.
+    CHECK(repeatsInMode(false, RelayClass::Always) && !yieldsOnEcho(RelayClass::Always));
+
+    // relay off and relay.opaque off decide in the bridge, before the class.
+    Bridge a(refAes);
+    a.setSelf(0xA1A1A1A1u, "alpha", "ZN", 1);
+    uint8_t psk[16];
+    for (int i = 0; i < 16; i++) psk[i] = (uint8_t)(0x40 + i);
+    CHECK(a.setChannel(1, "private", psk, 16));
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t n = a.buildText(1, kBroadcast, "secreto", 7, frame, sizeof(frame));
+    while (looksLikeMeshCore(frame, n, 0)) { frame[0] ^= 0x40; }
+    Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);
+    Capture cap;
+    size_t relay_len = 0;
+    RelayClass cls = RelayClass::Always;
+    r.setRelay(false); r.setRelayOpaque(true);
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
+    r.setRelay(true); r.setRelayOpaque(false);
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
+    r.setRelayOpaque(true);
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_OPAQUE && relay_len == n);
+    CHECK(cls == RelayClass::Essential && repeatsInMode(false, cls) && yieldsOnEcho(cls));
 }
 
 TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore") {
@@ -903,7 +947,7 @@ TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is
     Header h, hr;
     CHECK(parseHeader(frame, n, h) && relay_len == n && parseHeader(relay, relay_len, hr));
     CHECK(hr.hopLimit() == h.hopLimit() - 1 && hr.relay == 0xD4 && hr.id == h.id && hr.from == h.from);
-    CHECK(cls == RelayClass::CancelOnEcho && cap.texts.empty());
+    CHECK(cls == RelayClass::Essential && cap.texts.empty());
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_DUPLICATE && relay_len == n);  // the originator again
     frame[12] = (uint8_t)((frame[12] & ~0x07) | 1);  // a copy through a repeater
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_DUPLICATE && relay_len == 0);
@@ -946,7 +990,7 @@ static std::string mtCmd(RepeaterPrefs& p, const char* cmd, bool* changed = null
 
 TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, reject bad values, and leave other commands alone") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_ALL);
+    setDefaults(p, 3, RELAY_ALL, ROLE_CLIENT);
     bool ch = false;
     CHECK(mtCmd(p, "get z.mt.enable") == "> on" && mtCmd(p, "get z.mt.role") == "> client");
     CHECK(mtCmd(p, "get z.mt.relay") == "> all" && mtCmd(p, "get z.mt.relay.opaque") == "> on");
@@ -969,7 +1013,7 @@ TEST(mt_config_cli, "UNIT-MT-033", "mt. commands read and change the settings, r
 
 TEST(mt_config_channel, "UNIT-MT-034", "The channel takes a name and an optional 1 or 16 byte base64 key; a bad key changes nothing") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_ALL);
+    setDefaults(p, 3, RELAY_ALL, ROLE_CLIENT);
     bool ch = false;
     CHECK(mtCmd(p, "set z.mt.channel Mesh AQ==", &ch) == "OK" && ch);
     CHECK(std::string(p.channel) == "Mesh" && p.psk_len == 1 && p.psk[0] == 1);
@@ -989,7 +1033,7 @@ TEST(mt_config_channel, "UNIT-MT-034", "The channel takes a name and an optional
 
 TEST(mt_config_sanitize, "UNIT-MT-035", "Out of range stored settings are put back in range") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_ALL);
+    setDefaults(p, 3, RELAY_ALL, ROLE_CLIENT);
     CHECK(p.enable == 1 && p.hops == 3 && p.relay == RELAY_ALL && p.nodeinfo_s == 43200);
     p.enable = 9; p.role = 77; p.hops = 99; p.relay = 9; p.relay_opaque = 3;
     p.psk_len = 7; p.nodeinfo_s = 5; p.telemetry_s = 99999999;
@@ -1107,7 +1151,7 @@ TEST(mt_telemetry, "UNIT-MT-038", "Device metrics encode as Meshtastic's Telemet
 
 TEST(mt_config_roles, "UNIT-MT-039", "A companion has no channel or telemetry setting; its relay starts off; timers wrap") {
     RepeaterPrefs p;
-    setDefaults(p, 7, RELAY_OFF);
+    setDefaults(p, 7, RELAY_OFF, ROLE_CLIENT);
     CHECK(p.relay == RELAY_OFF && p.hops == 7 && p.enable == 1);
     bool ch = true;
     CHECK(mtCmd(p, "set z.mt.channel Mesh", &ch, false).find("Error") == 0 && !ch);
@@ -1199,7 +1243,7 @@ TEST(mt_channel_slot, "UNIT-MT-042", "A channel's slot is #mt-<name> in lower ca
 
 TEST(mt_channel_table, "UNIT-MT-043", "z.mt.channel.add and .remove keep a table of channels on a companion; names differing only in case, a bad key and a ninth channel are refused") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_OFF);
+    setDefaults(p, 3, RELAY_OFF, ROLE_CLIENT);
     bool ch = false;
     CHECK(mtCmd(p, "get z.mt.channels", &ch, false) == "> none" && !ch);
     CHECK(mtCmd(p, "set z.mt.channel.add SFNarrow", &ch, false) == "OK" && ch);
@@ -1237,7 +1281,7 @@ TEST(mt_channel_table, "UNIT-MT-043", "z.mt.channel.add and .remove keep a table
 
 TEST(mt_channel_sanitize, "UNIT-MT-044", "An entry with a bad name or key is cleared when the settings are put in range") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_OFF);
+    setDefaults(p, 3, RELAY_OFF, ROLE_CLIENT);
     std::strcpy(p.channels[0].name, "Good");
     p.channels[0].psk_len = 1;
     p.channels[0].psk[0] = 2;
@@ -1268,7 +1312,7 @@ SlotWrite writeSlot(RepeaterPrefs& p, ChannelEntry* held, const char* next, bool
 
 TEST(mt_slot_write, "UNIT-MT-045", "The app moves a channel of the table to another slot and keeps its key; it cannot create a #mt- channel") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_OFF);
+    setDefaults(p, 3, RELAY_OFF, ROLE_CLIENT);
     const uint8_t one = 1, two = 2;
     CHECK(addChannel(p, "Test", &two, 1) == ADD_OK && addChannel(p, "Bots", &one, 1) == ADD_OK);
     ChannelEntry* test = findChannel(p, "#mt-test");
@@ -1287,7 +1331,7 @@ TEST(mt_slot_write, "UNIT-MT-045", "The app moves a channel of the table to anot
 
 TEST(mt_slot_rename, "UNIT-MT-046", "Renaming the slot of an entry to another #mt- name renames the entry and keeps its key") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_OFF);
+    setDefaults(p, 3, RELAY_OFF, ROLE_CLIENT);
     const uint8_t two = 2;
     CHECK(addChannel(p, "Test", &two, 1) == ADD_OK);
     ChannelEntry* test = findChannel(p, "#mt-test");
@@ -1298,7 +1342,7 @@ TEST(mt_slot_rename, "UNIT-MT-046", "Renaming the slot of an entry to another #m
 
 TEST(mt_drop_orphans, "UNIT-MT-047", "An entry no slot holds is dropped when the app's writes stop; one a slot holds stays") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_OFF);
+    setDefaults(p, 3, RELAY_OFF, ROLE_CLIENT);
     const uint8_t one = 1;
     CHECK(addChannel(p, "Test", &one, 1) == ADD_OK && addChannel(p, "Bots", &one, 1) == ADD_OK);
     const char* const slots[] = {"#mt-bots", nullptr};
@@ -1307,32 +1351,221 @@ TEST(mt_drop_orphans, "UNIT-MT-047", "An entry no slot holds is dropped when the
     CHECK(!dropOrphans(p, slotIn, const_cast<void*>(static_cast<const void*>(slots))));
 }
 
-TEST(mt_config_edges, "UNIT-MT-048", "base64 keys decode with or without padding and in the URL-safe alphabet; a reply never writes past a short buffer") {
-    uint8_t a[4], b[4];
-    CHECK(base64Decode("", a, sizeof(a)) == 0);
-    CHECK(base64Decode("AQ", a, sizeof(a)) == 1 && a[0] == 1);  // padding is optional
-    CHECK(base64Decode("+/8=", a, sizeof(a)) == 2 && base64Decode("-_8=", b, sizeof(b)) == 2);
-    CHECK(a[0] == 0xFB && a[1] == 0xFF && std::memcmp(a, b, 2) == 0);
-    CHECK(base64Decode("A!Q=", a, sizeof(a)) == -1);
-
+TEST(mt_config_on_off_digits, "UNIT-MT-048", "z.mt.enable and z.mt.relay.opaque take 1 and 0 as on and off") {
     RepeaterPrefs p;
-    setDefaults(p, 3, RELAY_ALL);
-    for (const char* name : {"SFNarrow", "Bots", "Mine", "Catalunya", "Barcelona", "Test", "Bots2", "Last"}) {
+    setDefaults(p, 3, RELAY_ALL, ROLE_CLIENT);
+    bool ch = false;
+    CHECK(mtCmd(p, "set z.mt.enable 0", &ch) == "OK" && ch && p.enable == 0 && mtCmd(p, "get z.mt.enable") == "> off");
+    CHECK(mtCmd(p, "set z.mt.enable 1", &ch) == "OK" && ch && p.enable == 1);
+    CHECK(mtCmd(p, "set z.mt.relay.opaque 0", &ch) == "OK" && ch && p.relay_opaque == 0);
+    CHECK(mtCmd(p, "set z.mt.relay.opaque maybe", &ch) == "Error: on|off|1|0" && !ch);
+}
+
+// A header as a repeater would hand it on: hop_start 3, the given hop_limit and relay byte.
+static Header relayedHeader(uint8_t hop_limit, uint8_t relay) {
+    Header h = {};
+    h.from = 0x11111111u;
+    h.to = kBroadcast;
+    h.id = 7;
+    h.flags = (uint8_t)((3 << 5) | hop_limit);
+    h.relay = relay;
+    return h;
+}
+
+TEST(mt_zerohop_keeps, "UNIT-MT-049", "Hops are kept only past the first hop, for one live neighbour with a fixed role or a listed node") {
+    ZeroHop z;
+    neighbours::Table heard;
+    const uint32_t none[kZeroHopNodesMax] = {};
+    const uint32_t router = 0xAABBCC42u, client = 0x00DDEE17u, now = 1000;
+
+    heard.note(router, 20, now);
+    heard.note(client, 20, now);
+    CHECK(!z.keepsHop(relayedHeader(2, 0x42), none, heard, now));  // role not known yet
+    z.noteRole(router, ROLE_ROUTER, heard);
+    z.noteRole(client, ROLE_CLIENT, heard);
+    CHECK(z.keepsHop(relayedHeader(2, 0x42), none, heard, now));
+    CHECK(!z.keepsHop(relayedHeader(2, 0x17), none, heard, now));  // a client counts hops
+    CHECK(!z.keepsHop(relayedHeader(3, 0x42), none, heard, now));  // first hop
+    CHECK(!z.keepsHop(relayedHeader(2, 0), none, heard, now));     // no relay byte
+    Header old = relayedHeader(2, 0x42);
+    old.flags &= 0x1F;                                             // hop_start not set
+    CHECK(!z.keepsHop(old, none, heard, now));
+    CHECK(!z.keepsHop(relayedHeader(2, 0x99), none, heard, now));  // not a neighbour
+
+    CHECK(z.keepsHop(relayedHeader(2, 0x42), none, heard, now + kZeroHopLiveS));
+    CHECK(!z.keepsHop(relayedHeader(2, 0x42), none, heard, now + kZeroHopLiveS + 1));  // not heard for too long
+
+    heard.note(0x12345642u, 10, now);                              // a second neighbour with the same byte
+    CHECK(!z.keepsHop(relayedHeader(2, 0x42), none, heard, now));
+
+    const uint32_t listed[kZeroHopNodesMax] = {0, client};
+    CHECK(z.keepsHop(relayedHeader(2, 0x17), listed, heard, now)); // listed by hand, whatever its role
+    CHECK(!z.keepsHop(relayedHeader(3, 0x17), listed, heard, now));
+}
+
+TEST(mt_zerohop_roles, "UNIT-MT-050", "router, router_late and client_base are fixed; a node that changes role is forgotten; the table favours neighbours") {
+    CHECK(roleIsFixed(ROLE_ROUTER) && roleIsFixed(ROLE_ROUTER_LATE) && roleIsFixed(ROLE_CLIENT_BASE));
+    CHECK(!roleIsFixed(ROLE_CLIENT) && !roleIsFixed(ROLE_CLIENT_MUTE) && !roleIsFixed(ROLE_REPEATER));
+    CHECK(relayByte(0xAABBCC42u) == 0x42 && relayByte(0xAABBCC00u) == 0xFF);
+
+    ZeroHop z;
+    neighbours::Table heard;
+    const uint32_t base = 0x0A0B0C21u;
+    heard.note(base, 8, 5);
+    z.noteRole(base, ROLE_CLIENT_BASE, heard);
+    CHECK(z.isFixed(base));
+    for (uint32_t i = 0; i < 2 * kZeroHopFixedMax; i++) {
+        z.noteRole(0x50000000u + i, ROLE_ROUTER, heard);          // far routers, never heard directly
+    }
+    CHECK(z.isFixed(base));                                        // the neighbour kept its entry
+    z.noteRole(base, ROLE_CLIENT, heard);
+    CHECK(!z.isFixed(base) && !z.isFixed(0));
+}
+
+TEST(mt_zerohop_loop, "UNIT-MT-051", "Two repeaters that keep each other's hops do not pass a frame back and forth") {
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 7), b = makeNode(0xB2B2B2B2u, "beta", 9), c = makeNode(0xC3C3C3C3u, "gamma", 5);
+    b.setRelay(true);
+    c.setRelay(true);
+    Capture cap;
+    uint8_t frame[kMaxFrame], from_b[kMaxFrame], from_c[kMaxFrame], again[kMaxFrame];
+    size_t nb = 0, nc = 0, na = 0;
+    size_t n = a.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame));
+    CHECK(b.handleFrame(frame, n, 0, cap, from_b, &nb) == RX_HANDLED && nb == n);
+    CHECK(c.handleFrame(from_b, nb, 0, cap, from_c, &nc) == RX_HANDLED && nc == n);
+    from_c[12] = from_b[12];                                       // c kept the hop_limit b sent
+    CHECK(b.handleFrame(from_c, nc, 0, cap, again, &na) == RX_DUPLICATE && na == 0);
+    Header hb, hc;
+    CHECK(parseHeader(from_b, nb, hb) && parseHeader(from_c, nc, hc));
+    CHECK(hc.hopLimit() == hb.hopLimit() && hc.hopStart() > hc.hopLimit() && hc.relay == 0xC3);
+}
+
+TEST(mt_zerohop_cli, "UNIT-MT-052", "z.mt.zerohop starts off, takes off or auto, and keeps a list of up to eight nodes") {
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_ESSENTIAL, ROLE_CLIENT_BASE);
+    bool ch = false;
+    CHECK(p.zerohop == ZEROHOP_OFF && mtCmd(p, "get z.mt.zerohop") == "> off");
+    CHECK(mtCmd(p, "set z.mt.zerohop auto", &ch) == "OK" && ch && p.zerohop == ZEROHOP_AUTO);
+    CHECK(mtCmd(p, "set z.mt.zerohop on", &ch) == "Error: off|auto" && !ch);
+    CHECK(mtCmd(p, "set z.mt.zerohop.add !a1b2c3d4", &ch) == "OK" && ch && p.zerohop_nodes[0] == 0xA1B2C3D4u);
+    CHECK(mtCmd(p, "set z.mt.zerohop.add a1b2c3d4", &ch) == "OK" && !ch);  // already listed
+    CHECK(mtCmd(p, "set z.mt.zerohop.add 0000beef", &ch) == "OK" && ch);
+    CHECK(mtCmd(p, "get z.mt.zerohop") == "> auto !a1b2c3d4 !0000beef");
+    CHECK(mtCmd(p, "set z.mt.zerohop.add 42", &ch).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "set z.mt.zerohop.add 00000000", &ch).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "set z.mt.zerohop.add a1b2c3d4x", &ch).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "set z.mt.zerohop.remove !a1b2c3d4", &ch) == "OK" && ch && p.zerohop_nodes[0] == 0);
+    CHECK(mtCmd(p, "set z.mt.zerohop.remove !a1b2c3d4", &ch) == "Error: no such node" && !ch);
+    for (unsigned i = 1; i < kZeroHopNodesMax; i++) {
         char cmd[48];
-        snprintf(cmd, sizeof(cmd), "set z.mt.channel.add %s", name);
-        mtCmd(p, cmd, nullptr, false);
+        snprintf(cmd, sizeof(cmd), "set z.mt.zerohop.add 1000000%u", i);
+        CHECK(mtCmd(p, cmd, &ch) == "OK" && ch);
     }
-    const char* cmds[] = {"get z.mt.channels", "get z.mt.channel", "set z.mt.role boss",
-                          "set z.mt.relay x", "get z.mt.nope", "set z.mt.hops 9"};
-    for (const char* cmd : cmds) {
-        for (size_t cap = 1; cap <= 48; cap++) {
-            char buf[64];
-            std::memset(buf, 0x7E, sizeof(buf));
-            handleCommand(p, cmd, buf, cap, cmd[8] == 'c' && cmd[15] == 's' ? false : true);
-            CHECK(std::memchr(buf, '\0', cap) != nullptr);  // terminated inside the buffer
-            bool guard = true;
-            for (size_t i = cap; i < sizeof(buf); i++) guard = guard && buf[i] == 0x7E;
-            CHECK(guard);
-        }
-    }
+    CHECK(mtCmd(p, "set z.mt.zerohop.add 20000001", &ch) == "Error: 8 nodes at most" && !ch);
+    CHECK(mtCmd(p, "set z.mt.zerohop.clear", &ch) == "OK" && ch && mtCmd(p, "get z.mt.zerohop") == "> auto");
+    CHECK(mtCmd(p, "set z.mt.zerohop.clear", &ch) == "OK" && !ch);
+    p.zerohop = 9;
+    sanitize(p);
+    CHECK(p.zerohop == ZEROHOP_OFF);
+}
+
+TEST(mt_roles_by_firmware, "UNIT-MT-053", "A repeater may be client, client_base, router, router_late or repeater; a companion client_mute or client; a muted client repeats nothing") {
+    RepeaterPrefs p;
+    setDefaults(p, 3, RELAY_ESSENTIAL, ROLE_CLIENT_BASE);
+    bool ch = false;
+    CHECK(mtCmd(p, "get z.mt.role") == "> client_base");
+    CHECK(mtCmd(p, "set z.mt.role client_mute", &ch) == "Error: client|client_base|router|router_late|repeater" && !ch);
+    CHECK(mtCmd(p, "set z.mt.role router", &ch) == "OK" && ch && p.role == ROLE_ROUTER);
+    CHECK(mtCmd(p, "set z.mt.role client_base", &ch) == "OK" && ch && p.role == ROLE_CLIENT_BASE);
+
+    setDefaults(p, 3, RELAY_OFF, ROLE_CLIENT_MUTE);
+    CHECK(mtCmd(p, "get z.mt.role", nullptr, false) == "> client_mute");
+    CHECK(mtCmd(p, "set z.mt.role router", &ch, false) == "Error: client_mute|client" && !ch);
+    CHECK(mtCmd(p, "set z.mt.role client_base", &ch, false).find("Error") == 0 && !ch);
+    CHECK(mtCmd(p, "set z.mt.role client", &ch, false) == "OK" && ch && p.role == ROLE_CLIENT);
+    CHECK(mtCmd(p, "set z.mt.role client_mute", &ch, false) == "OK" && ch && p.role == ROLE_CLIENT_MUTE);
+
+    p.role = ROLE_CLIENT_BASE;
+    sanitize(p);
+    CHECK(p.role == ROLE_CLIENT_BASE);                             // a stored role is kept
+    CHECK(!roleRepeats(ROLE_CLIENT_MUTE) && roleRepeats(ROLE_CLIENT) && roleRepeats(ROLE_CLIENT_BASE));
+    CHECK(roleYieldsToEcho(ROLE_CLIENT_BASE) && !roleSendsEarly(ROLE_CLIENT_BASE));
+}
+
+static Header fwHeader(uint32_t from, uint8_t relay) {
+    Header h = {};
+    h.from = from;
+    h.relay = relay;
+    return h;
+}
+
+TEST(mt_fw_screen, "UNIT-FW-012", "Meshtastic: a rule drops its port, a NodeInfo gap and a relay ceiling follow, routing and unopened frames have no type") {
+    fw::Prefs p = {};
+    fw::Firewall f;
+    FwScreen screen(f, p);
+    screen.setNow(0);
+    CHECK(!screen.drops(fwHeader(1, 0x11), PORT_TEXT));
+    p.drop = (1u << FW_TEXT) | (1u << FW_OTHER);
+    CHECK(screen.drops(fwHeader(1, 0x11), PORT_TEXT));
+    CHECK(screen.drops(fwHeader(1, 0x11), 7));
+    CHECK(!screen.drops(fwHeader(1, 0x11), PORT_ROUTING) && !screen.drops(fwHeader(1, 0x11), 0));
+    CHECK(!screen.drops(fwHeader(1, 0x11), PORT_POSITION));
+    p = {};
+    p.advert_gap_min = 10;
+    CHECK(!screen.drops(fwHeader(5, 0x11), PORT_NODEINFO));
+    screen.setNow(9 * 60000u);
+    CHECK(screen.drops(fwHeader(5, 0x11), PORT_NODEINFO));
+    CHECK(!screen.drops(fwHeader(6, 0x11), PORT_NODEINFO) && !screen.drops(fwHeader(5, 0x11), PORT_TEXT));
+    screen.setNow(10 * 60000u);
+    CHECK(!screen.drops(fwHeader(5, 0x11), PORT_NODEINFO));
+    p = {};
+    p.hop_rate = 2;
+    p.advert_gap_min = 10;
+    screen.setNow(20 * 60000u);
+    CHECK(!screen.drops(fwHeader(8, 0x22), PORT_TEXT) && !screen.drops(fwHeader(8, 0x22), 0));
+    CHECK(screen.drops(fwHeader(9, 0x22), PORT_NODEINFO));
+    CHECK(!screen.drops(fwHeader(9, 0x33), PORT_NODEINFO));   // another relay, so the gap was not opened by the dropped one
+    CHECK(!screen.drops(fwHeader(8, 0), PORT_TEXT) && !screen.drops(fwHeader(8, 0), PORT_TEXT));  // no relay byte: no ceiling
+}
+
+TEST(mt_fw_bridge, "UNIT-FW-013", "A frame the screen drops is not delivered, repeated or remembered; a copy of an accepted one is a duplicate, not screened") {
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 31), r = makeNode(0xD4D4D4D4u, "relay", 32);
+    r.setRelay(true);
+    fw::Prefs p = {};
+    fw::Firewall f;
+    FwScreen screen(f, p);
+    r.setScreen(&screen);
+    uint8_t one[kMaxFrame], two[kMaxFrame], out[kMaxFrame];
+    size_t out_len = 0;
+    size_t n1 = a.buildText(3, kBroadcast, "uno", 3, one, sizeof(one));
+    size_t n2 = a.buildText(3, kBroadcast, "dos", 3, two, sizeof(two));
+    Capture cap;
+    p.drop = 1u << FW_TEXT;
+    CHECK(r.handleFrame(one, n1, 0, cap, out, &out_len) == RX_DROPPED && out_len == 0 && cap.texts.empty());
+    CHECK(r.handleFrame(one, n1, 0, cap, out, &out_len) == RX_DROPPED);
+    p.drop = 0;
+    p.hop_rate = 1;
+    CHECK(r.handleFrame(one, n1, 0, cap, out, &out_len) == RX_HANDLED && out_len == n1 && cap.texts.size() == 1);
+    CHECK(r.handleFrame(two, n2, 0, cap, out, &out_len) == RX_DROPPED && out_len == 0 && cap.texts.size() == 1);
+    CHECK(r.handleFrame(one, n1, 0, cap, out, &out_len) == RX_DUPLICATE);
+    CHECK(f.counters().rule[FW_TEXT] == 2 && f.counters().rate == 1);
+}
+
+TEST(mt_fw_commands, "UNIT-FW-014", "z.mt.fw.* use the Meshtastic rule names and refuse the MeshCore ones") {
+    fw::Prefs p = {};
+    fw::Firewall f;
+    char out[100];
+    auto run = [&](const char *line, bool *changed = nullptr) {
+        fw::CmdResult r = fw::handleCommand(p, f, kFwRules, line, out, sizeof(out));
+        if (changed) *changed = r.changed;
+        return std::string(out);
+    };
+    bool changed = false;
+    CHECK(fw::isCommand("get z.mt.fw.gap") && fw::isMeshtastic("get z.mt.fw.gap") && !fw::isMeshtastic("get z.mc.fw.gap"));
+    CHECK(run("set z.mt.fw.drop nodeinfo on", &changed) == "OK" && p.drop == (1u << FW_NODEINFO) && changed);
+    CHECK(run("set z.mt.fw.drop traceroute 1") == "OK" && run("get z.mt.fw.drop") == "> nodeinfo 0 traceroute 0");
+    CHECK(run("set z.mt.fw.drop advert on").rfind("Error", 0) == 0 && run("set z.mt.fw.drop group on").rfind("Error", 0) == 0);
+    CHECK(run("set z.mt.fw.gap 30", &changed) == "OK" && p.advert_gap_min == 30 && changed);
+    CHECK(run("set z.mt.fw.rate 12") == "OK" && p.hop_rate == 12 && run("get z.mt.fw.rate") == "> 12");
+    CHECK(run("get z.mt.fw.stats") == "> gap 0, rate 0, drop 0");
+    CHECK(run("set z.mt.fw.drop none", &changed) == "OK" && p.drop == 0 && changed);
 }

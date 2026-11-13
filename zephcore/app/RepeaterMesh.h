@@ -28,6 +28,7 @@
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 #include <helpers/meshtastic/MtBridge.h>
 #include "MtRelayPort.h"
+#include <helpers/meshtastic/MtFirewall.h>
 #endif
 
 struct RepeaterStats {
@@ -144,6 +145,15 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
 #endif
   mesh::GroupChannel _ping_channel;  // PING_MC_CHANNEL
   ping::Stats _ping_stats = {};
+  fw::Firewall _firewall;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  fw::Firewall _mt_firewall;
+  mt::FwScreen _mt_screen{_mt_firewall, _prefs.mtfw};
+#endif
+  rxstats::Observer _rx_mc;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  rxstats::Observer _rx_mt;
+#endif
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
@@ -196,6 +206,7 @@ protected:
   }
 
   bool allowPacketForward(const mesh::Packet* packet) override;
+  bool filterRecvFloodPacket(mesh::Packet* packet) override;
   const char* getLogDateTime() override;
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
 
@@ -308,6 +319,7 @@ public:
   void formatStatsReply(char *reply) override;
   void formatRadioStatsReply(char *reply) override;
   void formatPacketStatsReply(char *reply) override;
+  void fillZStats(zinfo::Stats &s) override;
   void startRegionsLoad() override;
   bool saveRegions() override;
   void onDefaultRegionChanged(const RegionEntry* r) override;
@@ -336,6 +348,18 @@ public:
 #endif
   void formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) override;
   ping::Stats* pingStats() override { return &_ping_stats; }
+  fw::Firewall* firewall(bool meshtastic) override {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+    if (meshtastic) return &_mt_firewall;
+#endif
+    return meshtastic ? nullptr : &_firewall;
+  }
+  rxstats::Observer* rxStats(bool meshtastic) override {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+    if (meshtastic) return &_rx_mt;
+#endif
+    return meshtastic ? nullptr : &_rx_mc;
+  }
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   void onPingPrefsChanged() override { mtSetChannels(); }
 #endif

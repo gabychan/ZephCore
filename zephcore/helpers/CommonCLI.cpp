@@ -14,7 +14,11 @@
 #endif
 #include <helpers/MeshTimeSync.h>
 #include <helpers/meshtastic/MtConfig.h>
+#include <helpers/meshtastic/MtFirewall.h>
 #include <helpers/OffgridPolicy.h>
+#include <helpers/ZCommand.h>
+#include <helpers/ZInfo.h>
+#include <helpers/HeapStats.h>
 #include <helpers/LoopWakeStats.h>
 extern "C" void power_diag_line(int n, char *out, size_t cap);  /* TEMPORARY: helpers/power_diag.c */
 #include <helpers/time_sync.h>
@@ -392,7 +396,42 @@ static bool neighbourArgs(const char* command, const char* prefix, size_t& page,
 	return true;
 }
 
+/* "get z.info": version, uptime, battery, flash, heap and contacts in one line. */
+void CommonCLI::replyZInfo(size_t cap, char* reply) {
+	zinfo::Info info = {};
+
+	info.fw = _callbacks->getFirmwareVer();
+	info.uptime_s = (uint32_t)(k_uptime_get() / 1000);
+	info.batt_mv = _board->getBattMilliVolts();
+	const HeapTotals heap = heapTotals();
+
+	info.heap_used = heap.used;
+	info.heap_total = heap.total;
+	info.heap_peak = heap.peak;
+	_callbacks->fillZInfo(info);
+	zinfo::formatInfo(reply, cap, info);
+}
+
+/* "get z.stats": the MeshCore counters and, where built, the Meshtastic ones. */
+void CommonCLI::replyZStats(size_t cap, char* reply) {
+	zinfo::Stats stats = {};
+	char mt[96];
+
+	_callbacks->fillZStats(stats);
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	_callbacks->formatMtStatsReply(mt, sizeof(mt));
+	/* A role without the Meshtastic side answers "not available": no tail. */
+	zinfo::formatStats(reply, cap, stats, strncmp(mt, "> ", 2) == 0 ? mt + 2 : nullptr);
+#else
+	(void)mt;
+	zinfo::formatStats(reply, cap, stats, nullptr);
+#endif
+}
+
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
+	if (zcmd::helpReply(command, IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC), reply, replyCap(sender_timestamp))) {
+		return;
+	}
 	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
 		return;
 	}
@@ -411,6 +450,14 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 #endif
 		return;
 	}
+	if (strcmp(command, "get z.info") == 0) {
+		replyZInfo(replyCap(sender_timestamp), reply);
+		return;
+	}
+	if (strcmp(command, "get z.stats") == 0) {
+		replyZStats(replyCap(sender_timestamp), reply);
+		return;
+	}
 	if (ping::isCommand(command)) {
 		ping::Stats* stats = _callbacks->pingStats();
 #if !IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
@@ -427,6 +474,37 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		if (pr.changed) {
 			ping::sanitize(_prefs->ping);
 			_callbacks->onPingPrefsChanged();
+			savePrefs();
+		}
+		return;
+	}
+	if (rxstats::isCommand(command)) {
+		const bool mt = rxstats::isMeshtastic(command);
+		rxstats::Observer* observer = IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !mt ? _callbacks->rxStats(mt) : nullptr;
+
+		if (!observer) {
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
+		} else {
+			rxstats::handleCommand(*observer, command, reply, replyCap(sender_timestamp));
+		}
+		return;
+	}
+	if (fw::isCommand(command)) {
+		const bool mt = fw::isMeshtastic(command);
+		fw::Firewall* firewall = IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !mt ? _callbacks->firewall(mt) : nullptr;
+
+		if (!firewall) {
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
+			return;
+		}
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		const fw::Rules& rules = mt ? mt::kFwRules : fw::kMcRules;
+		fw::Prefs& fwprefs = mt ? _prefs->mtfw : _prefs->fw;
+#else
+		const fw::Rules& rules = fw::kMcRules;
+		fw::Prefs& fwprefs = _prefs->fw;
+#endif
+		if (fw::handleCommand(fwprefs, *firewall, rules, command, reply, replyCap(sender_timestamp)).changed) {
 			savePrefs();
 		}
 		return;

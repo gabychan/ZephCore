@@ -10,6 +10,7 @@
 #include <helpers/BaseSerialInterface.h>
 #include <helpers/MeshTimeSync.h>
 #include <helpers/NeighbourList.h>
+#include <helpers/ui/ui_dash.h>
 #include <helpers/TransportKeyStore.h>
 #include <ZephyrDataStore.h>
 #include <NodePrefs.h>
@@ -116,6 +117,8 @@ public:
 	bool sendSelfAdvert(bool flood) override;
 	/* "get z.mc.neighbors": repeaters heard with no hops, best SNR first. */
 	void formatMcNeighbours(char *reply, size_t cap, size_t page, bool recent);
+	/* The dashboard page: the best neighbours of each side, and the Meshtastic counters and setup. */
+	void fillDashboardSides(struct ui_dash &d);
 
 	/* One companion-protocol frame from the app; true if handled. */
 	bool handleCmdFrame(const uint8_t *data, size_t len);
@@ -425,6 +428,7 @@ public:
 	void mtApplyListen();
 	void mtFormatStats(char *reply, size_t cap) const;
 	void mtFormatNeighbours(char *reply, size_t cap, size_t page, bool recent);
+	void mtFillDashboard(struct ui_dash &d);
 private:
 #endif
 	ZephyrDataStore *_store;

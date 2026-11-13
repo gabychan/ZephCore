@@ -25,6 +25,11 @@ add_executable(zephcore_unit
   unit/meshtastic_tests.cpp
   unit/neighbour_tests.cpp
   unit/ping_tests.cpp
+  unit/fw_tests.cpp
+  unit/rxstats_tests.cpp
+  unit/zcommand_tests.cpp
+  unit/zinfo_tests.cpp
+  unit/uidash_tests.cpp
   support/hash_capture.cpp
   support/identity_utils_boundary.cpp
   ${PRODUCTION}/src/Dispatcher.cpp
@@ -54,7 +59,7 @@ target_compile_features(zephcore_unit PRIVATE cxx_std_17)
 target_compile_definitions(zephcore_unit PRIVATE CONFIG_ZEPHCORE_PACKET_LOGGING=0 CONFIG_ZEPHTACORE_MESHTASTIC=1
   CONFIG_ZEPHCORE_UI_DESIGN_JOYSTICK=1 CONFIG_ZEPHCORE_UI_DESIGN_BUTTON=0)
 target_include_directories(zephcore_unit PRIVATE
-  support unit ${PRODUCTION} ${PRODUCTION}/include ${PRODUCTION}/helpers ${PRODUCTION}/helpers/compat ${PRODUCTION}/helpers/meshtastic ${PRODUCTION}/helpers
+  support unit ${PRODUCTION} ${PRODUCTION}/include ${PRODUCTION}/helpers ${PRODUCTION}/helpers/compat ${PRODUCTION}/helpers/meshtastic ${PRODUCTION}/helpers/ui ${PRODUCTION}/helpers
   ${PRODUCTION}/lib/monocypher
   ${PRODUCTION}/adapters/radio
   ${PRODUCTION}/patches/zephyr-new/include ${PRODUCTION}/patches/zephyr-new/drivers/lora/lr11xx)
