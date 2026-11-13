@@ -881,6 +881,48 @@ TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive 
     CHECK(relay_len == n && cls == RelayClass::Essential);
 }
 
+TEST(mt_relay_table, "UNIT-MT-054", "Repeat and echo decision for every port in off, essential and all, held or opaque channel") {
+    struct Row { uint32_t port; bool held; bool essential; bool all; bool yields; };
+    const Row rows[] = {
+        {PORT_TEXT, true, true, true, false},
+        {PORT_ROUTING, true, true, true, false},
+        {PORT_NODEINFO, true, true, true, false},
+        {PORT_TRACEROUTE, true, true, true, false},
+        {PORT_POSITION, true, true, true, true},
+        {67, true, false, true, true},  // telemetry
+        {0, false, true, true, true},   // opaque channel: port unknown
+    };
+    for (const Row &r : rows) {
+        RelayClass cls = r.held ? relayClassOf(r.port) : RelayClass::Essential;
+        CHECK(repeatsInMode(false, cls) == r.essential);
+        CHECK(repeatsInMode(true, cls) == r.all);
+        CHECK(yieldsOnEcho(cls) == r.yields);
+    }
+    // A direct message on channel 0 we cannot open is the PKI case: repeated in essential, never yields.
+    CHECK(repeatsInMode(false, RelayClass::Always) && !yieldsOnEcho(RelayClass::Always));
+
+    // relay off and relay.opaque off decide in the bridge, before the class.
+    Bridge a(refAes);
+    a.setSelf(0xA1A1A1A1u, "alpha", "ZN", 1);
+    uint8_t psk[16];
+    for (int i = 0; i < 16; i++) psk[i] = (uint8_t)(0x40 + i);
+    CHECK(a.setChannel(1, "private", psk, 16));
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t n = a.buildText(1, kBroadcast, "secreto", 7, frame, sizeof(frame));
+    while (looksLikeMeshCore(frame, n, 0)) { frame[0] ^= 0x40; }
+    Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);
+    Capture cap;
+    size_t relay_len = 0;
+    RelayClass cls = RelayClass::Always;
+    r.setRelay(false); r.setRelayOpaque(true);
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
+    r.setRelay(true); r.setRelayOpaque(false);
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
+    r.setRelayOpaque(true);
+    CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_OPAQUE && relay_len == n);
+    CHECK(cls == RelayClass::Essential && repeatsInMode(false, cls) && yieldsOnEcho(cls));
+}
+
 TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore") {
     Bridge a(refAes);
     a.setSelf(0xA1A1A1A1u, "alpha", "ZN", 1);

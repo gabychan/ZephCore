@@ -31,7 +31,7 @@ enum ZeroHopMode : uint8_t {
 /* What a repeater repeats. */
 enum Relay : uint8_t {
 	RELAY_OFF = 0,
-	RELAY_ESSENTIAL = 1,  /* text, direct messages, ACKs, NodeInfo, traceroute */
+	RELAY_ESSENTIAL = 1,  /* text, direct messages, ACKs, NodeInfo, traceroute, position; and frames of channels we cannot open */
 	RELAY_ALL = 2,        /* the above, and the rest unless another node repeated it first */
 };
 

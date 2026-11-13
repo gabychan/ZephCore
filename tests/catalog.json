@@ -748,6 +748,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-054",
+      "name": "Repeat and echo decision for every port in off, essential and all, held or opaque channel",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-031",
       "name": "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore",
       "source": "tests/unit/meshtastic_tests.cpp"

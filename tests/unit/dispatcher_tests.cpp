@@ -1,4 +1,5 @@
 #include "dispatcher_fixture.h"
+#include <cstring>
 using namespace test_support;
 
 TEST(dispatch_send, "UNIT-DISPATCH-001", "Immediate wake delayed dispatch and exactly-once completion") {

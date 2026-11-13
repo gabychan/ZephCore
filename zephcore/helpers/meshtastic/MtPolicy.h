@@ -101,4 +101,13 @@ inline RelayClass relayClassOf(uint32_t portnum)
 	}
 }
 
+/* Whether a repeat is queued: essential repeats everything but CancelOnEcho, all repeats it too. */
+inline bool repeatsInMode(bool relay_all, RelayClass cls)
+{
+	return relay_all || cls != RelayClass::CancelOnEcho;
+}
+
+/* Whether the repeat is dropped when another node repeats the frame first. */
+inline bool yieldsOnEcho(RelayClass cls) { return cls != RelayClass::Always; }
+
 } /* namespace mt */
