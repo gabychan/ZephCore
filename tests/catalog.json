@@ -968,6 +968,36 @@
       "source": "tests/unit/fw_tests.cpp"
     },
     {
+      "id": "UNIT-RX-001",
+      "name": "Frames are counted by hops crossed, 7 or more together, unknown apart; empty buckets are left out",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-002",
+      "name": "Frames are counted per relay of 1 to 3 bytes, most frames first; no relay counts none",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-003",
+      "name": "A full table drops the relay that carried least to make room",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-004",
+      "name": "A line that does not fit the reply is left out whole",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-005",
+      "name": "clear empties both tables",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-006",
+      "name": "get answers the histogram or the relays of its protocol; set is refused; other z commands are not handled",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
       "id": "UNIT-ZINFO-001",
       "name": "z.info gives version, uptime, battery, flash, heap and contacts in one line",
       "source": "tests/unit/zinfo_tests.cpp"

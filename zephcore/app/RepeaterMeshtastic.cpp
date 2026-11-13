@@ -148,7 +148,14 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
 	(void)rssi;
-	return _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(_prefs.mt)) != mt::RX_NOT_MESHTASTIC;
+	const mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, MtRelayPort::policyFor(_prefs.mt));
+	mt::Header h;
+
+	if (r != mt::RX_NOT_MESHTASTIC && r != mt::RX_IGNORED && mt::parseHeader(raw, (size_t)len, h)) {
+		_rx_mt.heard(h.hopStart() ? (h.hopStart() >= h.hopLimit() ? h.hopStart() - h.hopLimit() : 0) : rxstats::kUnknownHops,
+			     &h.relay, h.relay ? 1 : 0);
+	}
+	return r != mt::RX_NOT_MESHTASTIC;
 }
 
 /* NodeInfo, position and telemetry on the primary channel, as Meshtastic's own default does. */

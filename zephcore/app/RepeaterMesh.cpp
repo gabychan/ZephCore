@@ -746,6 +746,12 @@ mesh::DispatcherAction RepeaterMesh::onRecvPacket(mesh::Packet* pkt) {
   // Determine the request packet's region so sendFloodReply() can echo the same
   // scope. Runs for every packet (not just floods) so recv_pkt_region is cleared
   // for direct packets instead of inheriting the last flood's region.
+  if (pkt->isRouteFlood()) {
+    const uint8_t hops = pkt->getPathHashCount();
+    const uint8_t size = pkt->getPathHashSize();
+
+    _rx_mc.heard(hops, hops ? &pkt->path[(hops - 1) * size] : nullptr, hops ? size : 0);
+  }
   recv_pkt_unscoped_flood = mesh::isUnscopedFlood(pkt);
   if (recv_pkt_unscoped_flood) {
     if (region_map.getWildcard().flags & REGION_DENY_FLOOD) {
@@ -1440,6 +1446,10 @@ void RepeaterMesh::clearStats() {
   radio_driver.resetDutyCycleTimeoutRestarts();
   resetStats();
   ((SimpleMeshTables *)getTables())->resetStats();
+  _rx_mc.clear();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  _rx_mt.clear();
+#endif
 }
 
 // ZEPHCORE: ours. Reply-header budget, blank lines, uplink and neighbour CLI.

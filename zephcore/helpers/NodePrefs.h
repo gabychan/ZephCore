@@ -13,6 +13,7 @@
 #include "LoRaConfig.h"
 #include "PingBot.h"
 #include "McFirewall.h"
+#include "RxStats.h"
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
 #include "meshtastic/MtConfig.h"
 #endif

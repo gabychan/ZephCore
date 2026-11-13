@@ -284,6 +284,17 @@ Drop rules and two limits on what the repeater accepts from the MeshCore side, a
 | `get z.mc.fw.stats` | `> gap 3, rate 12, drop 5`: adverts dropped by the gap, frames dropped by the rate and frames dropped by the drop rules, since boot. |
 
 
+## Reception statistics (*ZephCore only*, repeater)
+
+What the repeater heard since boot, per protocol, in RAM (`clear stats` empties them). Read only.
+
+| Command | Description |
+|---------|-------------|
+| `get z.mc.hopstats` / `get z.mt.hopstats` | Frames heard by hops crossed: `> 0:12 1:5 7+:1 ?:2`, only the buckets with frames, `7+` seven or more, `?` Meshtastic frames whose sender set no `hop_start`. MeshCore counts flood frames (the hashes in the path), every copy heard; Meshtastic counts `hop_start - hop_limit` of the frames its channels or the opaque path took. `> none` when empty. |
+| `get z.mc.relays` / `get z.mt.relays` | Who delivered the frames, most first: `> 3f:120 a1b2:40`. MeshCore: the last hash of the path of a flood frame (1 to 3 bytes, per `path.hash.mode`); a frame with no hops has none. Meshtastic: the relay byte of the header, which is the last byte of a node number (`z.mt.neighbors` shows the node). 16 relays are kept; a full table drops the one with fewest frames. |
+
+## Ping bot (*ZephCore only*)
+
 The companion and the repeater answer a ping with how the frame was heard and the route it took. It listens only on two fixed channels, which cannot be changed: MeshCore `#bot` and Meshtastic `Bots` (default key variant 2). On the companion they are the channels with those names (`#bot` and `#mt-bots`, both added by default); the repeater holds them only while its protocol's bot is on, so with the bot off it opens no group packet it did not open before. Each protocol is switched on, and given the command it answers to, on its own, and it cannot be switched on without that command, which can be changed later. Settings persist in `prefs.json` (`zc{}`, keys `ping_*`). The room server and direct messages do not answer, and the frequency error is not reported.
 
 ```

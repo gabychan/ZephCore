@@ -26,6 +26,7 @@ add_executable(zephcore_unit
   unit/neighbour_tests.cpp
   unit/ping_tests.cpp
   unit/fw_tests.cpp
+  unit/rxstats_tests.cpp
   unit/zcommand_tests.cpp
   unit/zinfo_tests.cpp
   unit/uidash_tests.cpp

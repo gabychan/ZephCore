@@ -5,6 +5,14 @@ default channels and node name in order.
 
 ---
 
+## Reception statistics (repeater)
+
+- `get z.mc.hopstats` and `get z.mt.hopstats` count the frames heard by hops crossed; `get z.mc.relays` and
+  `get z.mt.relays` count them by the repeater that delivered them. They help to tune `z.mt.zerohop` and to find
+  repeaters that `neighbors` does not list. See `docs/CLI_commands.md`.
+
+---
+
 ## MeshCore receive limits (repeater)
 
 - `set z.mc.fw.drop <rule> on` drops the flood frames of a payload type (`advert`, `request`, `text`, `group`, `ack`,

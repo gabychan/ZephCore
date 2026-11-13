@@ -477,6 +477,17 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		}
 		return;
 	}
+	if (rxstats::isCommand(command)) {
+		const bool mt = rxstats::isMeshtastic(command);
+		rxstats::Observer* observer = IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !mt ? _callbacks->rxStats(mt) : nullptr;
+
+		if (!observer) {
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
+		} else {
+			rxstats::handleCommand(*observer, command, reply, replyCap(sender_timestamp));
+		}
+		return;
+	}
 	if (fw::isCommand(command)) {
 		fw::Firewall* firewall = _callbacks->firewall();
 
