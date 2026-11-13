@@ -132,6 +132,8 @@ Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI
 | What companion and repeater share: hearing a frame, repeating it with the role's timing, giving way to an echo, our own frames, AES, self identity | `zephcore/app/MtRelayPort.h/.cpp` |
 | Settings, command parser, defaults | `zephcore/helpers/meshtastic/MtConfig.h/.cpp` |
 | What gives way to an echo, and what `essential` repeats | `mt::relayClassOf` in `MtPolicy.h` |
+| Receive limits `z.mc.fw.*` and `z.mt.fw.*`: types dropped, one advert or NodeInfo per node per window, a ceiling of frames a minute per neighbouring repeater | `zephcore/helpers/McFirewall.h` (shared core and commands); MeshCore: `RepeaterMesh::filterRecvFloodPacket`; Meshtastic: `mt::Screen` in `MtBridge.h`, `mt::FwScreen` in `MtFirewall.h` |
+| Reception statistics `z.mc.hopstats`, `z.mt.hopstats`, `z.mc.relays`, `z.mt.relays` | `zephcore/helpers/RxStats.h`; fed by `RepeaterMesh::onRecvPacket` and `onRecvForeign` |
 | Zero hop: when a repeat keeps its `hop_limit` (ADR 0016) | `mt::ZeroHop` in `MtZeroHop.h`, applied in `MtRelayPort::onFrame` |
 | MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. A frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser, whatever the `z.mt.*` settings (`MtRelayPort::unopened`) |
 | Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard`, `cancelForeignRelay` |
@@ -173,6 +175,7 @@ Not run on air.
 | Firmware build `promicro_lr2021` (LR2021) | OK. Flash 383532 B |
 | Firmware build `wio_tracker_l1` repeater, feature off | OK |
 | SX126x patch | Applies to the pinned Zephyr (`0534e997e`) |
+| Receive limits and reception statistics (repeater) | Host tests (`UNIT-FW-*`, `UNIT-RX-*`) and builds of `wio_tracker_l1` as repeater with and without Meshtastic and as companion. Not run on hardware |
 | **On air** | **Not done**, on any radio family. No frame has been sent to or received from a Meshtastic node, and the hybrid sync word has not been measured for packet loss on this code |
 
 First on-air checks, in order: (1) a Meshtastic node on the same frequency, bandwidth, SF and CR sends text on
