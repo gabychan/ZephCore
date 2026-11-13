@@ -933,6 +933,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-048",
+      "name": "base64 keys decode with or without padding and in the URL-safe alphabet; a reply never writes past a short buffer",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-PJSON-011",
       "name": "The ping bot's settings survive prefs.json in both roles; an invalid command comes back off",
       "source": "tests/unit/prefs_json_tests.cpp"
