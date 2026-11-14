@@ -145,6 +145,8 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
 #endif
   mesh::GroupChannel _ping_channel;  // PING_MC_CHANNEL
   ping::Stats _ping_stats = {};
+  RateLimiter _ping_limit_mc{ping::kAnswersPerWindow, ping::kAnswerWindowS};
+  RateLimiter _ping_limit_mt{ping::kAnswersPerWindow, ping::kAnswerWindowS};
   fw::Firewall _firewall;
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   fw::Firewall _mt_firewall;
@@ -207,6 +209,7 @@ protected:
 
   bool allowPacketForward(const mesh::Packet* packet) override;
   bool filterRecvFloodPacket(mesh::Packet* packet) override;
+  bool screenFlood(const mesh::Packet* packet);
   const char* getLogDateTime() override;
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
 
