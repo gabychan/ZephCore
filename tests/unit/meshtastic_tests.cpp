@@ -760,6 +760,26 @@ TEST(mt_acks, "UNIT-MT-023", "An ACK or NAK for us reaches the sink, by PKI or o
     CHECK(t.a.handleFrame(frame, kHeaderLen + dn, 0, t.ca, relay, &relay_len) == RX_HANDLED && t.ca.acks.size() == 2);
 }
 
+TEST(mt_ack_channel, "UNIT-MT-055", "An ACK on a channel is ignored: only a PKI ACK confirms a direct message") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    uint8_t routing[] = {0x18, 0x00};  // error_reason NONE: an ACK
+    Data d = {};
+    d.portnum = PORT_ROUTING; d.payload = routing; d.payload_len = sizeof(routing); d.request_id = 0x9ABCu;
+    uint8_t pb[32];
+    size_t dn = encodeData(d, pb, sizeof(pb));
+    Header h = {0xA1A1A1A1u, 0xB2B2B2B2u, 0x79u, 0x63, 0x08, 0, 0};
+    writeHeader(h, frame);
+    std::memcpy(frame + kHeaderLen, pb, dn);
+    ctrCrypt(refAes, kDefaultKey, h.from, h.id, frame + kHeaderLen, dn);
+    CHECK(t.a.handleFrame(frame, kHeaderLen + dn, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.acks.empty());
+    size_t n = t.b.buildAck(0xA1A1A1A1u, 0x9ABCu, t.qa, frame, sizeof(frame));
+    CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.acks.size() == 1 && t.ca.acks[0].id == 0x9ABCu && t.ca.acks[0].reason == 0);
+}
+
 TEST(mt_want_ack, "UNIT-MT-024", "A PKI direct text can ask for an ACK, and the receiver sees it") {
     PkiPair t;
     uint8_t frame[kMaxFrame], relay[kMaxFrame];

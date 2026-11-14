@@ -385,7 +385,10 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int
 	} else if (d.portnum == PORT_ROUTING && h.to == _self && d.request_id != 0) {
 		uint32_t reason;
 
-		if (decodeRouting(d.payload, d.payload_len, reason)) {
+		/* The id of our frame is in clear, so an ACK on a channel proves nothing:
+		 * only PKI authenticates the sender. A NAK can only make us resend a NodeInfo. */
+		if (decodeRouting(d.payload, d.payload_len, reason) &&
+		    (reason != 0 || channel_id == kNoChannel)) {
 			sink.onAck(h.from, d.request_id, reason);
 		}
 	}
