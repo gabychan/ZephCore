@@ -825,6 +825,29 @@ TEST(mt_node_rate_limit, "UNIT-MT-027", "A node is let through once per interval
     CHECK(!f.allow(999, 70, 100000));    // still held
 }
 
+TEST(mt_nodeinfo_limit, "UNIT-MT-056", "Our own NodeInfo goes out once per node per interval and one per gap overall, whatever the node ids") {
+    NodeInfoLimit l;
+    const uint32_t hour = 3600u * 1000u;
+    CHECK(l.allow(1, 1000, hour));
+    CHECK(!l.allow(2, 1000 + NodeInfoLimit::kGapMs - 1, hour));      // another node, inside the gap
+    CHECK(l.allow(2, 1000 + NodeInfoLimit::kGapMs, hour));           // the gap elapsed
+    CHECK(!l.allow(1, 1000 + 2 * NodeInfoLimit::kGapMs, hour));      // node 1 is still inside its own interval
+    // Invented ids past the table size do not get a NodeInfo each: the table forgets, the gap does not.
+    NodeInfoLimit f;
+    uint32_t now = 10;
+    int sent = 0;
+    for (uint32_t i = 0; i < 4 * (uint32_t)NodeRateLimit::kSlots; i++) {
+        sent += f.allow(5000 + i, now, hour) ? 1 : 0;
+        now += 100;
+    }
+    CHECK(sent == 1);                                                // 32 invented nodes in 3.2 s: only the first
+    // The clock wrapping around 2^32 does not close the gap by mistake.
+    NodeInfoLimit w;
+    CHECK(w.allow(9, 0xFFFFFFF0u, hour));
+    CHECK(!w.allow(10, 0x00000010u, hour));
+    CHECK(w.allow(10, 0xFFFFFFF0u + NodeInfoLimit::kGapMs, hour));
+}
+
 TEST(mt_favourite_asks, "UNIT-MT-028", "Marking a favourite asks only on the change, and only when a name or key is missing") {
     CHECK(favouriteAsksNodeInfo(false, true, false, false));
     CHECK(favouriteAsksNodeInfo(false, true, true, false));

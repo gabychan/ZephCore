@@ -347,8 +347,8 @@ private:
 	uint8_t _mt_key_stored_next = 0;
 	bool _mt_ready = false;
 	/* NodeInfo we send to a node on our own account (answering its request,
-	 * asking for a key we lack): once per node per interval. */
-	mt::NodeRateLimit _mt_info_limit;
+	 * asking for a key we lack): once per node per interval, and one at a time. */
+	mt::NodeInfoLimit _mt_info_limit;
 	/* Text sent on a Meshtastic channel ("#mt-<name>"), kept so that hearing a node repeat the frame
 	 * can be shown to the app as a MeshCore repeat of the same message. */
 	struct MtSent {
