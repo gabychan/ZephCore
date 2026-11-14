@@ -825,6 +825,16 @@ TEST(mt_node_rate_limit, "UNIT-MT-027", "A node is let through once per interval
     CHECK(!f.allow(999, 70, 100000));    // still held
 }
 
+TEST(mt_portnum_range, "UNIT-MT-057", "A portnum past 511 is refused, also when its low 32 bits are a valid port") {
+    Data d;
+    const uint8_t ok[] = {0x08, 0x01};
+    CHECK(decodeData(ok, sizeof(ok), d) && d.portnum == 1);
+    const uint8_t wide[] = {0x08, 0x81, 0x80, 0x80, 0x80, 0x10};  // 2^32 + 1
+    CHECK(!decodeData(wide, sizeof(wide), d));
+    const uint8_t big[] = {0x08, 0x80, 0x04};                     // 512
+    CHECK(!decodeData(big, sizeof(big), d));
+}
+
 TEST(mt_favourite_asks, "UNIT-MT-028", "Marking a favourite asks only on the change, and only when a name or key is missing") {
     CHECK(favouriteAsksNodeInfo(false, true, false, false));
     CHECK(favouriteAsksNodeInfo(false, true, true, false));

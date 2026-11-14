@@ -289,7 +289,7 @@ bool decodeData(const uint8_t *buf, size_t len, Data &d)
 		uint64_t v;
 
 		if (num == 1 && wt == WT_VARINT) {
-			if (!r.varint(v)) {
+			if (!r.varint(v) || v > 511) {
 				return false;
 			}
 			d.portnum = (uint32_t)v;
