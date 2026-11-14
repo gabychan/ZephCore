@@ -1163,6 +1163,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-057",
+      "name": "A portnum past 511 is refused, also when its low 32 bits are a valid port",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-PJSON-011",
       "name": "The ping bot's settings survive prefs.json in both roles; an invalid command comes back off",
       "source": "tests/unit/prefs_json_tests.cpp"
