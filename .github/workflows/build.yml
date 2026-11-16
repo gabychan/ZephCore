@@ -2,7 +2,8 @@ name: build firmware
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "zephtacore" ]
+  workflow_dispatch:
 
 # A release run deletes and re-creates a tag, then force-pushes the
 # firmware-dist branch. Two overlapping runs would race on both, and the loser
@@ -168,13 +169,6 @@ jobs:
     # nothing here reaches firmware/.
     - name: compile-only roles
       run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/kiss_modem.conf"
-
-    # Zephtacore: the Meshtastic bridge, as companion and as repeater.
-    - name: compile-only roles (zephtacore companion)
-      run: west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/zephtacore.conf"
-
-    - name: compile-only roles (zephtacore repeater)
-      run: west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/repeater.conf;boards/common/zephtacore.conf"
 
     # Hit rate is the entire point of the per-job ccache namespace above, but the
     # action only prints stats at SETUP time — it runs `ccache -z -s -vv`, which
