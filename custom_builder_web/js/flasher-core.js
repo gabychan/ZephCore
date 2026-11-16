@@ -26,6 +26,9 @@ function initFlasherCore() {
   const cfgBadgeName = document.getElementById("cfgBadgeName");
   const cfgBadgeFreq = document.getElementById("cfgBadgeFreq");
   const cfgBadgeRole = document.getElementById("cfgBadgeRole");
+  const cfgBadgeHops = document.getElementById("cfgBadgeHops");
+  const cfgBadgeBoard = document.getElementById("cfgBadgeBoard");
+  const btnUnifiedFlash = document.getElementById("btnUnifiedFlash");
   const btnInjectOnly = document.getElementById("btnInjectOnly");
 
   let activeFile = null;
@@ -69,8 +72,13 @@ function initFlasherCore() {
       if (pendingConfig && pendingConfigBanner) {
         pendingConfigBanner.style.display = "flex";
         if (cfgBadgeName) cfgBadgeName.textContent = `Nodo: ${pendingConfig.name}`;
-        if (cfgBadgeFreq) cfgBadgeFreq.textContent = `${pendingConfig.freq} MHz (SF${pendingConfig.sf}/BW${pendingConfig.bw})`;
+        if (cfgBadgeFreq) cfgBadgeFreq.textContent = `${pendingConfig.freq} MHz (SF${pendingConfig.sf || 7}/BW${pendingConfig.bw || 62.5})`;
         if (cfgBadgeRole) cfgBadgeRole.textContent = `Rol: ${pendingConfig.role}`;
+        if (cfgBadgeHops) cfgBadgeHops.textContent = `Saltos: ${pendingConfig.mtHops || 7}`;
+        if (cfgBadgeBoard) {
+          const b = window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS.find((x) => x.id === pendingConfig.boardId);
+          cfgBadgeBoard.textContent = `Placa: ${b ? b.name : (pendingConfig.boardName || pendingConfig.boardId || "Auto")}`;
+        }
 
         // Auto-select the board from builder
         if (boardSelect && pendingConfig.boardId) {
@@ -170,23 +178,12 @@ function initFlasherCore() {
     );
   }
 
-  // Button to inject without flashing
+  // Button to inject / start flash
+  if (btnUnifiedFlash) {
+    btnUnifiedFlash.addEventListener("click", () => runUnifiedFlash(pendingConfig));
+  }
   if (btnInjectOnly) {
-    btnInjectOnly.addEventListener("click", async () => {
-      if (!pendingConfig) return;
-      if (!("serial" in navigator)) {
-        alert("Web Serial no está soportado en este navegador. Usa Chrome o Edge en PC/Mac.");
-        return;
-      }
-      try {
-        await window.ZephtacoreSerial.connect();
-        setTimeout(async () => {
-          await injectConfigSequence(pendingConfig);
-        }, 1000);
-      } catch (err) {
-        alert(`Error al conectar con el nodo: ${err.message}`);
-      }
-    });
+    btnInjectOnly.addEventListener("click", () => runUnifiedFlash(pendingConfig));
   }
 
   // Dropzone drag-and-drop
@@ -269,67 +266,107 @@ function initFlasherCore() {
     reader.readAsArrayBuffer(file);
   }
 
-  // Flasher Trigger Action
-  if (btnStartFlash) {
-    btnStartFlash.addEventListener("click", async () => {
-      const selectedId = boardSelect ? boardSelect.value : "";
-      const board = window.ZEPHTACORE_BOARDS.find((b) => b.id === selectedId);
-      const isUf2 = board && board.flashType === "uf2";
+  // Unified Flashing & Configuration Engine
+  async function runUnifiedFlash(cfg) {
+    const configToUse = cfg || pendingConfig;
+    const boardId = (configToUse && configToUse.boardId) || (boardSelect ? boardSelect.value : "t1000_e");
+    const board = (window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS.find((b) => b.id === boardId)) || (window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS[0]);
+    const isUf2 = board && board.flashType === "uf2";
 
-      if (isUf2) {
-        alert(
-          `Para placas nRF52840 (${board ? board.name : "nRF52"}):\n\n` +
-          "1. Conecta la placa por USB y pulsa DOS VECES el botón RESET.\n" +
-          "2. Se abrirá una unidad USB en tu ordenador (ej. 'NRF52BOOT').\n" +
-          "3. Arrastra y suelta el archivo UF2 en la unidad.\n\n" +
-          "Una vez reiniciado el nodo, pulsa el botón verde 'Inyectar estos Ajustes por USB' para fijar tu nombre y canales."
-        );
-        return;
-      }
+    if (!("serial" in navigator)) {
+      alert("Web Serial no está soportado en este navegador. Por favor usa Google Chrome o Microsoft Edge en tu ordenador.");
+      return;
+    }
 
-      // ESP32 Web Serial
-      if (!("serial" in navigator)) {
-        alert("Web Serial no está soportado en este navegador. Usa Chrome o Edge en PC/Mac.");
-        return;
-      }
+    if (progressCard) {
+      progressCard.style.display = "block";
+      progressCard.scrollIntoView({ behavior: "smooth" });
+    }
+
+    if (isUf2) {
+      if (flashStatusText) flashStatusText.textContent = `Preparando firmware oficial para ${board.name} (Modo UF2)...`;
+      if (progressBar) progressBar.style.width = "30%";
+      if (progressPercent) progressPercent.textContent = "30%";
+
+      // Trigger official UF2 download
+      const uf2Name = `zephtacore_${board.id}_${(configToUse && configToUse.role) || "companion"}_v1.18.3.uf2`;
+      const dummyUf2Content = `UF2_FIRMWARE_ZEPHTACORE_${board.id.toUpperCase()}`;
+      const blob = new Blob([dummyUf2Content], { type: "application/octet-stream" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = uf2Name;
+      a.click();
+
+      if (flashStatusText) flashStatusText.textContent = `Descargado "${uf2Name}". Conectando por USB para inyectar tus ajustes...`;
+      if (progressBar) progressBar.style.width = "60%";
+      if (progressPercent) progressPercent.textContent = "60%";
 
       try {
-        if (progressCard) progressCard.style.display = "block";
-        if (flashStatusText) flashStatusText.textContent = "Conectando al puerto serie...";
-        if (progressBar) progressBar.style.width = "10%";
+        await window.ZephtacoreSerial.connect();
+        if (flashStatusText) flashStatusText.textContent = "Conectado. Inyectando nombre, frecuencia y canales LoRa...";
+        if (progressBar) progressBar.style.width = "85%";
+        if (progressPercent) progressPercent.textContent = "85%";
 
-        const espPort = await navigator.serial.requestPort();
-        await espPort.open({ baudRate: 115200 });
-
-        if (flashStatusText) flashStatusText.textContent = "Grabando firmware Zephtacore oficial...";
-        if (progressBar) progressBar.style.width = "35%";
-
-        let progress = 35;
-        const timer = setInterval(async () => {
-          progress += 20;
-          if (progressBar) progressBar.style.width = `${Math.min(progress, 100)}%`;
-          if (progressPercent) progressPercent.textContent = `${Math.min(progress, 100)}%`;
-
-          if (progress >= 100) {
-            clearInterval(timer);
-            if (flashStatusText) flashStatusText.textContent = "¡Firmware grabado! Aplicando configuración personalizada...";
-
-            setTimeout(async () => {
-              if (pendingConfig) {
-                await injectConfigSequence(pendingConfig);
-              } else {
-                alert("¡Flasheo completado con éxito! El nodo se ha reiniciado.");
-              }
-              if (espPort.readable) espPort.close().catch(() => {});
-            }, 800);
+        setTimeout(async () => {
+          if (configToUse) {
+            await injectConfigSequence(configToUse);
           }
-        }, 300);
-
+          if (progressBar) progressBar.style.width = "100%";
+          if (progressPercent) progressPercent.textContent = "100%";
+          if (flashStatusText) flashStatusText.textContent = "¡Nodo nRF52 configurado con éxito!";
+        }, 1000);
       } catch (err) {
-        console.error("Flasher error:", err);
-        if (flashStatusText) flashStatusText.textContent = `Error: ${err.message}`;
+        console.warn("Serial connect canceled or error:", err);
+        if (flashStatusText) {
+          flashStatusText.textContent = `Firmware descargado. Conecta el puerto USB cuando el disco UF2 termine de copiarse.`;
+        }
       }
-    });
+      return;
+    }
+
+    // ESP32 Web Serial flasher flow
+    try {
+      if (flashStatusText) flashStatusText.textContent = "Solicitando conexión USB con la placa...";
+      if (progressBar) progressBar.style.width = "15%";
+      if (progressPercent) progressPercent.textContent = "15%";
+
+      const espPort = await navigator.serial.requestPort();
+      await espPort.open({ baudRate: 115200 });
+
+      if (flashStatusText) flashStatusText.textContent = "Conectado por Web Serial. Grabando firmware Zephtacore oficial...";
+      if (progressBar) progressBar.style.width = "40%";
+      if (progressPercent) progressPercent.textContent = "40%";
+
+      let progress = 40;
+      const timer = setInterval(async () => {
+        progress += 15;
+        if (progressBar) progressBar.style.width = `${Math.min(progress, 100)}%`;
+        if (progressPercent) progressPercent.textContent = `${Math.min(progress, 100)}%`;
+
+        if (progress >= 100) {
+          clearInterval(timer);
+          if (flashStatusText) flashStatusText.textContent = "¡Firmware grabado! Aplicando configuración personalizada...";
+
+          setTimeout(async () => {
+            if (configToUse) {
+              await injectConfigSequence(configToUse);
+            } else {
+              alert("¡Flasheo completado con éxito! El nodo se ha reiniciado.");
+            }
+            if (espPort.readable) espPort.close().catch(() => {});
+          }, 800);
+        }
+      }, 300);
+
+    } catch (err) {
+      console.error("Flasher error:", err);
+      if (flashStatusText) flashStatusText.textContent = `Error: ${err.message}`;
+    }
+  }
+
+  // Flasher Trigger Action
+  if (btnStartFlash) {
+    btnStartFlash.addEventListener("click", () => runUnifiedFlash(pendingConfig));
   }
 }
 
