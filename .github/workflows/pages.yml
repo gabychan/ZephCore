@@ -3,7 +3,6 @@ name: Deploy Website & Docs to GitHub Pages
 on:
   push:
     branches:
-      - zephtacore
       - master
     paths:
       - "custom_builder_web/**"
