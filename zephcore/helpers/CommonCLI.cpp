@@ -9,6 +9,8 @@
 #include "buzzer_gate.h"
 #include "pm_sleep_guard.h"
 #include <helpers/ui/ui_task.h>
+#include <app/PowerPolicy.h>
+#include <zephyr/devicetree.h>
 #if IS_ENABLED(CONFIG_ZEPHCORE_UI_DISPLAY)
 #include <helpers/ui/display.h>
 #endif
@@ -339,6 +341,20 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 	if (_board->handleCommand(command, sender_timestamp, reply)) {
 		return;
 	}
+#if DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+	// ZEPHCORE: low-battery auto-shutdown on a board that wakes itself again
+	// (the companion answers it before this point).
+	{
+		bool changed = false;
+
+		if (PowerPolicy::autoShutdownCommand(*_prefs, command, reply, CLI_REPLY_SIZE, &changed)) {
+			if (changed) {
+				savePrefs();
+			}
+			return;
+		}
+	}
+#endif
 
 	if (strcmp(command, "start dfu") == 0) {
 		/* Reboot into the chip's own firmware-update mode: the UF2 bootloader on

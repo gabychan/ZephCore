@@ -448,8 +448,8 @@ static inline void initNodePrefs(NodePrefs* prefs) {
 	prefs->v_contact_enabled = 1;     // Default ON — v-contact loopback admin chat (companion)
 	prefs->v_battery_alert_mv = 0xFFFF; // Sentinel: derive from board auto-shutdown threshold
 	prefs->wifi_enabled = 1;          // as upstream: WiFi still stays off until an SSID is set
-	/* Companion-only default, set here so every caller of initNodePrefs() sees
-	 * it. 0 means disabled and is a legal stored value. */
+	/* Default for the roles that act on it, set here so every caller of
+	 * initNodePrefs() sees it. 0 means disabled and is a legal stored value. */
 #ifdef CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
 	prefs->auto_shutdown_mv = CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS;
 	prefs->auto_shutdown_set = 1;

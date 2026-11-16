@@ -35,6 +35,7 @@ LOG_MODULE_REGISTER(zephcore_power_policy, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 static void shutdown_work_fn(struct k_work *work)
 {
 	ARG_UNUSED(work);
+	zephcore_arm_battery_wake();
 	zephcore_power_off();
 }
 static K_WORK_DELAYABLE_DEFINE(s_shutdown_work, shutdown_work_fn);
@@ -140,6 +141,7 @@ void PowerPolicy::checkShutdown(uint16_t mv, bool on_battery)
 		return;
 	}
 	ui_show_low_battery(true);
+	zephcore_arm_battery_wake();
 	zephcore_power_off();
 #else
 	ui_show_low_battery(true);
@@ -154,54 +156,22 @@ void PowerPolicy::checkShutdown(uint16_t mv, bool on_battery)
 bool PowerPolicy::handleCommand(const char *line, char *reply, size_t cap)
 {
 #if HAS_AUTO_SHUTDOWN
-	if (strcmp(line, "get autoshutdown") == 0) {
-		uint16_t mv = _prefs.auto_shutdown_mv;
+	bool changed = false;
 
-		if (mv == 0) {
-			snprintf(reply, cap, "autoshutdown: off");
-		} else {
-			snprintf(reply, cap, "autoshutdown: %u mV", mv);
-		}
-		return true;
+	if (!autoShutdownCommand(_prefs, line, reply, cap, &changed)) {
+		return false;
 	}
-	if (strncmp(line, "set autoshutdown ", 17) == 0) {
-		const char *arg = line + 17;
-
-		while (*arg == ' ') {
-			arg++;
-		}
-		/* Digits only, then nothing but whitespace. */
-		char *end = NULL;
-		long v = strtol(arg, &end, 10);
-
-		while (*end == ' ' || *end == '\r' || *end == '\n' || *end == '\t') {
-			end++;
-		}
-		if (arg[0] < '0' || arg[0] > '9' || *end != '\0') {
-			snprintf(reply, cap, "ERROR: numbers only (0 = off, 1-5000 mV)");
-			return true;
-		}
-		if (v > 5000) {
-			snprintf(reply, cap, "ERROR: must be 0 (off) or 1-5000 mV");
-			return true;
-		}
-		_prefs.auto_shutdown_mv = (uint16_t)v;
-		_prefs.auto_shutdown_set = 1;
+	if (changed) {
 		if (_hooks.prefs_dirty) {
 			_hooks.prefs_dirty();
 		}
 		_shutdown_low = 0;
-		if (v == 0) {
-			snprintf(reply, cap, "OK - autoshutdown off");
-		} else {
-			snprintf(reply, cap, "OK - autoshutdown %ld mV", v);
-		}
-		return true;
 	}
+	return true;
 #else
 	ARG_UNUSED(line);
 	ARG_UNUSED(reply);
 	ARG_UNUSED(cap);
-#endif
 	return false;
+#endif
 }

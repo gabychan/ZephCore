@@ -37,7 +37,7 @@
   // uncomment to expose probes and USB serial:
   // "runArgs": ["--device=/dev/bus/usb", "--volume=/dev/serial:/dev/serial"],
 
-    "postCreateCommand": "west init -l zephcore; west config manifest.project-filter -- '-hal_(?!nordic).*,-trusted-firmware-.*,-tf-m-tests'; ZEPHCORE_SKIP_BLOBS=1 bash .devcontainer/post-create.sh",
+    "postCreateCommand": "pip install jsonschema; west init -l zephcore; west config manifest.project-filter -- '-hal_(?!nordic).*,-trusted-firmware-.*,-tf-m-tests'; ZEPHCORE_SKIP_BLOBS=1 bash .devcontainer/post-create.sh",
   "waitFor": "postCreateCommand",
 
   "hostRequirements": {

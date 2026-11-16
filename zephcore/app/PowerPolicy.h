@@ -1,8 +1,9 @@
 /*
  * SPDX-License-Identifier: MIT
  *
- * The companion's low-battery policy, on every build that reads a battery,
- * with or without a UI: auto-shutdown (prefs.auto_shutdown_mv, `get|set
+ * The low-battery policy: the companion on every build that reads a battery,
+ * with or without a UI, and a repeater or room server whose board wakes itself
+ * when the battery recovers (an LPCOMP node in the devicetree): auto-shutdown (prefs.auto_shutdown_mv, `get|set
  * autoshutdown`) and the v-contact low-battery alert (prefs.v_battery_alert_mv).
  * Driven by the housekeeping tick, main thread only.
  *
@@ -18,6 +19,9 @@
 #include <helpers/NodePrefs.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 class PowerPolicy {
 public:
@@ -42,6 +46,54 @@ public:
 
 	/* Every housekeeping tick; self-throttled to one reading per 30 s. */
 	void tick();
+
+	/* `get|set autoshutdown` on the prefs alone, for the roles that reach it
+	 * through CommonCLI; true if the line was one. *changed is set when a set
+	 * stored a value (the caller saves). */
+	static bool autoShutdownCommand(NodePrefs &prefs, const char *line, char *reply,
+					size_t cap, bool *changed)
+	{
+		if (strcmp(line, "get autoshutdown") == 0) {
+			if (prefs.auto_shutdown_mv == 0) {
+				snprintf(reply, cap, "autoshutdown: off");
+			} else {
+				snprintf(reply, cap, "autoshutdown: %u mV", prefs.auto_shutdown_mv);
+			}
+			return true;
+		}
+		if (strncmp(line, "set autoshutdown ", 17) != 0) {
+			return false;
+		}
+		const char *arg = line + 17;
+
+		while (*arg == ' ') {
+			arg++;
+		}
+		/* Digits only, then nothing but whitespace. */
+		char *end = NULL;
+		long v = strtol(arg, &end, 10);
+
+		while (*end == ' ' || *end == '\r' || *end == '\n' || *end == '\t') {
+			end++;
+		}
+		if (arg[0] < '0' || arg[0] > '9' || *end != '\0') {
+			snprintf(reply, cap, "ERROR: numbers only (0 = off, 1-5000 mV)");
+			return true;
+		}
+		if (v > 5000) {
+			snprintf(reply, cap, "ERROR: must be 0 (off) or 1-5000 mV");
+			return true;
+		}
+		prefs.auto_shutdown_mv = (uint16_t)v;
+		prefs.auto_shutdown_set = 1;
+		*changed = true;
+		if (v == 0) {
+			snprintf(reply, cap, "OK - autoshutdown off");
+		} else {
+			snprintf(reply, cap, "OK - autoshutdown %ld mV", v);
+		}
+		return true;
+	}
 
 	/* `get|set autoshutdown`; true if the line was one. */
 	bool handleCommand(const char *line, char *reply, size_t cap);

@@ -73,6 +73,11 @@ config POWEROFF
 	depends on HAS_POWEROFF
 	default y
 
+# The comparator API, wherever the board describes an LPCOMP (the battery wake in
+# zephyr_poweroff.c). Repeats the driver's own `depends on`.
+config COMPARATOR
+	default y if DT_HAS_NORDIC_NRF_LPCOMP_ENABLED
+
 source "$(ZEPHYR_BASE)/Kconfig.zephyr"
 
 # DT-driven PSRAM auto-enable for ESP32 boards (see Kconfig.psram).
@@ -1233,7 +1238,9 @@ config ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
 	default 3200 if SOC_SERIES_NRF52
 	default 0
 	help
-	  Companion only. When the battery falls below this voltage the device
+	  Companion, and repeater / room server on a board whose devicetree has
+	  an LPCOMP node (`nordic,nrf-lpcomp`): the node wakes itself when the
+	  battery recovers. When the battery falls below this voltage the device
 	  shows a brief "Low Battery / Shutting Down" notice (3 s on OLED;
 	  e-paper persists without delay) and enters System OFF to protect the
 	  cell from over-discharge. The check piggybacks the existing periodic

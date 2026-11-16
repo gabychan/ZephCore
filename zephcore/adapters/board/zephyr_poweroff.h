@@ -35,6 +35,12 @@ const char *zephcore_shutdown_reason_str(uint8_t reason);
  * released last, then System OFF. Does not return. */
 FUNC_NORETURN void zephcore_power_off(void);
 
+/* Arm the board's wake-on-recovery comparator (devicetree `nordic,nrf-lpcomp`
+ * node): the next zephcore_power_off() then ends when the battery rises back
+ * above the node's reference. Call it before a low-battery power-off only; a
+ * user's power-off stays until the button. No-op where the board has none. */
+void zephcore_arm_battery_wake(void);
+
 /* The UI's part (heartbeat LED, display), run first. Weak no-op here; the UI
  * builds provide it. */
 void ui_before_power_off(void);
