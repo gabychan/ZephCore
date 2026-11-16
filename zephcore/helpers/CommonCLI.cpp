@@ -9,6 +9,8 @@
 #include "buzzer_gate.h"
 #include "pm_sleep_guard.h"
 #include <helpers/ui/ui_task.h>
+#include <app/PowerPolicy.h>
+#include <zephyr/devicetree.h>
 #if IS_ENABLED(CONFIG_ZEPHCORE_UI_DISPLAY)
 #include <helpers/ui/display.h>
 #endif
@@ -497,6 +499,21 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 	// hook for variant-specific CLI processing
 	if (_board->handleCommand(command, sender_timestamp, reply)) {
 		return;
+	}
+	// ZEPHCORE: low-battery auto-shutdown, on a board that wakes itself again.
+	{
+		bool changed = false;
+
+		if (PowerPolicy::zAutoShutdownCommand(*_prefs, command, reply, replyCap(sender_timestamp), &changed)) {
+#if DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+			if (changed) {
+				savePrefs();
+			}
+#else
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available on this board");
+#endif
+			return;
+		}
 	}
 
 	if (strcmp(command, "start dfu") == 0) {
