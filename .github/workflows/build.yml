@@ -404,6 +404,7 @@ jobs:
   create-release:
     needs: [build-nrf, build-esp32-companions, build-esp32-repeaters, build-linux,
             build-swd]
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     # Needs write to create the release AND to delete/replace an existing one for
     # the same version (see the "replace existing release" step below).
