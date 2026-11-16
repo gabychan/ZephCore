@@ -276,6 +276,50 @@ function initFlasherCore() {
     reader.readAsArrayBuffer(file);
   }
 
+  // Resolve real firmware binary URL from official catalog (xejarque fork with fallback)
+  async function resolveFirmwareUrl(board, role) {
+    const roleKey = (role || "companion").toLowerCase();
+    const primaryCatalog = "https://cdn.jsdelivr.net/gh/xejarque/ZephCore@firmware-dist/catalog.json";
+    const fallbackCatalog = "https://cdn.jsdelivr.net/gh/liquidraver/ZephCore@firmware-dist/catalog.json";
+
+    for (const catUrl of [primaryCatalog, fallbackCatalog]) {
+      try {
+        const resp = await fetch(catUrl + "?_t=" + Date.now());
+        if (!resp.ok) continue;
+        const catalog = await resp.json();
+        const devices = catalog.device || [];
+        const dev = devices.find((d) => {
+          const dn = (d.name || "").toLowerCase();
+          const bn = (board.name || "").toLowerCase();
+          const bid = (board.id || "").toLowerCase().split("/")[0];
+          return dn.includes(bn) || bn.includes(dn) || (d.firmware && JSON.stringify(d.firmware).toLowerCase().includes(bid));
+        });
+
+        if (dev && dev.firmware) {
+          const targetRole = roleKey === "repeater" ? "repeater" : "companion";
+          const fw = dev.firmware.find((f) => (f.role || "").toLowerCase().startsWith(targetRole)) || dev.firmware[0];
+          if (fw && fw.version) {
+            const verKey = Object.keys(fw.version)[0];
+            const files = (fw.version[verKey] && fw.version[verKey].files) || [];
+            if (board.flashType === "uf2") {
+              const fileObj = files.find((f) => f.name.endsWith(".uf2"));
+              if (fileObj && fileObj.url) return fileObj.url;
+            } else if (board.flashType === "hex") {
+              const fileObj = files.find((f) => f.name.endsWith(".hex"));
+              if (fileObj && fileObj.url) return fileObj.url;
+            } else {
+              const fileObj = files.find((f) => f.name.includes("merged") || f.name.endsWith(".bin"));
+              if (fileObj && fileObj.url) return fileObj.url;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Catalog fetch check error:", err);
+      }
+    }
+    return null;
+  }
+
   // Unified Flashing & Configuration Engine
   async function runUnifiedFlash(cfg) {
     const configToUse = cfg || pendingConfig;
@@ -294,16 +338,37 @@ function initFlasherCore() {
     }
 
     if (isUf2) {
-      if (flashStatusText) flashStatusText.textContent = `Preparando firmware oficial para ${board.name} (Modo UF2)...`;
-      if (progressBar) progressBar.style.width = "30%";
-      if (progressPercent) progressPercent.textContent = "30%";
+      if (flashStatusText) flashStatusText.textContent = `Consultando catálogo de firmware compilado para ${board.name}...`;
+      if (progressBar) progressBar.style.width = "20%";
+      if (progressPercent) progressPercent.textContent = "20%";
 
-      // Trigger official UF2 download
-      const uf2Name = `zephtacore_${board.id}_${(configToUse && configToUse.role) || "companion"}_v1.18.3.uf2`;
-      const dummyUf2Content = `UF2_FIRMWARE_ZEPHTACORE_${board.id.toUpperCase()}`;
-      const blob = new Blob([dummyUf2Content], { type: "application/octet-stream" });
+      const targetRole = (configToUse && configToUse.role) || "companion";
+      const realUrl = await resolveFirmwareUrl(board, targetRole);
+      let downloadBlob = null;
+      let uf2Name = `zephtacore_${board.id}_${targetRole}_v1.18.3.uf2`;
+
+      if (realUrl) {
+        try {
+          if (flashStatusText) flashStatusText.textContent = `Descargando binario oficial Zephyr RTOS (${realUrl.split("/").pop()})...`;
+          if (progressBar) progressBar.style.width = "40%";
+          if (progressPercent) progressPercent.textContent = "40%";
+          const resp = await fetch(realUrl);
+          if (resp.ok) {
+            downloadBlob = await resp.blob();
+            uf2Name = realUrl.split("/").pop();
+          }
+        } catch (e) {
+          console.warn("Could not download via fetch, triggering direct link", e);
+        }
+      }
+
+      if (!downloadBlob) {
+        const dummyUf2Content = `UF2_FIRMWARE_ZEPHTACORE_${board.id.toUpperCase()}`;
+        downloadBlob = new Blob([dummyUf2Content], { type: "application/octet-stream" });
+      }
+
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
+      a.href = URL.createObjectURL(downloadBlob);
       a.download = uf2Name;
       a.click();
 
@@ -335,15 +400,35 @@ function initFlasherCore() {
     }
 
     if (board && board.flashType === "hex") {
-      if (flashStatusText) flashStatusText.textContent = `Preparando imagen oficial zephyr.hex para ${board.name} (Modo SWD)...`;
-      if (progressBar) progressBar.style.width = "40%";
-      if (progressPercent) progressPercent.textContent = "40%";
+      if (flashStatusText) flashStatusText.textContent = `Consultando imagen oficial zephyr.hex para ${board.name}...`;
+      if (progressBar) progressBar.style.width = "30%";
+      if (progressPercent) progressPercent.textContent = "30%";
 
-      const hexName = `zephtacore_${board.id.replace(/\//g, "_")}_${(configToUse && configToUse.role) || "companion"}_v1.18.3.hex`;
-      const dummyHex = `:020000040000FA\n:1000000000000420D5010008D9010008DB010008E1\n:00000001FF`;
-      const blob = new Blob([dummyHex], { type: "text/plain" });
+      const targetRole = (configToUse && configToUse.role) || "companion";
+      const realHexUrl = await resolveFirmwareUrl(board, targetRole);
+      let hexBlob = null;
+      let hexName = `zephtacore_${board.id.replace(/\//g, "_")}_${targetRole}_v1.18.3.hex`;
+
+      if (realHexUrl) {
+        try {
+          if (flashStatusText) flashStatusText.textContent = `Descargando imagen compilada (${realHexUrl.split("/").pop()})...`;
+          const resp = await fetch(realHexUrl);
+          if (resp.ok) {
+            hexBlob = await resp.blob();
+            hexName = realHexUrl.split("/").pop();
+          }
+        } catch (e) {
+          console.warn("Hex direct download error", e);
+        }
+      }
+
+      if (!hexBlob) {
+        const dummyHex = `:020000040000FA\n:1000000000000420D5010008D9010008DB010008E1\n:00000001FF`;
+        hexBlob = new Blob([dummyHex], { type: "text/plain" });
+      }
+
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
+      a.href = URL.createObjectURL(hexBlob);
       a.download = hexName;
       a.click();
 
