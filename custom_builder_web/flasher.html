@@ -16,7 +16,7 @@
     <script src="js/navigation-menu.js"></script>
     <script src="js/boards-manifest.js" defer></script>
     <script src="js/flasher-serial.js" defer></script>
-    <script src="js/flasher-core.js?v=2" defer></script>
+    <script src="js/flasher-core.js?v=4" defer></script>
     <style>
       .pending-config-banner {
         background: linear-gradient(135deg, rgba(0, 242, 254, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
@@ -79,24 +79,37 @@
         </p>
       </div>
 
-      <!-- Pending Builder Config Banner (Shown when coming from Builder) -->
+      <!-- Pending Builder Config Action Card (Shown when coming from Builder) -->
       <div id="pendingConfigBanner" class="pending-config-banner" style="display: none;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <span style="font-size: 1.25rem;">🎯</span>
-            <strong style="color: var(--brand-cyan); font-size: 1.05rem;">Configuración Lista desde el Builder</strong>
+        <div style="flex: 1; min-width: 280px;">
+          <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.4rem;">
+            <span style="font-size: 1.4rem;">🚀</span>
+            <div>
+              <strong style="color: var(--brand-cyan); font-size: 1.15rem; font-weight: 800; display: block;">
+                Configuración del Builder Lista para Flashear
+              </strong>
+              <span style="font-size: 0.82rem; color: var(--text-secondary);">
+                Conecta tu placa por USB y pulsa el botón para iniciar el flasheo e inyectar tus ajustes en un solo paso.
+              </span>
+            </div>
           </div>
-          <div class="config-pills-row">
+          <div class="config-pills-row" style="margin-top: 0.65rem;">
             <span class="tag-badge tag-cyan" id="cfgBadgeName">Nodo: ZephtaNode</span>
             <span class="tag-badge tag-emerald" id="cfgBadgeFreq">869.618 MHz (SF7/BW62.5)</span>
             <span class="tag-badge" id="cfgBadgeRole" style="background: rgba(139, 92, 246, 0.1); color: var(--brand-purple); border: 1px solid rgba(139, 92, 246, 0.3);">Rol: Companion</span>
-            <span class="tag-badge" id="cfgBadgePass" style="background: var(--bg-surface-elevated); color: var(--text-muted); border: 1px solid var(--border-card);">Admin Pass: ••••••••</span>
+            <span class="tag-badge" id="cfgBadgeHops" style="background: var(--bg-surface-elevated); color: var(--text-primary); border: 1px solid var(--border-card);">Saltos: 7</span>
+            <span class="tag-badge" id="cfgBadgeBoard" style="background: var(--bg-surface-elevated); color: var(--brand-cyan); border: 1px solid var(--border-card);">Placa: Seeed T1000-E</span>
           </div>
         </div>
 
-        <button id="btnInjectOnly" class="btn btn-emerald btn-sm" type="button">
-          ⚙️ Inyectar estos Ajustes por USB ahora
-        </button>
+        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+          <button id="btnUnifiedFlash" class="btn btn-primary" type="button" style="padding: 0.85rem 1.6rem; font-size: 1rem; font-weight: 700; box-shadow: var(--shadow-cyan-glow);">
+            ⚡ Conectar USB y Flashear Ahora
+          </button>
+          <a href="builder.html" class="btn btn-outline btn-sm" title="Volver al Builder para cambiar ajustes">
+            ✏️ Editar Ajustes
+          </a>
+        </div>
       </div>
 
       <!-- Device Connection Status Bar -->
