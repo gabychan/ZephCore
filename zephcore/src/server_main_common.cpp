@@ -24,6 +24,7 @@ LOG_MODULE_REGISTER(zephcore_server_main, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 #include <zephyr/sys/reboot.h>
 #include "oled_power.h"
 #include "boot_prefs.h"
+#include <app/PowerPolicy.h>
 
 /* BLE controller assert handler — BT is compiled even for the servers (via zephcore_common.conf) */
 #if IS_ENABLED(CONFIG_BT_CTLR_ASSERT_HANDLER)
@@ -482,6 +483,32 @@ static void refresh_ui_radio_state(void)
 }
 #endif
 
+#if defined(ZEPHCORE_LORA) && DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+/* Low-battery auto-shutdown, as on the companion, only where the board wakes
+ * itself when the battery recovers (a node with no button in reach would stay
+ * off). No app to notify and no v-contact. */
+struct PowerPolicySlot {
+	alignas(PowerPolicy) uint8_t mem[sizeof(PowerPolicy)];
+};
+
+inline void *operator new(size_t, PowerPolicySlot *slot) noexcept
+{
+	return slot->mem;
+}
+
+static void power_policy_tick(void)
+{
+	static PowerPolicySlot slot;
+	static PowerPolicy *policy;
+
+	if (!policy) {
+		policy = new (&slot) PowerPolicy(zephyr_board, *server_role->prefs, {});
+	}
+
+	policy->tick();
+}
+#endif
+
 /* Server event loop */
 static void server_event_loop(void)
 {
@@ -552,6 +579,11 @@ static void server_event_loop(void)
 
 		/* A maintenance deadline came due — run the time-based work too. */
 		if (events & MESH_EVENT_MAINTENANCE) {
+#if defined(ZEPHCORE_LORA) && DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+			if (server_role) {
+				power_policy_tick();
+			}
+#endif
 #ifdef ZEPHCORE_LORA
 			/* Drive loop() so time-based actions (advert timers,
 			 * tempradio set/revert, contacts flush, uplink status)
