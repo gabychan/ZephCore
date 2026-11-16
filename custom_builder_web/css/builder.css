@@ -1,0 +1,287 @@
+/* ==========================================================================
+   Zephtacore Web Builder Styles - Developer-Grade Polish
+   ========================================================================== */
+
+.builder-layout {
+  display: grid;
+  grid-template-columns: 1fr 390px;
+  gap: 2rem;
+  align-items: start;
+  margin-bottom: 4rem;
+}
+
+@media (max-width: 1024px) {
+  .builder-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Board & Option Selection Cards */
+.selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.select-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.15rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.select-card:hover {
+  border-color: var(--border-card);
+  transform: translateY(-2px);
+  background: var(--bg-surface-elevated);
+}
+
+.select-card.selected {
+  border-color: var(--brand-cyan);
+  background: var(--bg-surface-elevated);
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+}
+
+.select-card.selected::before {
+  content: "✓";
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brand-cyan);
+  color: #050811;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.select-card-name {
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+  padding-right: 1.5rem;
+}
+
+.select-card-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 0.75rem;
+  flex-grow: 1;
+}
+
+.select-card-tag {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--badge-bg);
+  color: var(--badge-text);
+  border: 1px solid var(--badge-border);
+}
+
+/* Custom Styled Range Slider */
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.slider-container input[type="range"] {
+  flex-grow: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-card);
+  outline: none;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--brand-cyan);
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--brand-cyan);
+  transition: transform var(--transition-fast);
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+
+.slider-value {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--brand-cyan);
+  min-width: 65px;
+  text-align: right;
+}
+
+/* Sticky Live Airtime & Summary Panel */
+.builder-sidebar {
+  position: sticky;
+  top: 5.5rem;
+}
+
+.airtime-gauge-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 1.6rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-cyan-glow);
+}
+
+.airtime-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.airtime-metric-row:last-child {
+  border-bottom: none;
+}
+
+.airtime-metric-label {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.airtime-metric-value {
+  font-family: var(--font-mono);
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: var(--brand-cyan);
+}
+
+.airtime-bar-bg {
+  width: 100%;
+  height: 10px;
+  background: var(--bg-input);
+  border-radius: var(--radius-full);
+  margin-top: 0.85rem;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.airtime-bar-fill {
+  height: 100%;
+  background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+  transition: width var(--transition-normal);
+  box-shadow: 0 0 10px var(--brand-cyan);
+}
+
+/* ==========================================================================
+   Interactive Leaflet Map & Custom Cyber Marker
+   ========================================================================== */
+#locationMap {
+  width: 100%;
+  height: 280px !important;
+  min-height: 280px !important;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-card);
+  position: relative;
+  z-index: 1;
+  background: #030712;
+  margin: 0.75rem 0;
+  display: block;
+}
+
+.coords-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 680px) {
+  .coords-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+[data-theme="dark"] #locationMap .leaflet-tile-pane {
+  filter: brightness(0.8) invert(1) contrast(1.15) hue-rotate(200deg) saturate(0.65);
+}
+
+[data-theme="dark"] .leaflet-control-zoom a {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-card) !important;
+}
+
+[data-theme="dark"] .leaflet-control-zoom a:hover {
+  background: var(--bg-surface-elevated) !important;
+  color: var(--brand-cyan) !important;
+}
+
+[data-theme="dark"] .leaflet-container {
+  background: var(--bg-surface-elevated) !important;
+}
+
+[data-theme="dark"] .leaflet-control-attribution {
+  background: rgba(13, 17, 23, 0.75) !important;
+  color: var(--text-muted) !important;
+  font-size: 0.65rem !important;
+}
+
+[data-theme="dark"] .leaflet-control-attribution a {
+  color: var(--brand-cyan) !important;
+}
+
+/* Custom Cyber Pin */
+.zephta-map-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.pin-marker-core {
+  width: 14px;
+  height: 14px;
+  background: var(--brand-cyan);
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.9);
+  position: absolute;
+  top: 5px;
+  left: 5px;
+}
+
+.pin-marker-pulse {
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 242, 254, 0.4);
+  border: 1px solid var(--brand-cyan);
+  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: pin-pulse 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pin-pulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  80% { transform: scale(1.8); opacity: 0; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
