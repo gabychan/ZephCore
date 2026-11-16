@@ -1001,7 +1001,11 @@ void ui_set_dashboard(const struct ui_dash *d)
 
 bool ui_has_dashboard(void)
 {
+#ifdef CONFIG_ZEPHCORE_UI_DISPLAY
 	return ui_pages_has_dashboard();
+#else
+	return false;
+#endif
 }
 
 void ui_set_radio_stats(uint32_t packets_rx, uint32_t packets_tx,

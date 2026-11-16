@@ -182,7 +182,11 @@ enum ui_page ui_pages_current(void);
 enum ui_page ui_pages_home(void);
 
 /** True when this build has the dashboard page. */
+#ifdef CONFIG_ZEPHCORE_UI_DISPLAY
 bool ui_pages_has_dashboard(void);
+#else
+static inline bool ui_pages_has_dashboard(void) { return false; }
+#endif
 
 /**
  * Set the node name displayed in the top bar.
