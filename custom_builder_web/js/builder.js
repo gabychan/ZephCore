@@ -81,17 +81,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const term = filter.toLowerCase().trim();
 
     window.ZEPHTACORE_BOARDS.forEach((b) => {
-      if (term && !b.name.toLowerCase().includes(term) && !b.mcu.toLowerCase().includes(term) && !b.radio.toLowerCase().includes(term)) {
-        return;
-      }
+      const match = !term || 
+        b.name.toLowerCase().includes(term) || 
+        b.id.toLowerCase().includes(term) || 
+        b.mcu.toLowerCase().includes(term) || 
+        b.radio.toLowerCase().includes(term) || 
+        (b.desc && b.desc.toLowerCase().includes(term));
+      if (!match) return;
+
       const card = document.createElement("div");
       card.className = `select-card ${selectedBoard.id === b.id ? "selected" : ""}`;
+      const flashBadge = b.flashType === "uf2" 
+        ? `<span class="select-card-tag" style="background: rgba(139, 92, 246, 0.12); border-color: rgba(139, 92, 246, 0.3); color: var(--brand-purple);">UF2</span>`
+        : (b.flashType === "hex" 
+          ? `<span class="select-card-tag" style="background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.3); color: #f59e0b;">SWD/HEX</span>`
+          : `<span class="select-card-tag" style="background: rgba(0, 242, 254, 0.12); border-color: rgba(0, 242, 254, 0.3); color: var(--brand-cyan);">WebSerial</span>`);
+
       card.innerHTML = `
         <div class="select-card-name">${b.name}</div>
         <div class="select-card-desc">${b.desc}</div>
-        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem;">
           <span class="select-card-tag">${b.mcu}</span>
           <span class="select-card-tag" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.25); color: var(--brand-emerald);">${b.radio}</span>
+          ${flashBadge}
         </div>
       `;
       card.addEventListener("click", () => {
