@@ -217,6 +217,17 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
+  // Roles with their own conf in zephcore/boards/common; companion builds without one.
+  const ROLE_CONF_ROLES = ["repeater", "room_server", "observer", "kiss_modem"];
+
+  function kconfigString(value) {
+    return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  }
+
+  function shellQuote(value) {
+    return `'${String(value).replace(/'/g, "'\\''")}'`;
+  }
+
   function saveCurrentConfig() {
     const cfg = getCurrentConfig();
     localStorage.setItem("zephtacore_pending_config", JSON.stringify(cfg));
@@ -228,13 +239,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const roleName = selectedRole.id;
     const boardId = selectedBoard.id;
-    const nodeName = nodeNameInput ? nodeNameInput.value.trim() : "ZephtaNode";
-    const adminPass = adminPassInput ? adminPassInput.value.trim() : "password";
+
+    const confs = ["boards/common/zephtacore.conf"];
+    if (ROLE_CONF_ROLES.includes(roleName)) confs.push(`boards/common/${roleName}.conf`);
+    confs.push("custom_node.conf");
 
     const cmd = `west build -b ${boardId} zephcore --pristine -- \\
-  -DEXTRA_CONF_FILE="boards/common/zephtacore.conf;boards/common/${roleName}.conf;custom_node.conf" \\
-  -DCONFIG_ZEPHCORE_DEFAULT_NODE_NAME='\\"${nodeName}\\"' \\
-  -DCONFIG_ZEPHCORE_ADMIN_PASSWORD='\\"${adminPass}\\"'`;
+  -DEXTRA_CONF_FILE=${shellQuote(confs.join(";"))}`;
 
     if (westCommandPre) {
       westCommandPre.textContent = cmd;
@@ -301,18 +312,14 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnDownloadConf) {
     btnDownloadConf.addEventListener("click", () => {
       const cfg = getCurrentConfig();
-      const freqHz = Math.round(parseFloat(cfg.freq) * 1000000);
-      const conf = `# Zephtacore Custom Kconfig
+      const conf = `# Zephtacore custom Kconfig
+# Name, radio preset, position and GPS are not build options: set them after
+# flashing with the CLI or restore them from the prefs.json backup.
 CONFIG_ZEPHTACORE_MESHTASTIC=y
 CONFIG_ZEPHTACORE_MT_HOP_LIMIT=${cfg.mtHops}
-CONFIG_ZEPHCORE_DEFAULT_FREQ_HZ=${freqHz}
-CONFIG_ZEPHCORE_DEFAULT_BANDWIDTH_KHZ=${cfg.bw}
-CONFIG_ZEPHCORE_DEFAULT_SPREADING_FACTOR=${cfg.sf}
-CONFIG_ZEPHCORE_DEFAULT_CODING_RATE=${cfg.cr}
 CONFIG_ZEPHCORE_DEFAULT_TX_POWER_DBM=${cfg.txPower}
-CONFIG_ZEPHCORE_DEFAULT_NODE_NAME="${cfg.name}"
-CONFIG_ZEPHCORE_ADMIN_PASSWORD="${cfg.adminPass}"
-${cfg.guestPass ? `CONFIG_ZEPHCORE_GUEST_PASSWORD="${cfg.guestPass}"\n` : ""}${cfg.lat ? `CONFIG_ZEPHCORE_DEFAULT_NODE_LAT="${cfg.lat}"\n` : ""}${cfg.lon ? `CONFIG_ZEPHCORE_DEFAULT_NODE_LON="${cfg.lon}"\n` : ""}${cfg.alt ? `CONFIG_ZEPHCORE_DEFAULT_NODE_ALT=${cfg.alt}\n` : ""}CONFIG_ZEPHCORE_GPS_MODE="${cfg.gpsMode}"\n${cfg.firewall ? "CONFIG_ZEPHTACORE_FIREWALL=y\n" : ""}${cfg.pingBot ? "CONFIG_ZEPHTACORE_PING_BOT=y\n" : ""}`;
+CONFIG_ZEPHCORE_ADMIN_PASSWORD=${kconfigString(cfg.adminPass)}
+${cfg.guestPass ? `CONFIG_ZEPHCORE_GUEST_PASSWORD=${kconfigString(cfg.guestPass)}\n` : ""}`;
 
       const blob = new Blob([conf], { type: "text/plain" });
       const a = document.createElement("a");
