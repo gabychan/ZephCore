@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zephtacore · Centro de Ayuda &amp; Referencia CLI</title>
+    <meta
+      name="description"
+      content="Documentación completa y referencia interactiva de comandos ZephCore y Zephtacore CLI: namespace z.mt.*, z.mc.*, firewall, ping bot, repetidores solares y guías paso a paso."
+    />
+    <link rel="icon" type="image/svg+xml" href="../logo.svg" />
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/docs.css" />
+    <script src="../js/theme.js"></script>
+    <script src="../js/navigation-menu.js"></script>
+    <script src="../js/commands-db.js"></script>
+    <script src="../js/docs.js?v=2"></script>
+  </head>
+  <body>
+    <!-- Top Navigation Bar -->
+    <header class="site-nav">
+      <div class="nav-content">
+        <div class="nav-left">
+          <a href="../index.html" class="brand-logo">
+            <img src="../logo.svg" alt="Zephtacore" width="30" height="30" />
+            <span>Zephtacore</span>
+          </a>
+          <span class="brand-badge">DOCS &amp; CLI</span>
+        </div>
+
+        <ul class="nav-center">
+          <li><a href="../index.html">Inicio</a></li>
+          <li><a href="../builder.html">Web Builder</a></li>
+          <li><a href="../flasher.html">Web Flasher</a></li>
+          <li><a href="index.html" class="active">Documentación</a></li>
+        </ul>
+
+        <div class="nav-actions">
+          <button class="btn-open-menu" type="button" aria-label="Abrir menú de navegación">
+            <span>☰ Menú</span>
+          </button>
+          <button class="theme-icon-btn" type="button" aria-label="Cambiar tema"></button>
+          <a href="../builder.html" class="nav-cta-btn">
+            <span>🚀 Abrir Builder</span>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="container" style="margin-top: 2.5rem; margin-bottom: 4rem;">
+      <div class="section-header text-left">
+        <span class="section-tag">Manual Técnico Interactivo</span>
+        <h1 class="section-title">Centro de Ayuda &amp; Comandos CLI</h1>
+        <p class="section-desc">
+          Buscador instantáneo, generador visual de comandos y guías técnicas para exprimir al máximo tu nodo Zephtacore.
+        </p>
+      </div>
+
+      <!-- Quick Tutorial Links Grid -->
+      <div class="grid-3" style="margin-bottom: 2.5rem;">
+        <div class="card">
+          <span class="tag-badge tag-cyan" style="margin-bottom: 0.5rem; display: inline-block;">Guía 1</span>
+          <h3 class="card-title" style="font-size: 1.05rem;">
+            <a href="guia-inicio.html">🚀 Primeros Pasos</a>
+          </h3>
+          <p class="card-subtitle" style="line-height: 1.5; margin-top: 0.4rem;">
+            Cómo flashear tu placa, emparejar por BLE con la app MeshCore y habilitar los canales Meshtastic.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="tag-badge tag-emerald" style="margin-bottom: 0.5rem; display: inline-block;">Guía 2</span>
+          <h3 class="card-title" style="font-size: 1.05rem;">
+            <a href="repetidor-solar.html">☀️ Repetidor de Montaña</a>
+          </h3>
+          <p class="card-subtitle" style="line-height: 1.5; margin-top: 0.4rem;">
+            Ajustes para nodos autónomos: Zero-Hop, políticas de retransmisión, firewall anti-spam y bajo consumo.
+          </p>
+        </div>
+
+        <div class="card">
+          <span class="tag-badge" style="margin-bottom: 0.5rem; display: inline-block; background: rgba(139, 92, 246, 0.1); color: var(--brand-purple); border: 1px solid rgba(139, 92, 246, 0.3);">Guía 3</span>
+          <h3 class="card-title" style="font-size: 1.05rem;">
+            <a href="arquitectura-dual.html">📡 Arquitectura Dual-Mesh</a>
+          </h3>
+          <p class="card-subtitle" style="line-height: 1.5; margin-top: 0.4rem;">
+            Explicación a fondo del registro híbrido 0x14B4, derivación de claves y backoff reactivo por SNR.
+          </p>
+        </div>
+      </div>
+
+      <!-- Interactive Command Builder Tool -->
+      <div class="cmd-builder-card" id="constructor">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h3 class="card-title" style="font-size: 1.15rem; color: var(--text-primary);">
+            🛠️ Constructor Visual de Comandos CLI
+          </h3>
+          <span class="tag-badge tag-cyan">
+            Generador en 1 clic
+          </span>
+        </div>
+        <p class="card-subtitle" style="color: var(--text-secondary); margin-bottom: 1rem;">
+          Selecciona la acción y el comando para generar la sintaxis exacta sin tener que memorizarla:
+        </p>
+
+        <div class="cmd-builder-grid">
+          <div>
+            <label class="form-label" for="cbAction">Acción</label>
+            <select id="cbAction" class="form-control">
+              <option value="get">get (Leer)</option>
+              <option value="set">set (Escribir)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label" for="cbCommand">Comando</label>
+            <select id="cbCommand" class="form-control"></select>
+          </div>
+
+          <div>
+            <label class="form-label" for="cbParams">Parámetro / Valor</label>
+            <input type="text" id="cbParams" class="form-control" placeholder="Valor..." />
+          </div>
+        </div>
+
+        <!-- Dynamic Contextual Command Info Box -->
+        <div id="cbInfoBox" class="cb-info-box">
+          <div class="cb-info-header">
+            <div class="cb-info-title-wrap">
+              <span class="cb-info-icon">💡</span>
+              <strong id="cbInfoName" class="cb-info-name">z.info</strong>
+              <span id="cbInfoCatBadge" class="tag-badge tag-cyan" style="font-size: 0.68rem;">Diagnóstico</span>
+              <span id="cbInfoTypeBadge" class="tag-badge" style="font-size: 0.68rem; background: var(--bg-surface-elevated); border: 1px solid var(--border-card); color: var(--text-muted);">get</span>
+            </div>
+            <span id="cbInfoDefault" class="cb-info-default" style="font-size: 0.74rem; color: var(--text-muted); font-family: var(--font-mono);"></span>
+          </div>
+
+          <p id="cbInfoDesc" class="cb-info-desc">
+            Descripción técnica del comando...
+          </p>
+
+          <div id="cbInfoMeta" class="cb-info-meta">
+            <span id="cbInfoParams" class="cb-info-param-pill"></span>
+            <span id="cbInfoTags" class="cb-info-tags"></span>
+          </div>
+        </div>
+
+        <div class="cmd-builder-output">
+          <code id="cbOutput">get z.info</code>
+          <button id="btnCopyBuilder" class="btn btn-primary btn-sm" type="button">
+            📋 Copiar Comando
+          </button>
+        </div>
+      </div>
+
+      <!-- Search & Filters -->
+      <div class="search-container">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="docsSearchInput"
+          class="search-input"
+          placeholder="Buscar comando, parámetro o concepto (ej. relay, ping, hops, firewall, cad, batt)..."
+          autocomplete="off"
+        />
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div class="filter-pills">
+          <button class="filter-pill active" data-category="all" type="button">Todos</button>
+          <button class="filter-pill" data-category="meshtastic" type="button">Meshtastic (z.mt.*)</button>
+          <button class="filter-pill" data-category="meshcore" type="button">MeshCore (z.mc.*)</button>
+          <button class="filter-pill" data-category="diagnostico" type="button">Diagnóstico &amp; Telemetría</button>
+          <button class="filter-pill" data-category="sistema" type="button">Sistema &amp; Batería</button>
+        </div>
+        <span id="commandsCount" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-muted);">
+          Cargando comandos...
+        </span>
+      </div>
+
+      <!-- Commands Dynamic List -->
+      <div id="commandsList"></div>
+    </main>
+
+    <!-- Site Footer -->
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <img src="../logo.svg" alt="Zephtacore" width="28" height="28" />
+            <span>Zephtacore</span>
+            <span class="brand-badge">ZEPHYR RTOS</span>
+          </div>
+          <ul class="footer-links">
+            <li><a href="../index.html">Inicio</a></li>
+            <li><a href="../builder.html">Web Builder</a></li>
+            <li><a href="../flasher.html">Web Flasher</a></li>
+            <li><a href="index.html">Documentación CLI</a></li>
+          </ul>
+        </div>
+        <div class="footer-bottom">
+          <p>© 2026 Zephtacore Docs Hub · Referencia oficial de comandos.</p>
+          <a href="../index.html">Volver al Inicio</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
