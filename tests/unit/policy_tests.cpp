@@ -3,7 +3,9 @@
 #include <OffgridPolicy.h>
 #include <RateLimiter.h>
 #include <mesh/Maintenance.h>
+#include <app/PowerPolicy.h>
 using namespace mesh;
+static constexpr size_t CLI_REPLY_SIZE_TEST = 256;
 
 TEST(reply_routes, "UNIT-POLICY-001", "Reply routing and scope truth tables") {
     const ReplyRoute routes[] = {REPLY_ROUTE_FLOOD, REPLY_ROUTE_DIRECT_OUT_PATH,
@@ -137,4 +139,63 @@ TEST(offgrid_normalize, "UNIT-OFFGRID-003", "Off-grid: a repeat flag on a mesh f
     p = offgridPrefs(868.0f, 1, 869.618f);
     offgridFreqEdited(p);
     CHECK(p.client_repeat == 0 && p.offgrid_home_freq == 0.0f && p.freq == 868.0f);
+}
+
+TEST(autoshutdown_cli, "UNIT-POLICY-AUTOSHUTDOWN-001", "get|set autoshutdown on the prefs alone: parse, bounds, changed flag") {
+    NodePrefs p = {};
+    char reply[CLI_REPLY_SIZE_TEST];
+    bool changed = false;
+
+    p.auto_shutdown_mv = 3200;
+    CHECK(PowerPolicy::autoShutdownCommand(p, "get autoshutdown", reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "autoshutdown: 3200 mV") == 0);
+    CHECK(!changed);
+
+    CHECK(PowerPolicy::autoShutdownCommand(p, "set autoshutdown 3400", reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "OK - autoshutdown 3400 mV") == 0);
+    CHECK(changed && p.auto_shutdown_mv == 3400 && p.auto_shutdown_set == 1);
+
+    changed = false;
+    CHECK(PowerPolicy::autoShutdownCommand(p, "set autoshutdown 0", reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "OK - autoshutdown off") == 0);
+    CHECK(changed && p.auto_shutdown_mv == 0);
+    CHECK(PowerPolicy::autoShutdownCommand(p, "get autoshutdown", reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "autoshutdown: off") == 0);
+
+    // Rejected input stores nothing and does not flag a change.
+    p.auto_shutdown_mv = 3200;
+    changed = false;
+    for (const char *bad : {"set autoshutdown abc", "set autoshutdown 3.4", "set autoshutdown -5",
+                            "set autoshutdown 5001", "set autoshutdown 3400x", "set autoshutdown "}) {
+        CHECK(PowerPolicy::autoShutdownCommand(p, bad, reply, sizeof(reply), &changed));
+        CHECK(strncmp(reply, "ERROR", 5) == 0);
+        CHECK(!changed && p.auto_shutdown_mv == 3200);
+    }
+    CHECK(PowerPolicy::autoShutdownCommand(p, "set autoshutdown 5000  ", reply, sizeof(reply), &changed));
+    CHECK(changed && p.auto_shutdown_mv == 5000);
+
+    // Not ours: left for the other handlers.
+    CHECK(!PowerPolicy::autoShutdownCommand(p, "get power", reply, sizeof(reply), &changed));
+    CHECK(!PowerPolicy::autoShutdownCommand(p, "set autoshutdownx 1", reply, sizeof(reply), &changed));
+}
+
+TEST(z_autoshutdown_cli, "UNIT-POLICY-AUTOSHUTDOWN-002", "get|set z.autoshutdown: the same setting in the z. replies") {
+    NodePrefs p = {};
+    char reply[CLI_REPLY_SIZE_TEST];
+    bool changed = false;
+
+    CHECK(PowerPolicy::zAutoShutdownCommand(p, "get z.autoshutdown", reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "> off") == 0 && !changed);
+    CHECK(PowerPolicy::zAutoShutdownCommand(p, "set z.autoshutdown 3400", reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "OK") == 0 && changed && p.auto_shutdown_mv == 3400 && p.auto_shutdown_set == 1);
+    CHECK(PowerPolicy::zAutoShutdownCommand(p, "get z.autoshutdown", reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "> 3400 mV") == 0);
+
+    changed = false;
+    for (const char *bad : {"set z.autoshutdown abc", "set z.autoshutdown 5001", "set z.autoshutdown -1", "set z.autoshutdown "}) {
+        CHECK(PowerPolicy::zAutoShutdownCommand(p, bad, reply, sizeof(reply), &changed));
+        CHECK(strncmp(reply, "Error", 5) == 0 && !changed && p.auto_shutdown_mv == 3400);
+    }
+    CHECK(!PowerPolicy::zAutoShutdownCommand(p, "get autoshutdown", reply, sizeof(reply), &changed));
+    CHECK(!PowerPolicy::zAutoShutdownCommand(p, "get z.info", reply, sizeof(reply), &changed));
 }

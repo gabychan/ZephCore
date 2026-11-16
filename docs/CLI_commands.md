@@ -289,7 +289,7 @@ Companion builds only. Local only: they run from USB and the app's CLI, and a re
 | `get v.batteryalert` | Low-battery alert threshold: `v.batteryalert: <mV> mV`, `default (<mV> mV)` or `off` |
 | `set v.batteryalert <mv\|0\|default>` | `0` = off, else 1–5000 mV. `default` is the auto-shutdown threshold + 200 mV, or 3500 mV on a build without auto-shutdown. The alert is a v-contact notice, so it needs `v.contact on`; it fires on the third low reading in a row (30 s apart), never on external power, and once per discharge — it re-arms on external power, on recovery to 150 mV above the threshold, or when the threshold is changed |
 | `get autoshutdown` | Low-battery power-off threshold: `autoshutdown: <mV> mV` or `autoshutdown: off` |
-| `set autoshutdown <mv>` | `0` = off, else 1–5000 mV, digits only. Below it the node powers off to protect the cell, on the third low reading in a row (30 s apart) and never while externally powered. Only on builds with `CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS` above 0, which is the default: 3200 on nRF52, 0 elsewhere, where both `autoshutdown` commands are absent |
+| `set autoshutdown <mv>` | `0` = off, else 1–5000 mV, digits only. Below it the node powers off to protect the cell, on the third low reading in a row (30 s apart) and never while externally powered. Only on builds with `CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS` above 0, which is the default: 3200 on nRF52, 0 elsewhere, where both `autoshutdown` commands are absent. The node-wide form is `get|set z.autoshutdown`, below |
 
 ---
 

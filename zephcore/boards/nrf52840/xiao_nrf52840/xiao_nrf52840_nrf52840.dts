@@ -18,6 +18,7 @@
 #include <nordic/nrf52840_partition.dtsi>
 #include <zephyr/dt-bindings/lora/sx126x.h>
 #include <zephyr/dt-bindings/adc/nrf-saadc.h>
+#include <zephyr/dt-bindings/comparator/nrf-comp.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "xiao_nrf52840_nrf52840-pinctrl.dtsi"
 
@@ -126,6 +127,18 @@
 
 &reg1 {
 	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+/* Wake from a low-battery System OFF: LPCOMP on the same divider as the ADC
+ * (AIN7, Vpin = VBAT / 3.03, enable P0.14 held low) against 3/8 of VDD (3.3 V).
+ * Rising past it is VBAT ~3.75 V with hysteresis; keep `autoshutdown` below
+ * that. */
+&comp {
+	compatible = "nordic,nrf-lpcomp";
+	status = "okay";
+	psel = <NRF_COMP_AIN7>;
+	refsel = "VDD_3_8";
+	enable-hyst;
 };
 
 &adc {
