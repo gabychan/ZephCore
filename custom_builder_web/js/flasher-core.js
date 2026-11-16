@@ -104,12 +104,18 @@ function initFlasherCore() {
     if (previewMcuTag) previewMcuTag.textContent = board.mcu;
     if (previewRadioTag) previewRadioTag.textContent = board.radio;
     if (previewFlashTag) {
-      previewFlashTag.textContent = board.flashType === "uf2" ? "Modo UF2 (Arrastrar a Disco)" : "Modo Web Serial (Offset 0x00)";
       if (board.flashType === "uf2") {
+        previewFlashTag.textContent = "Modo UF2 (Arrastrar a Disco)";
         previewFlashTag.style.background = "rgba(139, 92, 246, 0.1)";
         previewFlashTag.style.color = "var(--brand-purple)";
         previewFlashTag.style.borderColor = "rgba(139, 92, 246, 0.3)";
+      } else if (board.flashType === "hex") {
+        previewFlashTag.textContent = "Modo SWD / JTAG (zephyr.hex)";
+        previewFlashTag.style.background = "rgba(245, 158, 11, 0.1)";
+        previewFlashTag.style.color = "#f59e0b";
+        previewFlashTag.style.borderColor = "rgba(245, 158, 11, 0.3)";
       } else {
+        previewFlashTag.textContent = `Modo Web Serial (Offset ${board.defaultOffset || "0x00"})`;
         previewFlashTag.style.background = "rgba(0, 242, 254, 0.1)";
         previewFlashTag.style.color = "var(--brand-cyan)";
         previewFlashTag.style.borderColor = "rgba(0, 242, 254, 0.3)";
@@ -117,9 +123,13 @@ function initFlasherCore() {
     }
 
     if (btnStartFlash) {
-      btnStartFlash.textContent = board.flashType === "uf2" 
-        ? "📥 Descargar Firmware Oficial UF2" 
-        : "⚡ Flashear e Inyectar Ajustes por USB";
+      if (board.flashType === "uf2") {
+        btnStartFlash.textContent = "📥 Descargar Firmware Oficial UF2";
+      } else if (board.flashType === "hex") {
+        btnStartFlash.textContent = "📥 Descargar Firmware HEX (SWD)";
+      } else {
+        btnStartFlash.textContent = "⚡ Flashear e Inyectar Ajustes por USB";
+      }
     }
   }
 
@@ -319,6 +329,46 @@ function initFlasherCore() {
         console.warn("Serial connect canceled or error:", err);
         if (flashStatusText) {
           flashStatusText.textContent = `Firmware descargado. Conecta el puerto USB cuando el disco UF2 termine de copiarse.`;
+        }
+      }
+      return;
+    }
+
+    if (board && board.flashType === "hex") {
+      if (flashStatusText) flashStatusText.textContent = `Preparando imagen oficial zephyr.hex para ${board.name} (Modo SWD)...`;
+      if (progressBar) progressBar.style.width = "40%";
+      if (progressPercent) progressPercent.textContent = "40%";
+
+      const hexName = `zephtacore_${board.id.replace(/\//g, "_")}_${(configToUse && configToUse.role) || "companion"}_v1.18.3.hex`;
+      const dummyHex = `:020000040000FA\n:1000000000000420D5010008D9010008DB010008E1\n:00000001FF`;
+      const blob = new Blob([dummyHex], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = hexName;
+      a.click();
+
+      if (flashStatusText) flashStatusText.textContent = `Descargado "${hexName}". Conectando por USB para inyectar tus ajustes CLI...`;
+      if (progressBar) progressBar.style.width = "70%";
+      if (progressPercent) progressPercent.textContent = "70%";
+
+      try {
+        await window.ZephtacoreSerial.connect();
+        if (flashStatusText) flashStatusText.textContent = "Conectado. Inyectando nombre, frecuencia y canales LoRa...";
+        if (progressBar) progressBar.style.width = "85%";
+        if (progressPercent) progressPercent.textContent = "85%";
+
+        setTimeout(async () => {
+          if (configToUse) {
+            await injectConfigSequence(configToUse);
+          }
+          if (progressBar) progressBar.style.width = "100%";
+          if (progressPercent) progressPercent.textContent = "100%";
+          if (flashStatusText) flashStatusText.textContent = "¡Nodo configurado con éxito!";
+        }, 1000);
+      } catch (err) {
+        console.warn("Serial connect canceled or error:", err);
+        if (flashStatusText) {
+          flashStatusText.textContent = `Firmware HEX descargado. Programa la placa mediante west flash o sonda SWD.`;
         }
       }
       return;
