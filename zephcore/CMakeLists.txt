@@ -563,6 +563,7 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
   # transport keys, and the text CLI.
   target_sources(app PRIVATE
     src/server_main_common.cpp
+    app/PowerPolicy.cpp
     app/RepeaterDataStore.cpp
     helpers/ClientACL.cpp
     helpers/RegionMap.cpp
