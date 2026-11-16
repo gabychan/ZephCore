@@ -149,43 +149,70 @@ function initFlasherCore() {
     });
   });
 
-  // Inject Configuration Sequence over Web Serial
-  async function injectConfigSequence(cfg) {
-    if (!window.ZephtacoreSerial) return;
+  // Coding rate: the builder stores 1-4 (4/5-4/8), the firmware takes 5-8.
+  function firmwareCodingRate(cr) {
+    const n = parseInt(cr, 10);
+    return n <= 4 ? n + 4 : n;
+  }
 
-    const commands = [
+  function buildConfigCommands(cfg) {
+    const cr = firmwareCodingRate(cfg.cr);
+    const isObserver = cfg.role === "observer";
+
+    if (isObserver) {
+      return [
+        `set name ${cfg.name}`,
+        `set freq ${cfg.freq}`,
+        `set sf ${cfg.sf}`,
+        `set bw ${cfg.bw}`,
+        `set cr ${cr}`,
+        cfg.lat ? `set lat ${cfg.lat}` : null,
+        cfg.lon ? `set lon ${cfg.lon}` : null,
+        `reboot`
+      ].filter(Boolean);
+    }
+
+    return [
       `set name ${cfg.name}`,
-      `set password ${cfg.adminPass}`,
-      `set freq ${cfg.freq}`,
-      `set sf ${cfg.sf}`,
-      `set bw ${cfg.bw}`,
-      `set cr ${cfg.cr}`,
-      `set tx.power ${cfg.txPower}`,
+      `password ${cfg.adminPass}`,
+      `set radio ${cfg.freq},${cfg.bw},${cfg.sf},${cr}`,
+      `set tx ${cfg.txPower}`,
       `set z.mt.enable on`,
       `set z.mt.relay ${cfg.mtRelay}`,
       `set z.mt.relay.opaque ${cfg.mtOpaque ? "on" : "off"}`,
       `set z.mt.hops ${cfg.mtHops}`,
-      cfg.pingBot ? `set z.mt.ping.enable on` : null,
+      cfg.pingBot ? `set z.mt.ping.enable on /ping` : null,
       cfg.lat ? `set lat ${cfg.lat}` : null,
       cfg.lon ? `set lon ${cfg.lon}` : null,
-      `set reboot`
+      `reboot`
     ].filter(Boolean);
+  }
 
-    if (flashStatusText) flashStatusText.textContent = "Inyectando configuración por puerto serie...";
+  // Sends the settings over the serial port. Returns true only when every command
+  // was written; the node's replies are not read, they show in the terminal.
+  async function injectConfigSequence(cfg) {
+    if (!window.ZephtacoreSerial.isConnected()) {
+      if (flashStatusText) flashStatusText.textContent = "Sin conexión serie: no se ha enviado ningún ajuste.";
+      return false;
+    }
 
-    for (const cmd of commands) {
-      await window.ZephtacoreSerial.sendCommand(cmd);
+    if (flashStatusText) flashStatusText.textContent = "Enviando configuración por puerto serie...";
+
+    for (const cmd of buildConfigCommands(cfg)) {
+      if (!(await window.ZephtacoreSerial.sendCommand(cmd))) {
+        if (flashStatusText) flashStatusText.textContent = `Se interrumpió el envío en "${cmd}". Revisa el terminal.`;
+        return false;
+      }
       await new Promise((r) => setTimeout(r, 250));
     }
 
     alert(
-      `¡Configuración inyectada con éxito!\n\n` +
-      `✓ Nombre fijado en: ${cfg.name}\n` +
-      `✓ Frecuencia LoRa: ${cfg.freq} MHz (SF${cfg.sf} / BW${cfg.bw})\n` +
-      `✓ Modo Relay Meshtastic: ${cfg.mtRelay}\n` +
-      `✓ Clave de administración configurada.\n\n` +
-      `El nodo se ha reiniciado y está listo para comunicarse.`
+      `Configuración enviada.\n\n` +
+      `Nombre: ${cfg.name}\n` +
+      `Frecuencia LoRa: ${cfg.freq} MHz (SF${cfg.sf} / BW${cfg.bw})\n\n` +
+      `Se ha enviado el comando reboot. Comprueba las respuestas del nodo en el terminal.`
     );
+    return true;
   }
 
   // Button to inject / start flash
@@ -193,7 +220,7 @@ function initFlasherCore() {
     btnUnifiedFlash.addEventListener("click", () => runUnifiedFlash(pendingConfig));
   }
   if (btnInjectOnly) {
-    btnInjectOnly.addEventListener("click", () => runUnifiedFlash(pendingConfig));
+    btnInjectOnly.addEventListener("click", () => runInjectOnly(pendingConfig));
   }
 
   // Dropzone drag-and-drop
@@ -252,7 +279,7 @@ function initFlasherCore() {
               if (cfgBadgeName) cfgBadgeName.textContent = `Respaldo: ${pendingConfig.name}`;
               if (cfgBadgeFreq) cfgBadgeFreq.textContent = `${pendingConfig.freq} MHz`;
             }
-            alert(`¡Respaldo "${file.name}" cargado con éxito! Pulsa "Inyectar estos Ajustes por USB" para restaurar tu nodo.`);
+            alert(`¡Respaldo "${file.name}" cargado con éxito! Pulsa "Enviar ajustes por USB" para restaurar tu nodo.`);
           }
         } catch (err) {
           alert(`Error al leer el archivo JSON: ${err.message}`);
@@ -320,188 +347,84 @@ function initFlasherCore() {
     return null;
   }
 
-  // Unified Flashing & Configuration Engine
+  function setProgress(percent, text) {
+    if (flashStatusText && text) flashStatusText.textContent = text;
+    if (progressBar) progressBar.style.width = `${percent}%`;
+    if (progressPercent) progressPercent.textContent = `${percent}%`;
+  }
+
+  // Downloads the catalog binary for the board and role. Throws when there is none.
+  async function downloadFirmware(board, role) {
+    const url = await resolveFirmwareUrl(board, role);
+    if (!url) throw new Error(`No hay firmware publicado para ${board.name} (${role}).`);
+
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`La descarga de ${url.split("/").pop()} falló (HTTP ${resp.status}).`);
+
+    const name = url.split("/").pop();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(await resp.blob());
+    a.download = name;
+    a.click();
+    return name;
+  }
+
+  function afterDownloadHint(board, fileName) {
+    const next = 'Cuando la placa arranque con el firmware nuevo, pulsa "Enviar ajustes por USB".';
+    if (board.flashType === "uf2") return `Descargado "${fileName}". Cópialo al disco UF2 de la placa. ${next}`;
+    if (board.flashType === "hex") return `Descargado "${fileName}". Prográmalo con west flash o una sonda SWD. ${next}`;
+    return `Descargado "${fileName}". Esta web no graba ESP32: grábalo en 0x0 con esptool. ${next}`;
+  }
+
+  // Step 1: download the firmware for the board and role.
   async function runUnifiedFlash(cfg) {
     const configToUse = cfg || pendingConfig;
     const boardId = (configToUse && configToUse.boardId) || (boardSelect ? boardSelect.value : "t1000_e");
     const board = (window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS.find((b) => b.id === boardId)) || (window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS[0]);
-    const isUf2 = board && board.flashType === "uf2";
-
-    if (!("serial" in navigator)) {
-      alert("Web Serial no está soportado en este navegador. Por favor usa Google Chrome o Microsoft Edge en tu ordenador.");
-      return;
-    }
+    if (!board) return;
+    const targetRole = (configToUse && configToUse.role) || "companion";
 
     if (progressCard) {
       progressCard.style.display = "block";
       progressCard.scrollIntoView({ behavior: "smooth" });
     }
 
-    if (isUf2) {
-      if (flashStatusText) flashStatusText.textContent = `Consultando catálogo de firmware compilado para ${board.name}...`;
-      if (progressBar) progressBar.style.width = "20%";
-      if (progressPercent) progressPercent.textContent = "20%";
-
-      const targetRole = (configToUse && configToUse.role) || "companion";
-      const realUrl = await resolveFirmwareUrl(board, targetRole);
-      let downloadBlob = null;
-      let uf2Name = `zephtacore_${board.id}_${targetRole}_v1.18.3.uf2`;
-
-      if (realUrl) {
-        try {
-          if (flashStatusText) flashStatusText.textContent = `Descargando binario oficial Zephyr RTOS (${realUrl.split("/").pop()})...`;
-          if (progressBar) progressBar.style.width = "40%";
-          if (progressPercent) progressPercent.textContent = "40%";
-          const resp = await fetch(realUrl);
-          if (resp.ok) {
-            downloadBlob = await resp.blob();
-            uf2Name = realUrl.split("/").pop();
-          }
-        } catch (e) {
-          console.warn("Could not download via fetch, triggering direct link", e);
-        }
-      }
-
-      if (!downloadBlob) {
-        const dummyUf2Content = `UF2_FIRMWARE_ZEPHTACORE_${board.id.toUpperCase()}`;
-        downloadBlob = new Blob([dummyUf2Content], { type: "application/octet-stream" });
-      }
-
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(downloadBlob);
-      a.download = uf2Name;
-      a.click();
-
-      if (flashStatusText) flashStatusText.textContent = `Descargado "${uf2Name}". Conectando por USB para inyectar tus ajustes...`;
-      if (progressBar) progressBar.style.width = "60%";
-      if (progressPercent) progressPercent.textContent = "60%";
-
-      try {
-        await window.ZephtacoreSerial.connect();
-        if (flashStatusText) flashStatusText.textContent = "Conectado. Inyectando nombre, frecuencia y canales LoRa...";
-        if (progressBar) progressBar.style.width = "85%";
-        if (progressPercent) progressPercent.textContent = "85%";
-
-        setTimeout(async () => {
-          if (configToUse) {
-            await injectConfigSequence(configToUse);
-          }
-          if (progressBar) progressBar.style.width = "100%";
-          if (progressPercent) progressPercent.textContent = "100%";
-          if (flashStatusText) flashStatusText.textContent = "¡Nodo nRF52 configurado con éxito!";
-        }, 1000);
-      } catch (err) {
-        console.warn("Serial connect canceled or error:", err);
-        if (flashStatusText) {
-          flashStatusText.textContent = `Firmware descargado. Conecta el puerto USB cuando el disco UF2 termine de copiarse.`;
-        }
-      }
-      return;
-    }
-
-    if (board && board.flashType === "hex") {
-      if (flashStatusText) flashStatusText.textContent = `Consultando imagen oficial zephyr.hex para ${board.name}...`;
-      if (progressBar) progressBar.style.width = "30%";
-      if (progressPercent) progressPercent.textContent = "30%";
-
-      const targetRole = (configToUse && configToUse.role) || "companion";
-      const realHexUrl = await resolveFirmwareUrl(board, targetRole);
-      let hexBlob = null;
-      let hexName = `zephtacore_${board.id.replace(/\//g, "_")}_${targetRole}_v1.18.3.hex`;
-
-      if (realHexUrl) {
-        try {
-          if (flashStatusText) flashStatusText.textContent = `Descargando imagen compilada (${realHexUrl.split("/").pop()})...`;
-          const resp = await fetch(realHexUrl);
-          if (resp.ok) {
-            hexBlob = await resp.blob();
-            hexName = realHexUrl.split("/").pop();
-          }
-        } catch (e) {
-          console.warn("Hex direct download error", e);
-        }
-      }
-
-      if (!hexBlob) {
-        const dummyHex = `:020000040000FA\n:1000000000000420D5010008D9010008DB010008E1\n:00000001FF`;
-        hexBlob = new Blob([dummyHex], { type: "text/plain" });
-      }
-
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(hexBlob);
-      a.download = hexName;
-      a.click();
-
-      if (flashStatusText) flashStatusText.textContent = `Descargado "${hexName}". Conectando por USB para inyectar tus ajustes CLI...`;
-      if (progressBar) progressBar.style.width = "70%";
-      if (progressPercent) progressPercent.textContent = "70%";
-
-      try {
-        await window.ZephtacoreSerial.connect();
-        if (flashStatusText) flashStatusText.textContent = "Conectado. Inyectando nombre, frecuencia y canales LoRa...";
-        if (progressBar) progressBar.style.width = "85%";
-        if (progressPercent) progressPercent.textContent = "85%";
-
-        setTimeout(async () => {
-          if (configToUse) {
-            await injectConfigSequence(configToUse);
-          }
-          if (progressBar) progressBar.style.width = "100%";
-          if (progressPercent) progressPercent.textContent = "100%";
-          if (flashStatusText) flashStatusText.textContent = "¡Nodo configurado con éxito!";
-        }, 1000);
-      } catch (err) {
-        console.warn("Serial connect canceled or error:", err);
-        if (flashStatusText) {
-          flashStatusText.textContent = `Firmware HEX descargado. Programa la placa mediante west flash o sonda SWD.`;
-        }
-      }
-      return;
-    }
-
-    // ESP32 Web Serial flasher flow
     try {
-      if (flashStatusText) flashStatusText.textContent = "Solicitando conexión USB con la placa...";
-      if (progressBar) progressBar.style.width = "15%";
-      if (progressPercent) progressPercent.textContent = "15%";
-
-      const espPort = await navigator.serial.requestPort();
-      await espPort.open({ baudRate: 115200 });
-
-      if (flashStatusText) flashStatusText.textContent = "Conectado por Web Serial. Grabando firmware Zephtacore oficial...";
-      if (progressBar) progressBar.style.width = "40%";
-      if (progressPercent) progressPercent.textContent = "40%";
-
-      let progress = 40;
-      const timer = setInterval(async () => {
-        progress += 15;
-        if (progressBar) progressBar.style.width = `${Math.min(progress, 100)}%`;
-        if (progressPercent) progressPercent.textContent = `${Math.min(progress, 100)}%`;
-
-        if (progress >= 100) {
-          clearInterval(timer);
-          if (flashStatusText) flashStatusText.textContent = "¡Firmware grabado! Aplicando configuración personalizada...";
-
-          setTimeout(async () => {
-            if (configToUse) {
-              await injectConfigSequence(configToUse);
-            } else {
-              alert("¡Flasheo completado con éxito! El nodo se ha reiniciado.");
-            }
-            if (espPort.readable) espPort.close().catch(() => {});
-          }, 800);
-        }
-      }, 300);
-
+      setProgress(20, `Consultando catálogo de firmware para ${board.name}...`);
+      const fileName = await downloadFirmware(board, targetRole);
+      setProgress(60, afterDownloadHint(board, fileName));
     } catch (err) {
-      console.error("Flasher error:", err);
-      if (flashStatusText) flashStatusText.textContent = `Error: ${err.message}`;
+      console.error("Firmware download error:", err);
+      setProgress(0, `Error: ${err.message}`);
+    }
+  }
+
+  // Step 2: the board runs the new firmware, send the settings.
+  async function runInjectOnly(cfg) {
+    const configToUse = cfg || pendingConfig;
+    if (!configToUse) return;
+    if (!("serial" in navigator)) {
+      alert("Web Serial no está soportado en este navegador. Por favor usa Google Chrome o Microsoft Edge en tu ordenador.");
+      return;
+    }
+
+    if (progressCard) progressCard.style.display = "block";
+    if (!(await window.ZephtacoreSerial.connect())) return;
+    if (await injectConfigSequence(configToUse)) {
+      setProgress(100, "Ajustes enviados. El nodo se reinicia.");
     }
   }
 
   // Flasher Trigger Action
   if (btnStartFlash) {
-    btnStartFlash.addEventListener("click", () => runUnifiedFlash(pendingConfig));
+    btnStartFlash.addEventListener("click", () => {
+      if (progressCard) progressCard.style.display = "block";
+      if (!activeFile) {
+        setProgress(0, "Selecciona primero un archivo de firmware.");
+        return;
+      }
+      setProgress(0, `Esta web no graba archivos locales. Copia "${activeFile.name}" al disco UF2 de la placa o grábalo con esptool (ESP32, en 0x0), y después usa "Enviar ajustes por USB".`);
+    });
   }
 }
 

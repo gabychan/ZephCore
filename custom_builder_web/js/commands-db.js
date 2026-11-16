@@ -204,7 +204,7 @@ window.ZEPHTACORE_COMMANDS = [
     params: "",
     default: "-",
     desc: "Ejecuta un reinicio seguro por software del nodo.",
-    example: "set reboot",
+    example: "reboot",
     tags: ["sistema", "mantenimiento"]
   }
 ];

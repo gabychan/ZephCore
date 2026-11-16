@@ -29,7 +29,7 @@ window.ZephtacoreSerial = (function () {
   async function connect() {
     if (!("serial" in navigator)) {
       alert("Tu navegador no soporta Web Serial API. Por favor usa Google Chrome, Microsoft Edge o Opera en escritorio.");
-      return;
+      return false;
     }
 
     try {
@@ -48,10 +48,14 @@ window.ZephtacoreSerial = (function () {
 
       // Setup reader
       readLoop();
+      return true;
     } catch (err) {
       console.error("Serial connection error:", err);
       logToTerminal(`[!] Error al abrir puerto: ${err.message}\n`, "error");
+      isConnected = false;
+      port = null;
       updateUIState(false);
+      return false;
     }
   }
 
@@ -103,10 +107,10 @@ window.ZephtacoreSerial = (function () {
   async function sendCommand(cmd) {
     if (!writer || !isConnected) {
       logToTerminal("[!] No hay conexión serie activa. Pulsa 'Conectar Puerto Serie'.\n", "error");
-      return;
+      return false;
     }
     const cleanCmd = cmd.trim();
-    if (!cleanCmd) return;
+    if (!cleanCmd) return false;
 
     logToTerminal(`> ${cleanCmd}\n`, "tx");
     await writer.write(`${cleanCmd}\r\n`);
@@ -115,6 +119,7 @@ window.ZephtacoreSerial = (function () {
       commandHistory.push(cleanCmd);
     }
     historyIdx = commandHistory.length;
+    return true;
   }
 
   function updateUIState(connected) {
@@ -175,7 +180,8 @@ window.ZephtacoreSerial = (function () {
     setup,
     sendCommand,
     connect,
-    disconnect
+    disconnect,
+    isConnected: () => isConnected
   };
 })();
 

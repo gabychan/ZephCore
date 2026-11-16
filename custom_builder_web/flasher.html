@@ -104,7 +104,10 @@
 
         <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
           <button id="btnUnifiedFlash" class="btn btn-primary" type="button" style="padding: 0.85rem 1.6rem; font-size: 1rem; font-weight: 700; box-shadow: var(--shadow-cyan-glow);">
-            ⚡ Conectar USB y Flashear Ahora
+            ⬇️ Descargar firmware
+          </button>
+          <button id="btnInjectOnly" class="btn btn-outline" type="button">
+            🔌 Enviar ajustes por USB
           </button>
           <a href="builder.html" class="btn btn-outline btn-sm" title="Volver al Builder para cambiar ajustes">
             ✏️ Editar Ajustes
@@ -171,7 +174,7 @@
 
           <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
             <button id="btnStartFlash" class="btn btn-primary" type="button" style="padding: 0.85rem 1.6rem; font-size: 1rem;">
-              ⚡ Iniciar Flasheo por USB
+              ℹ️ Cómo grabar este archivo
             </button>
             <span style="font-size: 0.85rem; color: var(--text-muted);">
               Requiere navegador compatible con Web Serial API (Chrome / Edge en PC o Mac).
@@ -247,7 +250,7 @@ Los comandos CLI pueden enviarse escribiendo abajo o pulsando los atajos de tele
           <button class="btn-command-shortcut" data-cmd="get cad.stats" type="button">get cad.stats</button>
           <button class="btn-command-shortcut" data-cmd="get batt" type="button">get batt</button>
           <button class="btn-command-shortcut" data-cmd="set z.mt.relay essential" type="button">set z.mt.relay essential</button>
-          <button class="btn-command-shortcut" data-cmd="set reboot" type="button">set reboot</button>
+          <button class="btn-command-shortcut" data-cmd="reboot" type="button">reboot</button>
         </div>
       </div>
     </main>
