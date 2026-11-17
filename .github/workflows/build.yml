@@ -5,17 +5,13 @@ on:
     branches: [ "master", "zephtacore" ]
   workflow_dispatch:
 
-# A release run deletes and re-creates a tag, then force-pushes the
-# firmware-dist branch. Two overlapping runs would race on both, and the loser
-# could leave firmware-dist pointing at a half-published set.
-#
-# Queue rather than cancel: `create-release` deletes the existing release before
-# creating the replacement, so cancelling a run mid-flight can leave the repo
-# with no release at all for that version. A run that is still waiting is
-# replaced by a newer push (GitHub keeps one pending run per group).
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+# Concurrency is per job, not per workflow. A push replaces the builds of the
+# run it supersedes: they publish nothing, so cancelling them leaves nothing
+# half-done and saves their compute. The publishing jobs share one group and are
+# never cancelled: `create-release` deletes the existing release before creating
+# the replacement, and `publish-catalog` force-pushes firmware-dist, so cancelling
+# either mid-flight could leave no release or a half-published set. A publishing
+# job that is still waiting is replaced by a newer one (one pending per group).
 
 # Default for jobs that do not declare their own. create-release and
 # publish-catalog override this with contents: write. Same-run artifact
@@ -75,6 +71,9 @@ jobs:
   # back — the cached modules stay pristine-plus-blobs.
   setup-zephyr:
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-setup-zephyr-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
     - uses: actions/checkout@v6
@@ -124,6 +123,9 @@ jobs:
   build-nrf:
     needs: setup-zephyr
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-build-nrf-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
     - uses: actions/checkout@v6
@@ -207,6 +209,9 @@ jobs:
   build-esp32-repeaters:
     needs: setup-zephyr
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-build-esp32-repeaters-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
     - uses: actions/checkout@v6
@@ -253,6 +258,9 @@ jobs:
   build-linux:
     needs: setup-zephyr
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-build-linux-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
     - uses: actions/checkout@v6
@@ -308,6 +316,9 @@ jobs:
   build-swd:
     needs: setup-zephyr
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-build-swd-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
     - uses: actions/checkout@v6
@@ -357,6 +368,9 @@ jobs:
   build-esp32-companions:
     needs: setup-zephyr
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-build-esp32-companions-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
     - uses: actions/checkout@v6
@@ -407,6 +421,9 @@ jobs:
             build-swd]
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-publish
+      cancel-in-progress: false
     # Needs write to create the release AND to delete/replace an existing one for
     # the same version (see the "replace existing release" step below).
     permissions:
@@ -535,6 +552,9 @@ jobs:
     needs: create-release
     if: needs.create-release.outputs.prerelease != 'true'
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ github.workflow }}-publish
+      cancel-in-progress: false
     permissions:
       contents: write
 
