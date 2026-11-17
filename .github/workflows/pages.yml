@@ -31,6 +31,11 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Stamp local scripts and styles with the commit
+        run: |
+          find custom_builder_web -name '*.html' -exec sed -i -E \
+            "s#((src|href)=\"(\.\./)?(js|css|vendor)/[^\"?]+\.(js|css))\"#\1?v=${GITHUB_SHA::8}\"#" {} +
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
