@@ -63,14 +63,28 @@ document.addEventListener("DOMContentLoaded", () => {
   function getRandomHex(len = 4) {
     const chars = "0123456789ABCDEF";
     let str = "";
-    for (let i = 0; i < len; i++) str += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < len; i++) str += chars[randomIndex(chars.length)];
     return str;
+  }
+
+  // Uniform index in [0, n) from the browser CSPRNG (rejection sampling, no modulo bias).
+  function randomIndex(n) {
+    const limit = Math.floor(0x100000000 / n) * n;
+    const buf = new Uint32Array(1);
+    do {
+      crypto.getRandomValues(buf);
+    } while (buf[0] >= limit);
+    return buf[0] % n;
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
   function generateSecurePass(len = 10) {
     const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*";
     let pass = "";
-    for (let i = 0; i < len; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < len; i++) pass += chars[randomIndex(chars.length)];
     return pass;
   }
 
@@ -197,7 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
       role: selectedRole.id,
       roleName: selectedRole.name,
       name: nodeNameInput && nodeNameInput.value.trim() ? nodeNameInput.value.trim() : `Zephta-${getRandomHex(4)}`,
-      adminPass: adminPassInput ? adminPassInput.value.trim() : "Secr3tAdmin!",
+      adminPass: adminPassInput ? adminPassInput.value.trim() : "",
       guestPass: guestPassInput ? guestPassInput.value.trim() : "",
       lat: nodeLatInput ? nodeLatInput.value.trim() : "",
       lon: nodeLonInput ? nodeLonInput.value.trim() : "",
@@ -230,7 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function saveCurrentConfig() {
     const cfg = getCurrentConfig();
-    localStorage.setItem("zephtacore_pending_config", JSON.stringify(cfg));
+    sessionStorage.setItem("zephtacore_pending_config", JSON.stringify(cfg));
   }
 
   function updateOutputs() {
@@ -338,6 +352,10 @@ ${cfg.guestPass ? `CONFIG_ZEPHCORE_GUEST_PASSWORD=${kconfigString(cfg.guestPass)
   // Generate a random unique node name on initial page load if empty or generic
   if (nodeNameInput && (!nodeNameInput.value || nodeNameInput.value === "ZephtaNode")) {
     rollRandomName();
+  }
+
+  if (adminPassInput && !adminPassInput.value) {
+    adminPassInput.value = generateSecurePass(12);
   }
 
   // Buttons for random generator
@@ -472,7 +490,7 @@ ${cfg.guestPass ? `CONFIG_ZEPHCORE_GUEST_PASSWORD=${kconfigString(cfg.guestPass)
 
   // Fallback Geolocation via IP
   async function fetchIpLocation() {
-    if (mapStatus) mapStatus.innerHTML = "🌐 Consultando ubicación aproximada por red/IP...";
+    if (mapStatus) mapStatus.textContent = "🌐 Consultando ubicación aproximada a ipwho.is (se le envía tu IP)...";
     try {
       const res = await fetch("https://ipwho.is/");
       const data = await res.json();
@@ -483,14 +501,14 @@ ${cfg.guestPass ? `CONFIG_ZEPHCORE_GUEST_PASSWORD=${kconfigString(cfg.guestPass)
         if (map) map.setView([lat, lon], 13);
         const cityStr = [data.city, data.region].filter(Boolean).join(", ");
         if (mapStatus) {
-          mapStatus.innerHTML = `📍 Ubicación por red (${cityStr || "Aproximada"}): <strong>${lat.toFixed(6)}, ${lon.toFixed(6)}</strong> <span style="color: var(--brand-cyan);">(Ajustable en el mapa)</span>`;
+          mapStatus.innerHTML = `📍 Ubicación por red (${escapeHtml(cityStr || "Aproximada")}): <strong>${lat.toFixed(6)}, ${lon.toFixed(6)}</strong> <span style="color: var(--brand-cyan);">(Ajustable en el mapa)</span>`;
         }
       } else {
         throw new Error(data.message || "Sin respuesta");
       }
     } catch (err) {
       if (mapStatus) {
-        mapStatus.innerHTML = `⚠️ No se pudo obtener la ubicación automática (${err.message}). Haz clic directamente en el mapa para marcar tu posición.`;
+        mapStatus.innerHTML = `⚠️ No se pudo obtener la ubicación automática (${escapeHtml(err.message)}). Haz clic directamente en el mapa para marcar tu posición.`;
       }
     }
   }

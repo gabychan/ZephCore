@@ -48,48 +48,34 @@ function initFlasherCore() {
     ).join("");
   }
 
-  // Check for configuration saved from Builder or URL parameter
-  const urlParams = new URLSearchParams(window.location.search);
-  const hasApplyParam = urlParams.get("apply_config") === "1";
-  const savedCfgStr = localStorage.getItem("zephtacore_pending_config");
+  // Settings come from the Builder (same tab, sessionStorage) and are dropped once sent.
+  const PENDING_KEY = "zephtacore_pending_config";
+  const savedCfgStr = sessionStorage.getItem(PENDING_KEY);
 
-  if (savedCfgStr || hasApplyParam) {
+  function showPendingConfig() {
+    if (!pendingConfig || !pendingConfigBanner) return;
+    pendingConfigBanner.style.display = "flex";
+    if (cfgBadgeName) cfgBadgeName.textContent = `Nodo: ${pendingConfig.name}`;
+    if (cfgBadgeFreq) cfgBadgeFreq.textContent = `${pendingConfig.freq} MHz (SF${pendingConfig.sf || 7}/BW${pendingConfig.bw || 62.5})`;
+    if (cfgBadgeRole) cfgBadgeRole.textContent = `Rol: ${pendingConfig.role || "companion"}`;
+    if (cfgBadgeHops) cfgBadgeHops.textContent = `Saltos: ${pendingConfig.mtHops || 7}`;
+    if (cfgBadgeBoard) {
+      const b = window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS.find((x) => x.id === pendingConfig.boardId);
+      cfgBadgeBoard.textContent = `Placa: ${b ? b.name : (pendingConfig.boardName || pendingConfig.boardId || "Auto")}`;
+    }
+  }
+
+  if (savedCfgStr) {
     try {
-      pendingConfig = savedCfgStr ? JSON.parse(savedCfgStr) : {
-        name: "ZephtaNode-EU869",
-        boardId: "t1000_e",
-        role: "companion",
-        freq: "869.618",
-        sf: "7",
-        bw: "62.5",
-        cr: "2",
-        txPower: "22",
-        mtRelay: "essential",
-        mtOpaque: true,
-        mtHops: "7",
-        adminPass: "ZephAdmin2026!"
-      };
-      if (pendingConfig && pendingConfigBanner) {
-        pendingConfigBanner.style.display = "flex";
-        if (cfgBadgeName) cfgBadgeName.textContent = `Nodo: ${pendingConfig.name}`;
-        if (cfgBadgeFreq) cfgBadgeFreq.textContent = `${pendingConfig.freq} MHz (SF${pendingConfig.sf || 7}/BW${pendingConfig.bw || 62.5})`;
-        if (cfgBadgeRole) cfgBadgeRole.textContent = `Rol: ${pendingConfig.role}`;
-        if (cfgBadgeHops) cfgBadgeHops.textContent = `Saltos: ${pendingConfig.mtHops || 7}`;
-        if (cfgBadgeBoard) {
-          const b = window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS.find((x) => x.id === pendingConfig.boardId);
-          cfgBadgeBoard.textContent = `Placa: ${b ? b.name : (pendingConfig.boardName || pendingConfig.boardId || "Auto")}`;
-        }
+      pendingConfig = JSON.parse(savedCfgStr);
+      showPendingConfig();
 
-        // Auto-select the board from builder
-        if (boardSelect && pendingConfig.boardId) {
-          boardSelect.value = pendingConfig.boardId;
-        }
-        if (roleSelect && pendingConfig.role) {
-          roleSelect.value = pendingConfig.role;
-        }
-      }
+      // Preselect what the Builder chose; the selects stay the source of truth.
+      if (boardSelect && pendingConfig.boardId) boardSelect.value = pendingConfig.boardId;
+      if (roleSelect && pendingConfig.role) roleSelect.value = pendingConfig.role;
     } catch (e) {
       console.warn("Error parsing pending config:", e);
+      sessionStorage.removeItem(PENDING_KEY);
     }
   }
 
@@ -174,7 +160,7 @@ function initFlasherCore() {
 
     return [
       `set name ${cfg.name}`,
-      `password ${cfg.adminPass}`,
+      cfg.adminPass ? `password ${cfg.adminPass}` : null,
       `set radio ${cfg.freq},${cfg.bw},${cfg.sf},${cr}`,
       `set tx ${cfg.txPower}`,
       `set z.mt.enable on`,
@@ -206,6 +192,7 @@ function initFlasherCore() {
       await new Promise((r) => setTimeout(r, 250));
     }
 
+    sessionStorage.removeItem(PENDING_KEY);
     alert(
       `Configuración enviada.\n\n` +
       `Nombre: ${cfg.name}\n` +
@@ -263,7 +250,7 @@ function initFlasherCore() {
           if (imported) {
             pendingConfig = {
               name: imported.name || "ZephtaNode",
-              adminPass: imported.password || "Secr3tAdmin!",
+              adminPass: imported.password || "",
               freq: (imported.radio && imported.radio.freq) || "869.618",
               sf: (imported.radio && imported.radio.sf) || "7",
               bw: (imported.radio && imported.radio.bw) || "62.5",
