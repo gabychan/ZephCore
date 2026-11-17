@@ -79,7 +79,7 @@ void ContentionTracker::finalizeEntry(int idx)
 	_ring[idx].active = false;
 }
 
-void ContentionTracker::trackRetransmit(uint32_t hash32, uint32_t now_ms, bool foreign)
+void ContentionTracker::trackRetransmit(uint32_t hash32, uint32_t now_ms, bool foreign, uint32_t hold_ms)
 {
 	if (!foreign) {
 		_last_retransmit_ms = now_ms;
@@ -95,6 +95,7 @@ void ContentionTracker::trackRetransmit(uint32_t hash32, uint32_t now_ms, bool f
 	e.first_seen_ms = now_ms;
 	e.dupe_count = 0;
 	e.reactive_added_ms = 0;
+	e.hold_ms = hold_ms > 0xFFFF ? 0xFFFF : (uint16_t)hold_ms;
 	e.active = true;
 	e.foreign = foreign;
 
@@ -108,7 +109,7 @@ bool ContentionTracker::recordDupeIfTracked(uint32_t hash32, uint32_t now_ms)
 
 	Entry &e = _ring[idx];
 
-	if (now_ms - e.first_seen_ms > WINDOW_MS) {
+	if (now_ms - e.first_seen_ms > windowOf(e)) {
 		finalizeEntry(idx);
 		return false;
 	}
@@ -159,7 +160,7 @@ void ContentionTracker::addReactiveExtension(uint32_t hash32, uint16_t added_ms)
 void ContentionTracker::tick(uint32_t now_ms)
 {
 	for (int i = 0; i < RING_SIZE; i++) {
-		if (_ring[i].active && now_ms - _ring[i].first_seen_ms > WINDOW_MS) {
+		if (_ring[i].active && now_ms - _ring[i].first_seen_ms > windowOf(_ring[i])) {
 			finalizeEntry(i);
 		}
 	}
@@ -200,7 +201,7 @@ uint32_t ContentionTracker::msUntilNextTick(uint32_t now_ms) const
 		}
 		next = maintenanceSooner(
 			next, maintenanceUntil(now_ms,
-					       _ring[i].first_seen_ms + WINDOW_MS + 1));
+					       _ring[i].first_seen_ms + windowOf(_ring[i]) + 1));
 	}
 
 	/* Stale-decay step, only while there is EMA left to decay. */

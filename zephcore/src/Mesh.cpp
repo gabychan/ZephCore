@@ -78,7 +78,7 @@ bool Mesh::relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms) {
   if (findForeignQueued(hash) >= 0) return true;  // already waiting
   if (getForeignQueued() >= FOREIGN_RELAY_MAX) return false;
   if (!sendForeign(frame, (int)len, FOREIGN_RELAY_PRIORITY, delay_ms)) return false;
-  _contention.trackRetransmit(hash, (uint32_t)_ms->getMillis(), true);
+  _contention.trackRetransmit(hash, (uint32_t)_ms->getMillis(), true, delay_ms);
   return true;
 }
 

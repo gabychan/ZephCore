@@ -1341,6 +1341,11 @@
       "id": "UNIT-MT-067",
       "name": "Random Meshtastic-sized frames are taken for MeshCore ones rarely, and the shape of each MeshCore payload type is held",
       "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-005",
+      "name": "A repeat waiting longer than the observation window still hears the copy of another node and gives way; once its own wait is over it is no longer tracked",
+      "source": "tests/unit/foreign_relay_tests.cpp"
     }
   ]
 }
