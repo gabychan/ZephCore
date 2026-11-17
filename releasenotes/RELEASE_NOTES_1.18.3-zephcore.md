@@ -56,7 +56,7 @@ default channels and node name in order.
 - A direct message to a Meshtastic node that the app retries keeps the packet id of the first try, so the node's ACK still
   answers it. A PKI message that arrives before we know the sender's key is delivered when it is sent again, and a key that no
   longer opens a frame makes us ask for the node's NodeInfo.
-- `get z.mt.stats` counts `long` apart: Meshtastic frames over 184 bytes, which are heard and delivered but not repeated.
+- Meshtastic frames up to 255 bytes are repeated: the bytes past the 184th of a queued frame wait in a tail slot (`CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS`, 4 slots of 71 bytes by default). `get z.mt.stats` counts `long` the frames a build without slots cannot repeat, apart from `shed`.
 - A Meshtastic node heard for the first time is added as a contact only as your auto-add settings
   allow; with manual adding it shows up as a discovered contact instead.
 - Renaming the node changes the name in its Meshtastic NodeInfo too, without a restart.

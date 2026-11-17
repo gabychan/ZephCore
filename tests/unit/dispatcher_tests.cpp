@@ -206,7 +206,7 @@ TEST(dispatch_foreign_tx, "UNIT-DISPATCH-019", "A foreign frame goes out as its 
     for (size_t i = 0; i < frame.size(); i++) frame[i] = (uint8_t)(i * 3 + 1);
     CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
     CHECK(!f.dispatcher.sendForeign(frame.data(), 0, 1, 0));
-    std::vector<uint8_t> big(185, 1);
+    std::vector<uint8_t> big(256, 1);
     CHECK(!f.dispatcher.sendForeign(big.data(), (int)big.size(), 1, 0));
     f.dispatcher.loop();
     CHECK(f.radio.sent.size() == 1 && f.radio.sent[0] == frame && f.radio.sent_foreign[0]);
@@ -288,4 +288,25 @@ TEST(dispatch_foreign_not_logged_raw, "UNIT-DISPATCH-025", "A consumed foreign f
     f.radio.incoming = {meshcore};
     f.dispatcher.consume_foreign = false; f.dispatcher.loop();
     CHECK(f.dispatcher.raw_logged == 1);
+}
+
+TEST(dispatch_foreign_long, "UNIT-DISPATCH-026", "A foreign frame up to 255 bytes goes out whole, its tail slot comes back, and when the slots are used the frame is refused") {
+    Fixture f; f.begin();
+    std::vector<uint8_t> frame(255);
+    for (size_t i = 0; i < frame.size(); i++) frame[i] = (uint8_t)(i * 5 + 3);
+    CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
+    CHECK(f.dispatcher.getForeignQueued() == 1 && f.pool.getFreeCount() == 31);
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 1 && f.radio.sent[0] == frame && f.radio.sent_foreign[0]);
+    f.complete();
+    CHECK(f.radio.foreign_airtime_len == 255 && f.pool.getFreeCount() == 32);
+    std::vector<uint8_t> edge(184, 7), over(185, 9);                                  // 184 needs no slot, 185 does
+    for (int i = 0; i < mesh::ForeignTail::SLOTS; i++) CHECK(f.dispatcher.sendForeign(over.data(), (int)over.size(), 1, 10000));
+    CHECK(!f.dispatcher.sendForeign(over.data(), (int)over.size(), 1, 10000));         // no slot left
+    CHECK(f.dispatcher.sendForeign(edge.data(), (int)edge.size(), 1, 10000));          // a short frame does not need one
+    CHECK(f.pool.getFreeCount() == 32 - mesh::ForeignTail::SLOTS - 1);
+    f.clock.now += 10001;
+    for (int i = 0; i < mesh::ForeignTail::SLOTS + 1; i++) { f.dispatcher.loop(); f.complete(); }
+    CHECK(f.pool.getFreeCount() == 32 && f.radio.sent.size() == (size_t)mesh::ForeignTail::SLOTS + 2);
+    CHECK(f.dispatcher.sendForeign(over.data(), (int)over.size(), 1, 0));              // the slots are free again
 }

@@ -54,7 +54,7 @@ void Mesh::foreignDupeHeard(const uint8_t* raw, int len) {
   if (!_contention.recordDupeIfTracked(hash, now)) return;
   int i = findForeignQueued(hash);
   if (i < 0) return;
-  uint16_t delay = _contention.getReactiveHeadroom(hash, _radio->getEstForeignAirtimeFor(_mgr->getOutboundByIdx(i)->payload_len));
+  uint16_t delay = _contention.getReactiveHeadroom(hash, _radio->getEstForeignAirtimeFor(payloadOnAir(_mgr->getOutboundByIdx(i))));
   if (delay == 0) return;
   uint32_t at = ContentionTracker::deferredSchedule(_mgr->getOutboundSchedule(i), now, delay);
   _mgr->rescheduleOutbound(i, at);

@@ -78,7 +78,7 @@ only when a firmware raises the revision. Existing channels and radio settings a
 - Channels use the AES-128 channel cipher only: no AEAD channels, no AES-256 channel keys. Direct messages use PKI.
 - A PKI message from a node whose key we do not hold is not opened (it is lost; our NodeInfo request gets the key for the next one). No `PKI_UNKNOWN_PUBKEY` reply, no ACK proof, no admin messages. An ACK is trusted by packet id and sender, without Meshtastic's ACK proof.
 - PKI is used for text only (not NodeInfo, Position or routing, as in Meshtastic), except our ACKs, which are PKI too.
-- A frame we send or repeat is at most 184 bytes (MeshCore's payload limit), about 164 characters of text.
+- A frame we send is at most 184 bytes (MeshCore's payload limit), about 164 characters of text. A frame we repeat can be up to 255: the bytes past the 184th wait in one of `CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS` slots of 71 bytes (4 by default).
 - Our position is not broadcast.
 - Text sent from the device UI (joystick) still goes out as MeshCore; only app messages are bridged.
 - A repeated frame waits as a Meshtastic client does: 16 slots left to routers, then a random slot in a window of

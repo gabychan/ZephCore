@@ -186,7 +186,7 @@ uint32_t MtRelayPort::slotMs() const
 void MtRelayPort::queue(const uint8_t *relay, size_t len, const int8_t snr_x4,
 			const Policy &policy)
 {
-	if (len > mt::kMaxTxFrame) {
+	if (len > MAX_PACKET_PAYLOAD && mesh::ForeignTail::SLOTS == 0) {
 		LOG_WRN("mt: relay too long (len=%u)", (unsigned)len);
 		_stats.too_long++;
 		return;

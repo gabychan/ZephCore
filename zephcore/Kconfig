@@ -1420,6 +1420,18 @@ config ZEPHTACORE_DEFAULT_CHANNELS
 	  boots leave the list as the user has it. "Bots" is where the ping
 	  bot answers.
 
+config ZEPHTACORE_FOREIGN_TAIL_SLOTS
+	int "Meshtastic frames longer than 184 bytes that can wait to be repeated"
+	depends on ZEPHTACORE_MESHTASTIC
+	range 0 16
+	default 4
+	help
+	  A Packet holds 184 bytes and a Meshtastic frame can be 255. The
+	  bytes past the 184th wait in a slot of 71 bytes while their frame
+	  is queued, so each slot costs 71 bytes of RAM. With 0 a frame
+	  longer than 184 bytes is not repeated ("long" in z.mt.stats); with
+	  all slots in use it is counted as "shed".
+
 config ZEPHTACORE_MT_HOP_LIMIT
 	int "hop_limit of the Meshtastic frames we send (0-7)"
 	depends on ZEPHTACORE_MESHTASTIC

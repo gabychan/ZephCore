@@ -1326,6 +1326,11 @@
       "id": "UNIT-FOREIGN-004",
       "name": "A dupe of a MeshCore flood we hold pushes it back by 0.2 x its airtime from its own slot, never earlier, within the cap; a flood not tracked stays",
       "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-026",
+      "name": "A foreign frame up to 255 bytes goes out whole, its tail slot comes back, and when the slots are used the frame is refused",
+      "source": "tests/unit/dispatcher_tests.cpp"
     }
   ]
 }
