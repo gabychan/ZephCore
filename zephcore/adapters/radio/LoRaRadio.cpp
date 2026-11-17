@@ -61,12 +61,24 @@ void LoRaRadio::setMtListen(bool on)
 		return;
 	}
 	LOG_INF("rx sync word: %s", on ? "MeshCore and Meshtastic" : "MeshCore");
-	/* A receiver already running takes the new word now; otherwise the next startReceive() does. */
-	if (atomic_get(&_in_recv_mode) && !atomic_get(&_tx_active)) {
+	atomic_set(&_rx_word_pending, 1);
+	applyPendingRxWord();
+}
+
+void LoRaRadio::applyPendingRxWord()
+{
+	/* Pending is set before the claim, so a TX releasing the radio in between
+	 * still sees it. A receiver not running takes the word at its next start. */
+	if (!atomic_get(&_rx_word_pending) || !atomic_cas(&_tx_active, 0, 1)) {
+		return;
+	}
+	atomic_set(&_rx_word_pending, 0);
+	if (atomic_get(&_in_recv_mode)) {
 		hwCancelReceive();
 		atomic_set(&_in_recv_mode, 0);
 		startReceive();
 	}
+	atomic_set(&_tx_active, 0);
 }
 
 void LoRaRadio::applyTxPreamble()
@@ -192,6 +204,7 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 			self->_board->onAfterTransmit();
 			self->startReceive();
 			atomic_set(&self->_tx_active, 0);
+			self->applyPendingRxWord();
 			if (self->_tx_done_cb) {
 				self->_tx_done_cb(self->_tx_done_cb_user_data);
 			}
@@ -207,6 +220,7 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 			self->_board->onAfterTransmit();
 			self->startReceive();
 			atomic_set(&self->_tx_active, 0);
+			self->applyPendingRxWord();
 			if (self->_tx_done_cb) {
 				self->_tx_done_cb(self->_tx_done_cb_user_data);
 			}
@@ -228,6 +242,7 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 			self->_board->onAfterTransmit();
 			self->startReceive();
 			atomic_set(&self->_tx_active, 0);
+			self->applyPendingRxWord();
 			if (sig_result < 0) {
 				LOG_ERR("TX failed: driver reported %d — packet lost",
 					sig_result);
@@ -245,6 +260,7 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 			self->_board->onAfterTransmit();
 			self->startReceive();
 			atomic_set(&self->_tx_active, 0);
+			self->applyPendingRxWord();
 
 			if (self->_tx_done_cb) {
 				self->_tx_done_cb(self->_tx_done_cb_user_data);

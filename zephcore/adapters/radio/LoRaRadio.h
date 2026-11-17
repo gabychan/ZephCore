@@ -349,6 +349,11 @@ private:
 	bool _tx_foreign = false;
 	/* RX takes both sync words; off, MeshCore's alone. */
 	atomic_t _mt_listen = 0;
+	/* _mt_listen changed and the running receiver has not taken it yet. */
+	atomic_t _rx_word_pending = 0;
+	/* Re-arms a running receiver on the current listen word when one is
+	 * pending and no TX owns the radio; the TX wait thread retries on release. */
+	void applyPendingRxWord();
 	/* Hands the driver the sync words of the next RX and TX starts; a no-op
 	 * unless the family has the op. */
 	void applySyncWords();
