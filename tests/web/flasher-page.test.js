@@ -7,12 +7,13 @@ const L = require("../../custom_builder_web/js/flasher-logic.js");
 const CDN = "https://cdn.jsdelivr.net/gh/xejarque/ZephCore@firmware-dist/";
 const catalog = {
   device: [{ firmware: [{ role: "companionUsb", version: { "1.18.2": { files: [
-    { name: "t1000_e-companion-zephtacore-abc1234.uf2", url: CDN + "t1000_e-companion-zephtacore-abc1234.uf2" }
+    { name: "t1000_e-companion-zephtacore-abc1234.uf2", url: CDN + "t1000_e-companion-zephtacore-abc1234.uf2" },
+    { name: "t1000_e-companion-zephtacore-abc1234.zip", url: CDN + "t1000_e-companion-zephtacore-abc1234.zip" }
   ] } } }] }]
 };
 
 // Runs initFlasherCore against a minimal DOM and a fake catalog fetch.
-async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boards = null, install = "keep" } = {}) {
+async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boards = null, install = "keep", serial = true, nrf = null } = {}) {
   const els = {};
   const downloads = [];
   const dialog = { shown: 0 };
@@ -35,6 +36,7 @@ async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boa
     ZephtacoreLogic: L,
     ZephtacoreSerial: { log() {} },
     ZephtacoreEsptool: esptool,
+    ZephtacoreNrf: nrf,
     ZEPHTACORE_BOARDS: boards || [
       { id: "t1000_e", name: "T1000-E", mcu: "nRF52840", radio: "LR1110", flashType: "uf2", desc: "" },
       { id: "rak4631", name: "RAK4631", mcu: "nRF52840", radio: "SX1262", flashType: "uf2", desc: "" }
@@ -46,7 +48,7 @@ async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boa
   const fetchFn = async (url) =>
     String(url).includes("catalog.json")
       ? { ok: fetchOk, json: async () => catalog }
-      : { ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer };
+      : { ok: true, arrayBuffer: async () => (String(url).endsWith(".zip") ? new TextEncoder().encode(String(url)) : new Uint8Array([1, 2, 3, 4])).buffer };
   const src = fs.readFileSync(path.join(__dirname, "../../custom_builder_web/js/flasher-core.js"), "utf8");
   const choice = { keep: "btnInstallKeep", clean: "btnInstallClean", cancel: "btnInstallCancel" }[install];
   Object.assign(el("installModeDialog"), {
@@ -55,7 +57,7 @@ async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boa
   });
   els.flasherBoardSelect = { ...el("flasherBoardSelect"), value: board };
   els.flasherRoleSelect = { ...el("flasherRoleSelect"), value: "companion" };
-  const navigatorStub = { serial: { requestPort: async () => ({ fake: "port" }) } };
+  const navigatorStub = serial ? { serial: { requestPort: async () => ({ fake: "port" }) } } : {};
   new Function("window", "document", "sessionStorage", "navigator", "fetch", "URLSearchParams", src)(win, doc, store, navigatorStub, fetchFn, URLSearchParams);
   await new Promise((r) => setTimeout(r, 20));
   els.downloads = downloads;
@@ -158,36 +160,115 @@ test("cancelling the install question touches nothing", async () => {
   assert.equal(esp.calls.disconnected, 0);
 });
 
-test("UF2: without a formatter in the catalog the question is not asked and the firmware downloads", async () => {
-  const els = await loadPage({ install: "clean" });
+test("UF2 without Web Serial: without a formatter in the catalog the question is not asked and the firmware downloads", async () => {
+  const els = await loadPage({ install: "clean", serial: false });
   await els.btnUnifiedFlash.listeners.click();
   assert.equal(els.dialog.shown, 0);
   assert.deepEqual(els.downloads, ["t1000_e-companion-zephtacore-abc1234.uf2"]);
 });
 
-test("UF2: a clean install hands out the formatter first and the firmware after the board is formatted", async () => {
+test("UF2 without Web Serial: a clean install hands out the formatter first and the firmware after the board is formatted", async () => {
   catalog.device[0].firmware[0].erase = CDN + "SoftDevice_v7_formatter.zip";
   try {
-    const els = await loadPage({ install: "clean" });
+    const els = await loadPage({ install: "clean", serial: false });
     await els.btnUnifiedFlash.listeners.click();
     assert.equal(els.dialog.shown, 1);
     assert.deepEqual(els.downloads, ["SoftDevice_v7_formatter.uf2"]);
-    assert.equal(els.btnAfterFormat.style.display, "");
-    await els.btnAfterFormat.listeners.click();
+    assert.equal(els.btnNextStep.style.display, "");
+    await els.btnNextStep.listeners.click();
     assert.deepEqual(els.downloads, ["SoftDevice_v7_formatter.uf2", "t1000_e-companion-zephtacore-abc1234.uf2"]);
-    assert.equal(els.btnAfterFormat.style.display, "none");
+    assert.equal(els.btnNextStep.style.display, "none");
   } finally {
     delete catalog.device[0].firmware[0].erase;
   }
 });
 
-test("UF2: keeping the data downloads only the firmware even when a formatter exists", async () => {
+test("UF2 without Web Serial: keeping the data downloads only the firmware even when a formatter exists", async () => {
   catalog.device[0].firmware[0].erase = CDN + "SoftDevice_v7_formatter.zip";
   try {
-    const els = await loadPage({ install: "keep" });
+    const els = await loadPage({ install: "keep", serial: false });
     await els.btnUnifiedFlash.listeners.click();
     assert.deepEqual(els.downloads, ["t1000_e-companion-zephtacore-abc1234.uf2"]);
   } finally {
     delete catalog.device[0].firmware[0].erase;
+  }
+});
+
+// nRF52 with Web Serial: the Adafruit bootloader's DFU, one click per port.
+function fakeNrf({ failFirstFlash = false } = {}) {
+  const calls = [];
+  let failed = false;
+  return {
+    calls,
+    module: {
+      async touchBootloader() { calls.push("touch"); },
+      openDfuZip: (bytes) => ({ url: new TextDecoder().decode(bytes) }),
+      async flashNrf(pkg, hooks) {
+        if (failFirstFlash && !failed) { failed = true; throw new Error("La placa no responde"); }
+        calls.push("flash " + pkg.url.split("/").pop());
+        hooks.onConnected();
+        hooks.onStage("write");
+        hooks.onProgress("write", 1);
+      }
+    }
+  };
+}
+const FIRMWARE_ZIP = "t1000_e-companion-zephtacore-abc1234.zip";
+
+test("nRF52: the board is rebooted into its bootloader, then the firmware zip is written on the next click", async () => {
+  const nrf = fakeNrf();
+  const els = await loadPage({ nrf: nrf.module, install: "keep" });
+  await els.btnUnifiedFlash.listeners.click();
+  assert.deepEqual(nrf.calls, ["touch"]);
+  assert.equal(els.btnNextStep.style.display, "");
+  assert.match(els.btnNextStep.textContent, /grabar el firmware/);
+  await els.btnNextStep.listeners.click();
+  assert.deepEqual(nrf.calls, ["touch", "flash " + FIRMWARE_ZIP]);
+  assert.equal(els.downloads.length, 0);
+  assert.match(els.flashStatusText.textContent, /Firmware instalado/);
+  assert.equal(els.btnNextStep.style.display, "none");
+});
+
+test("nRF52: a clean install loads the formatter first, and the firmware on a later click", async () => {
+  catalog.device[0].firmware[0].erase = CDN + "SoftDevice_v7_formatter.zip";
+  try {
+    const nrf = fakeNrf();
+    const els = await loadPage({ nrf: nrf.module, install: "clean" });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.match(els.btnNextStep.textContent, /formatear/);
+    await els.btnNextStep.listeners.click();
+    assert.deepEqual(nrf.calls, ["touch", "flash SoftDevice_v7_formatter.zip"]);
+    assert.match(els.flashStatusText.textContent, /vuelve sola a modo DFU/);
+    assert.match(els.btnNextStep.textContent, /grabar el firmware/);
+    await els.btnNextStep.listeners.click();
+    assert.deepEqual(nrf.calls, ["touch", "flash SoftDevice_v7_formatter.zip", "flash " + FIRMWARE_ZIP]);
+    assert.match(els.flashStatusText.textContent, /Firmware instalado/);
+  } finally {
+    delete catalog.device[0].firmware[0].erase;
+  }
+});
+
+test("nRF52: a failed DFU shows the error and offers the same step again", async () => {
+  const nrf = fakeNrf({ failFirstFlash: true });
+  const els = await loadPage({ nrf: nrf.module, install: "keep" });
+  await els.btnUnifiedFlash.listeners.click();
+  await els.btnNextStep.listeners.click();
+  assert.match(els.flashStatusText.textContent, /Error: La placa no responde/);
+  assert.equal(els.btnNextStep.style.display, "");
+  await els.btnNextStep.listeners.click();
+  assert.deepEqual(nrf.calls, ["touch", "flash " + FIRMWARE_ZIP]);
+});
+
+test("nRF52: a board whose catalog has no DFU zip reports it and offers no step", async () => {
+  const files = catalog.device[0].firmware[0].version["1.18.2"].files;
+  const saved = files.splice(files.findIndex((f) => f.name.endsWith(".zip")), 1);
+  try {
+    const nrf = fakeNrf();
+    const els = await loadPage({ nrf: nrf.module, install: "keep" });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.match(els.flashStatusText.textContent, /No hay paquete DFU publicado/);
+    assert.notEqual(els.btnNextStep.style.display, "");
+  } finally {
+    files.push(...saved);
   }
 });

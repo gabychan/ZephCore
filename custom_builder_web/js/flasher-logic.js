@@ -4,7 +4,7 @@
  */
 (function (root) {
   const FIRMWARE_URL_PREFIX = /^https:\/\/cdn\.jsdelivr\.net\/gh\/(xejarque|liquidraver)\/ZephCore@firmware-dist\//;
-  const FILE_SUFFIX = { uf2: "\\.uf2", hex: "\\.hex", bin: "-merged\\.bin" };
+  const FILE_SUFFIX = { uf2: "\\.uf2", hex: "\\.hex", bin: "-merged\\.bin", dfu: "\\.zip" };
 
   // Coding rate: the builder stores 1-4 (4/5-4/8), the firmware takes 5-8.
   function firmwareCodingRate(cr) {
@@ -62,18 +62,19 @@
 
   // build.sh names files <target with / as ->>-<role>-<variant>-<git hash><suffix>.
   // The flasher injects z.* settings, so it only offers the zephtacore variant.
-  function findCatalogFile(files, board, role) {
+  // kind picks the file type: the board's own (uf2, hex, bin) or "dfu", the .zip of an nRF52 board.
+  function findCatalogFile(files, board, role, kind = board.flashType) {
     const stem = board.id.replace(/\//g, "-").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pat = new RegExp(`^${stem}-${role}-zephtacore-[0-9a-f]{7,40}${FILE_SUFFIX[board.flashType] || FILE_SUFFIX.bin}$`);
+    const pat = new RegExp(`^${stem}-${role}-zephtacore-[0-9a-f]{7,40}${FILE_SUFFIX[kind] || FILE_SUFFIX.bin}$`);
     return files.find((f) => pat.test(f.name || "") && FIRMWARE_URL_PREFIX.test(f.url || "")) || null;
   }
 
   // The catalog's `erase` of a firmware option is the .zip of the formatter for the board's
-  // SoftDevice; the .uf2 sits beside it. Anything else is not trusted.
+  // SoftDevice; the .uf2 sits beside it (ext "zip" or "uf2"). Anything else is not trusted.
   const FORMATTER_ZIP = /^https:\/\/cdn\.jsdelivr\.net\/gh\/(xejarque|liquidraver)\/ZephCore@firmware-dist\/SoftDevice_v[67]_formatter\.zip$/;
-  function formatterUrl(file) {
+  function formatterUrl(file, ext = "uf2") {
     const zip = file && file.erase;
-    return FORMATTER_ZIP.test(zip || "") ? zip.replace(/\.zip$/, ".uf2") : null;
+    return FORMATTER_ZIP.test(zip || "") ? zip.replace(/\.zip$/, `.${ext}`) : null;
   }
 
   function kconfigString(value) {

@@ -109,3 +109,14 @@ test("each catalog file carries the erase package of its firmware option", () =>
   const cat = { device: [{ firmware: [{ role: "x", erase: CDN + "SoftDevice_v7_formatter.zip", version: { "1.0": { files: [{ name: "a.uf2", url: CDN + "a.uf2" }] } } }] }] };
   assert.deepEqual(L.catalogFiles(cat), [{ name: "a.uf2", url: CDN + "a.uf2", erase: CDN + "SoftDevice_v7_formatter.zip" }]);
 });
+
+test("the DFU zip of a board is found by kind, and the formatter has a .zip and a .uf2", () => {
+  const board = { id: "t1000_e", flashType: "uf2" };
+  const files = [
+    { name: "t1000_e-companion-zephtacore-abc1234.uf2", url: CDN + "t1000_e-companion-zephtacore-abc1234.uf2" },
+    { name: "t1000_e-companion-zephtacore-abc1234.zip", url: CDN + "t1000_e-companion-zephtacore-abc1234.zip" }
+  ];
+  assert.equal(L.findCatalogFile(files, board, "companion").name, "t1000_e-companion-zephtacore-abc1234.uf2");
+  assert.equal(L.findCatalogFile(files, board, "companion", "dfu").name, "t1000_e-companion-zephtacore-abc1234.zip");
+  assert.equal(L.formatterUrl({ erase: CDN + "SoftDevice_v7_formatter.zip" }, "zip"), CDN + "SoftDevice_v7_formatter.zip");
+});

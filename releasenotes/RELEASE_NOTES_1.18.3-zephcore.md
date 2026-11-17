@@ -14,9 +14,13 @@ default channels and node name in order.
   in RAM (the C6 boards) or flash (`lora_e5_mini`). See `docs/PROVIDER_CATALOG.md`.
 - On a WiFi companion with Zephtacore the system heap is 3 KB smaller (`wifi_companion_zephtacore.conf`), which is what
   lets the Heltec V3 and the Wireless Tracker build it.
+- The web flasher writes nRF52 boards over USB, with the Adafruit bootloader's serial DFU and the `.zip` package of the
+  catalog, instead of a UF2 copied by hand (the UF2 copy stays for browsers without Web Serial). The board reboots into
+  the bootloader and the browser asks for its port once per step.
 - The web flasher asks whether to keep the data or do a clean install. On ESP32 a clean install erases the whole flash
-  before writing; on nRF52 it hands out the SoftDevice's formatter UF2 first and the firmware after the board is
-  formatted. The formatter is the one the catalog names for the board. A clean install gives the node a new identity.
+  while writing. On nRF52 it loads the SoftDevice's formatter package first, which erases the file system and returns the
+  board to the bootloader, and then the firmware. The formatter is the one the catalog names for the board. A clean
+  install gives the node a new identity.
 - A push to a branch other than `master` still builds, but no longer replaces the release or `firmware-dist`.
 
 ---

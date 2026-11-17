@@ -37,7 +37,7 @@ function initFlasherCore() {
   const btnInstallKeep = document.getElementById("btnInstallKeep");
   const btnInstallClean = document.getElementById("btnInstallClean");
   const btnInstallCancel = document.getElementById("btnInstallCancel");
-  const btnAfterFormat = document.getElementById("btnAfterFormat");
+  const btnNextStep = document.getElementById("btnNextStep");
 
   let activeFile = null;
   let activeBuffer = null;
@@ -102,7 +102,7 @@ function initFlasherCore() {
     if (previewRadioTag) previewRadioTag.textContent = board.radio;
     if (previewFlashTag) {
       if (board.flashType === "uf2") {
-        previewFlashTag.textContent = "Modo UF2 (Arrastrar a Disco)";
+        previewFlashTag.textContent = "serial" in navigator ? "DFU por USB (Adafruit bootloader)" : "Modo UF2 (Arrastrar a Disco)";
         previewFlashTag.style.background = "rgba(139, 92, 246, 0.1)";
         previewFlashTag.style.color = "var(--brand-purple)";
         previewFlashTag.style.borderColor = "rgba(139, 92, 246, 0.3)";
@@ -189,7 +189,7 @@ function initFlasherCore() {
   if (btnInstallClean) btnInstallClean.addEventListener("click", () => chooseInstallMode("clean"));
   if (btnInstallCancel) btnInstallCancel.addEventListener("click", () => chooseInstallMode(null));
   if (installDialog) installDialog.addEventListener("cancel", () => chooseInstallMode(null));
-  if (btnAfterFormat) btnAfterFormat.addEventListener("click", () => downloadAfterFormat());
+  if (btnNextStep) btnNextStep.addEventListener("click", runNextStep);
 
   // Dropzone drag-and-drop
   if (dropzone && fileInput) {
@@ -294,12 +294,12 @@ function initFlasherCore() {
     return catalogFilesPromise;
   }
 
-  async function findBuild(board, role) {
+  async function findBuild(board, role, kind) {
     if (!PUBLISHED_ROLES.includes(role)) {
       throw new Error(`El rol "${role}" no se publica como binario: compílalo con west desde el Builder.`);
     }
     const files = await loadCatalogFiles();
-    return files ? findCatalogFile(files, board, role) : null;
+    return files ? findCatalogFile(files, board, role, kind) : null;
   }
 
   async function resolveFirmwareUrl(board, role) {
@@ -330,7 +330,7 @@ function initFlasherCore() {
     previewBuildTag.style.color = available ? "var(--brand-emerald)" : "var(--text-muted)";
     if (btnUnifiedFlash) {
       btnUnifiedFlash.disabled = !available;
-      btnUnifiedFlash.textContent = board.flashType === "bin" ? "⚡ Grabar firmware por USB" : "⬇️ Descargar firmware";
+      btnUnifiedFlash.textContent = usesWebSerialFlash(board) ? "⚡ Grabar firmware por USB" : "⬇️ Descargar firmware";
     }
   }
 
@@ -438,8 +438,14 @@ function initFlasherCore() {
   const CLEAN_LOSS = "Se pierden la identidad del nodo (clave nueva: tus contactos lo verán como otro nodo), los ajustes, los contactos y los emparejamientos Bluetooth.";
   const CLEAN_TEXT = {
     bin: `Instalación limpia: borra TODA la flash de la placa antes de grabar el firmware, por si el sistema de archivos quedó corrupto. ${CLEAN_LOSS}`,
+    dfu: `Instalación limpia: primero se carga en la placa el formateador oficial de su SoftDevice, que borra el sistema de archivos, y después se instala el firmware, todo por USB. El navegador te pedirá elegir el puerto varias veces. ${CLEAN_LOSS}`,
     uf2: `Instalación limpia: primero se descarga un formateador que borra el sistema de archivos, y después el firmware (dos copias al disco UF2). ${CLEAN_LOSS}`
   };
+
+  // ESP32 and nRF52 are written from the browser; nRF52 needs Web Serial for the DFU.
+  function usesWebSerialFlash(board) {
+    return board.flashType === "bin" || (board.flashType === "uf2" && "serial" in navigator);
+  }
 
   let resolveInstallMode = null;
   function chooseInstallMode(mode) {
@@ -454,15 +460,102 @@ function initFlasherCore() {
   async function askInstallMode(board, role) {
     const cleanable = board.flashType === "bin" || (board.flashType === "uf2" && !!(await resolveFormatterUrl(board, role)));
     if (!cleanable || !installDialog) return "keep";
-    installModeText.textContent = CLEAN_TEXT[board.flashType];
+    installModeText.textContent = CLEAN_TEXT[board.flashType === "uf2" && usesWebSerialFlash(board) ? "dfu" : board.flashType];
     return new Promise((resolve) => {
       resolveInstallMode = resolve;
       installDialog.showModal();
     });
   }
 
-  // nRF52 clean install, step 1: the formatter erases the file system and puts the board
-  // back in UF2 mode; the firmware is downloaded once the user says it is back.
+  // Steps that each need their own click: the browser only lets a page open a serial port
+  // from a user gesture, and the board changes USB device between steps.
+  let nextStep = null;
+  function offerNextStep(label, run) {
+    nextStep = run;
+    btnNextStep.textContent = label;
+    btnNextStep.style.display = "";
+  }
+
+  function runNextStep() {
+    if (!nextStep) return undefined;
+    const run = nextStep;
+    nextStep = null;
+    btnNextStep.style.display = "none";
+    return run();
+  }
+
+  function offerSteps(steps, index = 0) {
+    offerNextStep(steps[index].button, async () => {
+      try {
+        await steps[index].run();
+      } catch (err) {
+        console.error("nRF52 DFU error:", err);
+        setProgress(0, `Error: ${err.message}`);
+        offerSteps(steps, index);
+        return;
+      }
+      if (index + 1 < steps.length) offerSteps(steps, index + 1);
+      else setProgress(100, 'Firmware instalado. Cuando la placa arranque, pulsa "Enviar ajustes por USB".');
+    });
+  }
+
+  const DFU_STAGE_TEXT = {
+    start: "iniciando",
+    erase: "borrando la memoria de la placa",
+    init: "enviando el paquete de inicialización",
+    write: "escribiendo",
+    activate: "activando la imagen, no desconectes la placa"
+  };
+
+  // nRF52: the Adafruit bootloader's serial DFU, with the .zip of the catalog. A clean install loads the
+  // SoftDevice's formatter first, which erases the file system and returns the board to the bootloader.
+  async function flashNrf52(board, role, clean) {
+    const nrf = window.ZephtacoreNrf || (await import("./flasher-nrf.mjs"));
+    try {
+      setProgress(5, "Elige el puerto de la placa para reiniciarla en modo bootloader (si ya está en modo DFU, cancela y sigue).");
+      await nrf.touchBootloader();
+    } catch (err) {
+      console.warn("Bootloader touch skipped:", err);
+    }
+
+    setProgress(10, "Descargando los paquetes DFU...");
+    const file = await findBuild(board, role, "dfu");
+    if (!file) throw new Error(`No hay paquete DFU publicado para ${board.name} (${role}).`);
+    const firmware = nrf.openDfuZip(await fetchBytes(file.url));
+    let formatter = null;
+    if (clean) {
+      const url = formatterUrl(file, "zip");
+      if (!url) throw new Error(`El catálogo no tiene formateador para ${board.name}.`);
+      formatter = nrf.openDfuZip(await fetchBytes(url));
+    }
+
+    const flash = (pkg, label, from, to) =>
+      nrf.flashNrf(pkg, {
+        onConnected: () => setProgress(from, `${label}: conectado a la placa.`),
+        onStage: (stage) => setProgress(from, `${label}: ${DFU_STAGE_TEXT[stage] || stage}...`),
+        onProgress: (stage, fraction) => setProgress(from + Math.round(fraction * (to - from)), `${label}: ${DFU_STAGE_TEXT[stage] || stage}...`)
+      });
+
+    const steps = [];
+    if (clean) {
+      steps.push({
+        button: "Elegir el puerto en modo DFU y formatear",
+        run: async () => {
+          await flash(formatter, "Formateando", 15, 50);
+          setProgress(50, "Formateador cargado: la placa borra sus datos y vuelve sola a modo DFU (con memoria externa puede tardar hasta un minuto). Cuando termine, pulsa el botón.");
+        }
+      });
+    }
+    steps.push({
+      button: "Elegir el puerto en modo DFU y grabar el firmware",
+      run: () => flash(firmware, "Grabando el firmware", clean ? 55 : 15, 95)
+    });
+    setProgress(14, 'Paquetes listos. Si la placa no está ya en modo DFU, pulsa dos veces RESET. Pulsa el botón y elige su puerto.');
+    offerSteps(steps);
+  }
+
+  // nRF52 without Web Serial, clean install, step 1: the formatter UF2 erases the file system
+  // and puts the board back in UF2 mode; the firmware is downloaded once the user says it is back.
   async function startCleanUf2(board, role) {
     setProgress(20, `Descargando el formateador para ${board.name}...`);
     const url = await resolveFormatterUrl(board, role);
@@ -470,13 +563,12 @@ function initFlasherCore() {
     const name = url.split("/").pop();
     saveBytes(name, await fetchBytes(url));
     setProgress(40, `Descargado "${name}". Pon la placa en modo UF2 (doble pulsación de reset) y cópialo al disco: se formatea y vuelve sola a modo UF2. Cuando el disco reaparezca, pulsa "Ya formateada: descargar firmware".`);
-    if (btnAfterFormat) btnAfterFormat.style.display = "";
+    offerNextStep("Ya formateada: descargar firmware", downloadAfterFormat);
   }
 
   async function downloadAfterFormat() {
     const board = selectedBoard();
     if (!board) return;
-    if (btnAfterFormat) btnAfterFormat.style.display = "none";
     try {
       const fileName = await downloadFirmware(board, selectedRole());
       setProgress(60, afterDownloadHint(board, fileName));
@@ -486,7 +578,7 @@ function initFlasherCore() {
     }
   }
 
-  // Step 1: download the firmware for the board and role.
+  // Step 1: write or download the firmware for the board and role.
   async function runUnifiedFlash(cfg) {
     const board = selectedBoard();
     if (!board) return;
@@ -499,7 +591,8 @@ function initFlasherCore() {
       progressCard.style.display = "block";
       progressCard.scrollIntoView({ behavior: "smooth" });
     }
-    if (btnAfterFormat) btnAfterFormat.style.display = "none";
+    if (btnNextStep) btnNextStep.style.display = "none";
+    nextStep = null;
 
     if (board.flashType === "bin") {
       await flashEsp32(board, targetRole, mode === "clean");
@@ -507,6 +600,10 @@ function initFlasherCore() {
     }
 
     try {
+      if (usesWebSerialFlash(board)) {
+        await flashNrf52(board, targetRole, mode === "clean");
+        return;
+      }
       if (mode === "clean") {
         await startCleanUf2(board, targetRole);
         return;
