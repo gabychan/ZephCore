@@ -402,19 +402,14 @@ void CommonCLI::replyZStats(size_t cap, char* reply) {
 #endif
 }
 
-void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
-	if (zcmd::helpReply(command, IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC), reply, replyCap(sender_timestamp))) {
-		return;
-	}
-	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
-		return;
-	}
+/* The Zephtacore "z." commands that are not Meshtastic settings. False when the line is none of them. */
+bool CommonCLI::handleZCmd(uint32_t sender_timestamp, const char* command, char* reply) {
 	size_t page;
 	bool recent;
 
 	if (neighbours::parseArgs(command, "get z.mc.", page, recent)) {
 		_callbacks->formatMcNeighbours(reply, replyCap(sender_timestamp), page, recent);
-		return;
+		return true;
 	}
 	if (neighbours::parseArgs(command, "get z.mt.", page, recent)) {
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
@@ -422,26 +417,26 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 #else
 		strcpy(reply, "not available");
 #endif
-		return;
+		return true;
 	}
 	if (strcmp(command, "get z.info") == 0) {
 		replyZInfo(replyCap(sender_timestamp), reply);
-		return;
+		return true;
 	}
 	if (strcmp(command, "get z.stats") == 0) {
 		replyZStats(replyCap(sender_timestamp), reply);
-		return;
+		return true;
 	}
 	if (ping::isCommand(command)) {
 		ping::Stats* stats = _callbacks->pingStats();
 #if !IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
-		if (strncmp(command + 6, "mt.", 3) == 0) {
+		if (zcmd::parse(command).proto == 't') {
 			stats = nullptr;
 		}
 #endif
 		if (!stats) {
 			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
-			return;
+			return true;
 		}
 		const ping::CmdResult pr = ping::handleCommand(_prefs->ping, *stats, command, reply, replyCap(sender_timestamp));
 
@@ -450,7 +445,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 			_callbacks->onPingPrefsChanged();
 			savePrefs();
 		}
-		return;
+		return true;
 	}
 	if (rxstats::isCommand(command)) {
 		const bool mt = rxstats::isMeshtastic(command);
@@ -461,7 +456,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		} else {
 			rxstats::handleCommand(*observer, command, reply, replyCap(sender_timestamp));
 		}
-		return;
+		return true;
 	}
 	if (fw::isCommand(command)) {
 		const bool mt = fw::isMeshtastic(command);
@@ -469,7 +464,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 
 		if (!firewall) {
 			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
-			return;
+			return true;
 		}
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 		const fw::Rules& rules = mt ? mt::kFwRules : fw::kMcRules;
@@ -481,6 +476,19 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		if (fw::handleCommand(fwprefs, *firewall, rules, command, reply, replyCap(sender_timestamp)).changed) {
 			savePrefs();
 		}
+		return true;
+	}
+	return false;
+}
+
+void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
+	if (zcmd::helpReply(command, IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC), reply, replyCap(sender_timestamp))) {
+		return;
+	}
+	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
+		return;
+	}
+	if (handleZCmd(sender_timestamp, command, reply)) {
 		return;
 	}
 	if (handleMtCmd(sender_timestamp, command, reply)) {
@@ -1364,7 +1372,7 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, const char* command, cha
 	} else if (memcmp(config, "loop.wakes", 10) == 0) {
 		loopWakeFormat(reply, replyCap(sender_timestamp));
 #endif
-	} else if (memcmp(config, "z.tx.stalls", 11) == 0) {
+	} else if (strcmp(config, "z.tx.stalls") == 0) {
 		size_t cap = replyCap(sender_timestamp);
 		int n = snprintf(reply, cap, "> ");
 		if (_callbacks->formatTxStallStatus(reply + n, (int)cap - n) == 0) {
