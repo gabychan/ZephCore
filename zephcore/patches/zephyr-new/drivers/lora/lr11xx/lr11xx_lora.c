@@ -1160,6 +1160,8 @@ static int lr11xx_lora_recv_async(const struct device *dev,
 
 	data->async_rx_cb = cb;
 	data->async_rx_user_data = user_data;
+	/* Continuous RX: a duty cycle armed earlier must not come back with it. */
+	data->rx_duty_cycle_enabled = false;
 
 	lr11xx_start_rx(data, cfg);
 
