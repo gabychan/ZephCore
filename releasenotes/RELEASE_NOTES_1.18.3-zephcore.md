@@ -18,8 +18,10 @@ default channels and node name in order.
 - `set z.mc.fw.drop <rule> on` drops the flood frames of a payload type (`advert`, `request`, `text`, `group`, `ack`,
   `path`, `trace`). `set z.mc.fw.gap <minutes>` keeps one advert per key per window, and `set z.mc.fw.rate <frames>` caps the flood
   frames a minute accepted from one neighbouring repeater. Both are off by default; `get z.mc.fw.stats` counts what
-  they dropped. The same commands exist for Meshtastic as `z.mt.fw.drop`, `.gap` and `.rate` (rules are ports;
-  the gap is per NodeInfo). See `docs/CLI_commands.md`.
+  they dropped. The gap remembers 48 keys and the rate 16 repeaters; a full table forgets the one written longest ago. A
+  1-byte path hash is counted by the rate too, and every repeater with that byte shares its count. The same commands exist for
+  Meshtastic as `z.mt.fw.drop`, `.gap` and `.rate` (rules are ports; the gap is per NodeInfo), and a PKI direct text goes
+  through them once opened. See `docs/CLI_commands.md`.
 
 ---
 
@@ -49,18 +51,22 @@ default channels and node name in order.
   fixed neighbour (heard directly, announcing `router`, `router_late` or `client_base`), so a chain of fixed nodes costs
   one hop. `set z.mt.zerohop.add <node>` lists a neighbour by hand, `get z.mt.zerohop` shows the mode and the list,
   and `get z.mt.stats` counts the frames kept (`kept`).
-- The default `MT:` channels and `#test` / `#bot` are added once per firmware revision. Deleting one in the
-  app now sticks; before, it came back on the next restart.
+- The default Meshtastic channels (`CONFIG_ZEPHTACORE_DEFAULT_CHANNELS`, as `#mt-<name>` slots) and `#test` / `#bot` are
+  added once per firmware revision, which is kept in `prefs.json` as `mt.dr`. Deleting one in the app sticks.
+- A direct message to a Meshtastic node that the app retries keeps the packet id of the first try, so the node's ACK still
+  answers it. A PKI message that arrives before we know the sender's key is delivered when it is sent again, and a key that no
+  longer opens a frame makes us ask for the node's NodeInfo.
+- `get z.mt.stats` counts `long` apart: Meshtastic frames over 184 bytes, which are heard and delivered but not repeated.
 - A Meshtastic node heard for the first time is added as a contact only as your auto-add settings
   allow; with manual adding it shows up as a discovered contact instead.
 - Renaming the node changes the name in its Meshtastic NodeInfo too, without a restart.
 - Settings of the Meshtastic side live in `prefs.json` only in builds that include it.
 - New ping bot on the companion and the repeater: it answers a command of your choice on MeshCore `#bot` and on
   Meshtastic `Bots` with the hops, the SNR and the route (all of it in MeshCore, one hop per line with the RSSI/SNR after the last, the
-  last relay in Meshtastic). Every ping is answered, and the companion shows its answer in the app.
+  last relay in Meshtastic). Up to 6 pings a minute are answered per protocol, and the companion shows its answer in the app.
   Off until you pick the command: `set z.mc.ping.enable on /ping`, `set z.mt.ping.enable on /ping`; `get z.mc.ping.status`
   shows the counters.
-- New `get z.mc.neighbors` and `get z.mt.neighbors` (alias `vecinos`) on the companion and the repeater: the nodes heard directly,
+- New `get z.mc.neighbors` and `get z.mt.neighbors` (alias `vecinos`; `recientes` for `recent`; the page is a plain number) on the companion and the repeater: the nodes heard directly,
   best SNR first, as `name (SNR, age)`, 4 to a page (`get z.mt.neighbors 2`), or the latest heard first with `recent` (`get z.mt.neighbors recent`). MeshCore lists repeaters heard with no hops, Meshtastic nodes heard with no relay
   in between. Kept in RAM, so a reboot empties them.
 - New `get z.info` (version, uptime, battery, flash, heap and contacts in use) and `get z.stats` (MeshCore and Meshtastic counters), each in
@@ -70,7 +76,8 @@ default channels and node name in order.
   and once an hour.
 - Commands of the Meshtastic side and the new ones hang from `z.`: `z.mt.*`, `z.mc.ping.*`, `z.mt.ping.*`, `z.ping.*`;
   `get tx.stalls` is now `get z.tx.stalls`.
-- `help` at the end of a `z.` command (`get z.mt.relay help`) tells its usage, and on a group (`get z.mt help`) lists its keys.
+- `help` at the end of a `z.` command (`get z.mt.relay help`) tells its usage, and on a group (`get z.mt help`) lists its keys;
+  `set` of a key that takes text (a ping command, a channel) sets that text even when it is `help`.
   Every on/off `z.` setting (`z.mt.enable`, `z.mt.relay.opaque`, `z.ping.*`, `z.mc.ping.enable`, `z.mt.ping.enable`) also takes `1` and `0`.
 
 ## Radio
