@@ -1887,3 +1887,19 @@ TEST(mt_header_hops, "UNIT-MT-068", "hopsAway counts the hops spent and is 0 wit
     h.flags = (uint8_t)(4 | (3 << 5));                    // more left than it started with: a broken header
     CHECK(h.hopsAway() == 0 && !h.fromOrigin());
 }
+
+TEST(mt_contact_seed, "UNIT-MT-069", "A node's contact key seed is SHA-256 of the salt, this companion's secret and the node number big endian; another secret gives another seed") {
+    uint8_t secret[32], other[32], seed[32], again[32], expect[32];
+    for (int i = 0; i < 32; i++) { secret[i] = (uint8_t)i; other[i] = (uint8_t)(i + 1); }
+    uint8_t msg[9 + 32 + 4];
+    memcpy(msg, "zt-mtnode", 9);
+    memcpy(msg + 9, secret, 32);
+    msg[41] = 0xa1; msg[42] = 0xb2; msg[43] = 0xc3; msg[44] = 0xd4;
+    refSha256(msg, sizeof(msg), expect);
+    mt::contactSeed(refSha256, secret, 0xa1b2c3d4u, seed);
+    CHECK(memcmp(seed, expect, 32) == 0);
+    mt::contactSeed(refSha256, other, 0xa1b2c3d4u, again);
+    CHECK(memcmp(seed, again, 32) != 0);
+    mt::contactSeed(refSha256, secret, 0xa1b2c3d5u, again);
+    CHECK(memcmp(seed, again, 32) != 0);
+}

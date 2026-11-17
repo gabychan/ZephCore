@@ -1383,6 +1383,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-069",
+      "name": "A node's contact key seed is SHA-256 of the salt, this companion's secret and the node number big endian; another secret gives another seed",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-NEIGH-020",
       "name": "A row takes the name the node announced, else its number in hex",
       "source": "tests/unit/neighbour_tests.cpp"

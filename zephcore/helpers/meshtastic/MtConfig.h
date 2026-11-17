@@ -233,6 +233,22 @@ typedef void (*ShaFn)(const uint8_t *msg, size_t len, uint8_t out[32]);
  * SHA-256 of the slot name, '#' included. */
 void slotSecret(const char *slot, ShaFn sha, uint8_t out[16]);
 
+/* The seed of a Meshtastic node's contact key: SHA-256("zt-mtnode" || secret || node, big
+ * endian). secret is this companion's own, so no other node can derive the key's private half. */
+inline void contactSeed(ShaFn sha, const uint8_t secret[32], uint32_t node, uint8_t seed[32])
+{
+	static const char kSalt[] = "zt-mtnode";
+	uint8_t msg[sizeof(kSalt) - 1 + 32 + 4];
+
+	memcpy(msg, kSalt, sizeof(kSalt) - 1);
+	memcpy(msg + sizeof(kSalt) - 1, secret, 32);
+	for (int i = 0; i < 4; i++) {
+		msg[sizeof(kSalt) - 1 + 32 + i] = (uint8_t)(node >> (24 - 8 * i));
+	}
+	sha(msg, sizeof(msg), seed);
+	memset(msg, 0, sizeof(msg));
+}
+
 enum AddResult { ADD_OK, ADD_BAD_NAME, ADD_BAD_KEY, ADD_EXISTS, ADD_FULL };
 
 /* Adds a channel, key 1 byte (default key variant) or 16. The name is taken when no

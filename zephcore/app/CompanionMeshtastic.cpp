@@ -355,10 +355,27 @@ int CompanionMesh::mtFirstChannel() const
 	return -1;
 }
 
-/* The contact key of a Meshtastic node: the public key of a keypair seeded
- * from SHA256("zt-mtnode" || node). A real Ed25519 point (strict clients reject
- * anything else) whose private half nobody keeps. Cached: a derivation is a
- * scalar multiplication. */
+/* The secret behind the contact keys of Meshtastic nodes: SHA256("zt-mtnode-secret" || our
+ * private key). A new identity gets new contact keys, so the cached ones go. */
+void CompanionMesh::mtDeriveNodeSecret()
+{
+	static const char salt[] = "zt-mtnode-secret";
+	uint8_t prv[PRV_KEY_SIZE];
+
+	memset(_mt_keys, 0, sizeof(_mt_keys));
+	if (self_id.writeTo(prv, PRV_KEY_SIZE) != PRV_KEY_SIZE) {
+		LOG_ERR("mt: private key unavailable, contact keys not derived");
+		mesh::Utils::secureZeroize(prv, sizeof(prv));
+		return;
+	}
+	mesh::Utils::sha256(_mt_node_secret, sizeof(_mt_node_secret), (const uint8_t *)salt, sizeof(salt) - 1,
+			    prv, sizeof(prv));
+	mesh::Utils::secureZeroize(prv, sizeof(prv));
+}
+
+/* The contact key of a Meshtastic node: the public key of a keypair seeded by mt::contactSeed()
+ * with our secret. A real Ed25519 point (strict clients reject anything else) whose private half
+ * only this node can derive, and never keeps. Cached: a derivation is a scalar multiplication. */
 bool CompanionMesh::mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE])
 {
 	for (auto &e : _mt_keys) {
@@ -368,17 +385,12 @@ bool CompanionMesh::mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE])
 		}
 	}
 
-	static const char salt[] = "zt-mtnode";
-	uint8_t material[4];
 	uint8_t seed[SEED_SIZE];
 	mesh::LocalIdentity id;
 
-	for (int i = 0; i < 4; i++) {
-		material[i] = (uint8_t)(node >> (24 - 8 * i));
-	}
-	mesh::Utils::sha256(seed, SEED_SIZE, (const uint8_t *)salt, sizeof(salt) - 1, material,
-			    sizeof(material));
+	mt::contactSeed(mtSha256, _mt_node_secret, node, seed);
 	id.fromSeed(seed);
+	mesh::Utils::secureZeroize(seed, sizeof(seed));
 
 	MtKey &slot = _mt_keys[_mt_key_next];
 
@@ -386,6 +398,7 @@ bool CompanionMesh::mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE])
 	slot.node = node;
 	memcpy(slot.key, id.pub_key, PUB_KEY_SIZE);
 	memcpy(key, slot.key, PUB_KEY_SIZE);
+	mesh::Utils::secureZeroize(&id, sizeof(id));
 	return true;
 }
 

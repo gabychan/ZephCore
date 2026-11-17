@@ -113,6 +113,7 @@ void CompanionMesh::begin()
 	 * and only this node can recompute it. */
 	deriveVContactKey();
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	mtDeriveNodeSecret();
 	mtApplyListen();
 #endif
 	/* Stamp lastmod only if a time source already ran (hardware RTC restore
@@ -2806,6 +2807,9 @@ bool CompanionMesh::handleCmdImportPrivateKey(const uint8_t *data, size_t len)
 				if (vc_was_enabled) vcontactPushDeleted();
 				self_id = new_identity;
 				deriveVContactKey();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+				mtDeriveNodeSecret();
+#endif
 				/* New identity → old advert timestamp is meaningless. Clear
 				 * it so vcontactPushAdvert() re-activates cleanly: with a
 				 * valid clock it stamps + emits now; without one it defers

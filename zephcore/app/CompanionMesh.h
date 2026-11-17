@@ -344,6 +344,8 @@ private:
 	MtSink _mt_sink{*this};
 	MtKey _mt_keys[MT_KEY_CACHE] = {};
 	uint8_t _mt_key_next = 0;
+	/* Seeds the contact keys of Meshtastic nodes; derived from our private key (mtDeriveNodeSecret). */
+	uint8_t _mt_node_secret[32] = {};
 	uint32_t _mt_key_stored[MT_KEY_CACHE] = {};  /* nodes whose key is in the file: no scan for their NodeInfo */
 	uint8_t _mt_key_stored_next = 0;
 	bool _mt_ready = false;
@@ -388,6 +390,7 @@ private:
 	void mtReconcileChannels();
 	void mtSyncChannels();
 	void mtSetup();
+	void mtDeriveNodeSecret();
 	bool mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE]);
 	/* Contacts that are Meshtastic nodes whose number ends in relay: the first one's name in out, how many. */
 	int mtNameOfRelay(uint8_t relay, char *out, size_t cap);

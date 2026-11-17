@@ -128,7 +128,9 @@ receive word on every RX start from rest, the transmit word once LBT has passed.
 hardware, so a duty-cycled receiver is never woken out of its cycle, and RX never runs on the word of the frame
 last sent.
 
-A Meshtastic node's contact key is the Ed25519 public key of a keypair seeded from `SHA256("zt-mtnode" || node)`.
+A Meshtastic node's contact key is the Ed25519 public key of a keypair seeded from
+`SHA256("zt-mtnode" || secret || node)`, where `secret` is `SHA256("zt-mtnode-secret" || our private key)`: no other
+node can derive the private half and sign MeshCore traffic as that contact. The keys change with the node's identity.
 The node number is kept in the contact's `sync_since` field, and a contact counts as Meshtastic only if the key
 derived from it matches.
 

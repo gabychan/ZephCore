@@ -85,6 +85,9 @@ default channels and node name in order.
 - A Meshtastic node heard for the first time is added as a contact only as your auto-add settings
   allow; with manual adding it shows up as a discovered contact instead.
 - Renaming the node changes the name in its Meshtastic NodeInfo too, without a restart.
+- The contact key of a Meshtastic node is now derived with a secret of the companion, so nobody else can sign MeshCore
+  adverts or messages as that contact. Meshtastic contacts saved by an earlier build are no longer recognised: delete
+  them in the app; they come back with the node's next NodeInfo or position, and its stored PKI key is kept.
 - With `z.mt.enable off` the companion sends nothing as Meshtastic: a message the app sends on a `#mt-` channel or to
   a Meshtastic contact is refused at once, instead of going out on a receiver that could not hear the answer.
 - Settings of the Meshtastic side live in `prefs.json` only in builds that include it.
