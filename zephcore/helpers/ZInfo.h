@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "ui/ui_dash_fmt.h"
+
 namespace zinfo {
 
 struct Info {
@@ -46,27 +48,13 @@ inline void fillStats(Stats &s, RadioT &radio, const MeshT &mesh, ManagerT &mgr)
 	s.queue = mgr.getOutboundTotal();
 }
 
-/* "1d02h", "3h05m" or "12m". */
-inline int formatUptime(char *out, size_t cap, uint32_t s)
-{
-	const uint32_t m = s / 60, h = m / 60, d = h / 24;
-
-	if (d > 0) {
-		return snprintf(out, cap, "%ud%02uh", (unsigned)d, (unsigned)(h % 24));
-	}
-	if (h > 0) {
-		return snprintf(out, cap, "%uh%02um", (unsigned)h, (unsigned)(m % 60));
-	}
-	return snprintf(out, cap, "%um", (unsigned)m);
-}
-
 /* "> fw 1.18.2 | up 1d02h | battery 4231mV | flash 96/2048K | heap 12.3/44.0K (peak 20.1K) | contacts 351/350" */
 inline void formatInfo(char *out, size_t cap, const Info &i)
 {
 	char up[16];
 	size_t n;
 
-	formatUptime(up, sizeof(up), i.uptime_s);
+	ui_dash_uptime(up, sizeof(up), i.uptime_s);
 	n = (size_t)snprintf(out, cap, "> fw %s | up %s | battery %umV", i.fw, up, (unsigned)i.batt_mv);
 	if (n < cap && i.flash_total_kb != 0) {
 		n += (size_t)snprintf(out + n, cap - n, " | flash %u/%uK", (unsigned)i.flash_used_kb,

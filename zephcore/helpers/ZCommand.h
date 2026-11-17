@@ -21,6 +21,20 @@ inline bool parseOnOff(const char *v, uint8_t &b)
 	return false;
 }
 
+/* Bytes of s to keep when it is cut to max without splitting a UTF-8 character. */
+inline size_t utf8Cut(const char *s, size_t max)
+{
+	size_t n = strlen(s);
+
+	if (n > max) {
+		n = max;
+		while (n > 0 && ((uint8_t)s[n] & 0xC0) == 0x80) {
+			n--;
+		}
+	}
+	return n;
+}
+
 /* "<get|set> z.<key> [value]" taken apart: the key after "z." and, when it starts with "mc." or
  * "mt.", which protocol and the key after that. */
 struct Parsed {

@@ -1,6 +1,7 @@
 // helpers/ZInfo.h: the one-line replies of "get z.info" and "get z.stats".
 #include "test.h"
 #include "ZInfo.h"
+#include "ui_dash_fmt.h"
 
 #include <string>
 
@@ -43,11 +44,11 @@ TEST(zinfo_missing, "UNIT-ZINFO-002", "a field the role or build does not have i
 
 TEST(zinfo_uptime, "UNIT-ZINFO-003", "uptime is days and hours, hours and minutes, or minutes") {
     char out[16];
-    zinfo::formatUptime(out, sizeof(out), 59);
+    ui_dash_uptime(out, sizeof(out), 59);
     CHECK(std::string(out) == "0m");
-    zinfo::formatUptime(out, sizeof(out), 3 * 3600 + 5 * 60);
+    ui_dash_uptime(out, sizeof(out), 3 * 3600 + 5 * 60);
     CHECK(std::string(out) == "3h05m");
-    zinfo::formatUptime(out, sizeof(out), 86400);
+    ui_dash_uptime(out, sizeof(out), 86400);
     CHECK(std::string(out) == "1d00h");
 }
 

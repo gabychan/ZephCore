@@ -222,15 +222,7 @@ inline void hopLabel(const Route &r, uint8_t i, Protocol w, NameFn names, void *
 	int found = names ? names(ctx, w, h, r.size, name, sizeof(name)) : 0;
 
 	if (found && name[0]) {
-		size_t n = strlen(name);
-
-		if (n > kNameMax) {
-			n = kNameMax;
-			while (n > 0 && ((uint8_t)name[n] & 0xC0) == 0x80) {
-				n--;
-			}
-		}
-		snprintf(out, cap, "%.*s%s", (int)n, name, found == 2 ? "?" : "");
+		snprintf(out, cap, "%.*s%s", (int)zcmd::utf8Cut(name, kNameMax), name, found == 2 ? "?" : "");
 		return;
 	}
 	size_t o = 0;
