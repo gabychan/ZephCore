@@ -306,13 +306,12 @@ function initFlasherCore() {
     return out;
   }
 
-  // build.sh names files <target with / as ->>-<role>[-<variant>]-<git hash><suffix>.
+  // build.sh names files <target with / as ->>-<role>-<variant>-<git hash><suffix>.
+  // The flasher injects z.* settings, so it only offers the zephtacore variant.
   function findCatalogFile(files, board, role) {
     const stem = board.id.replace(/\//g, "-").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pat = new RegExp(`^${stem}-${role}-(?:[a-z0-9_]+-)?[0-9a-f]{7,40}${FILE_SUFFIX[board.flashType] || FILE_SUFFIX.bin}$`);
-    const plain = new RegExp(`^${stem}-${role}-[0-9a-f]{7,40}`);
-    const matches = files.filter((f) => pat.test(f.name || "") && FIRMWARE_URL_PREFIX.test(f.url || ""));
-    return matches.find((f) => plain.test(f.name)) || matches[0] || null;
+    const pat = new RegExp(`^${stem}-${role}-zephtacore-[0-9a-f]{7,40}${FILE_SUFFIX[board.flashType] || FILE_SUFFIX.bin}$`);
+    return files.find((f) => pat.test(f.name || "") && FIRMWARE_URL_PREFIX.test(f.url || "")) || null;
   }
 
   async function resolveFirmwareUrl(board, role) {
@@ -341,7 +340,7 @@ function initFlasherCore() {
   // Downloads the catalog binary for the board and role. Throws when there is none.
   async function downloadFirmware(board, role) {
     const url = await resolveFirmwareUrl(board, role);
-    if (!url) throw new Error(`No hay firmware publicado para ${board.name} (${role}).`);
+    if (!url) throw new Error(`No hay build Zephtacore publicado para ${board.name} (${role}). Compílalo con west desde el Builder.`);
 
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`La descarga de ${url.split("/").pop()} falló (HTTP ${resp.status}).`);
