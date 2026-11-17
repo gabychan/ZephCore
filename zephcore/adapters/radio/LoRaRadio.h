@@ -50,8 +50,12 @@ public:
 	bool hasRadioOverride() const { return _has_radio_override; }
 	int recvRaw(uint8_t *bytes, int sz) override;
 	uint32_t getEstAirtimeFor(int len_bytes) override;
+	uint32_t getEstForeignAirtimeFor(int len_bytes) override;
 	float packetScore(float snr, int packet_len) override;
 	bool startSendRaw(const uint8_t *bytes, int len) override;
+	void setNextTxForeign(bool foreign) override { _tx_foreign = foreign; }
+	void setMtListen(bool on) override;
+	bool supportsForeign() const override;
 	bool isSendComplete() override;
 	void onSendFinished() override;
 	bool isInRecvMode() const override;
@@ -107,8 +111,8 @@ public:
 	 * These honor temporary radio overrides for freq/bw/sf/cr and the same TX
 	 * clamps as the actual lora_config() path. */
 	uint32_t getActiveFrequencyHz() const;
-	uint16_t getActiveBandwidthKHzX10() const;
-	uint8_t getActiveSpreadingFactor() const;
+	uint16_t getActiveBandwidthKHzX10() const override;
+	uint8_t getActiveSpreadingFactor() const override;
 	uint8_t getActiveCodingRate() const;
 	uint16_t getActivePreambleLength() const;
 	uint8_t getActiveSyncWord() const;
@@ -341,6 +345,16 @@ private:
 	/* Config cache — skip redundant hwConfigure() */
 	struct lora_modem_config _last_cfg;
 	bool _config_cached;
+	/* The next startSendRaw() carries a Meshtastic frame (sync word 0x2B). */
+	bool _tx_foreign = false;
+	/* RX takes both sync words; off, MeshCore's alone. */
+	atomic_t _mt_listen = 0;
+	/* Writes one SX126x sync word register; a no-op unless the family has the op. */
+	void applySyncWord(SyncKind kind);
+	/* Meshtastic frames go out with Meshtastic's 16 symbols, MeshCore ones with ours. */
+	void applyTxPreamble();
+	/* Airtime of len_bytes with the preamble of the given protocol. */
+	uint32_t estAirtime(int len_bytes, bool foreign);
 
 	/* Radio param override — when set, buildModemConfig() uses these
 	 * for freq/bw/sf/cr instead of _prefs.  Everything else (tx_power,

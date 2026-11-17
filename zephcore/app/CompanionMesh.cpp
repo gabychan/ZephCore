@@ -5,6 +5,7 @@
 
 #include "CompanionMesh.h"
 #include <mesh/Utils.h>
+#include <helpers/AdvertDataHelpers.h>
 #include <helpers/TxtDataHelpers.h>
 #include <string.h>
 #include <stdio.h>
@@ -111,6 +112,9 @@ void CompanionMesh::begin()
 	 * but its private half is derived-and-dropped — never stored, never used —
 	 * and only this node can recompute it. */
 	deriveVContactKey();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	mtApplyListen();
+#endif
 	/* Stamp lastmod only if a time source already ran (hardware RTC restore
 	 * happens before begin()). Otherwise stay deferred (lastmod = 0) until
 	 * vcontactClockSynced() — an advert stamped now would show as 1970. */
@@ -246,6 +250,9 @@ void CompanionMesh::loop()
 {
 	BaseChatMesh::loop();
 	drainPendingChannelInfos();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	mtNodeInfoTick();
+#endif
 
 	/* Check for pending lazy contact/channel writes */
 	int64_t now = _ms->getMillis();
@@ -296,6 +303,11 @@ void CompanionMesh::markChannelsDirty()
 	/* Channels import arrives as a burst of CMD_SET_CHANNEL writes.
 	 * Keep pushing the flush deadline so we save once after the burst. */
 	_dirty_channels_expiry = _ms->getMillis() + LAZY_WRITE_DELAY_MS;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	if (_mt_ready) {
+		mtSyncChannels();
+	}
+#endif
 }
 
 void CompanionMesh::flushDirtyContacts()
@@ -310,6 +322,9 @@ void CompanionMesh::flushDirtyContacts()
 void CompanionMesh::flushDirtyChannels()
 {
 	if (_dirty_channels_expiry) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		mtDropOrphanChannels();
+#endif
 		LOG_INF("flushDirtyChannels: saving channels (lazy write)");
 		_store->saveChannels(this);
 		_dirty_channels_expiry = 0;
@@ -683,13 +698,75 @@ bool CompanionMesh::putBlobByKey(const uint8_t key[], int key_len, const uint8_t
 	return _store->putBlobByKey(key, key_len, src_buf, len);
 }
 
+static uint32_t neighbourKey(const uint8_t pub_key[PUB_KEY_SIZE])
+{
+	return ((uint32_t)pub_key[0] << 24) | ((uint32_t)pub_key[1] << 16) | ((uint32_t)pub_key[2] << 8) | pub_key[3];
+}
+
 /* Snapshot the contact record before the base class updates it, for the
  * dirty decision in onDiscoveredContact(). */
 void CompanionMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32_t timestamp,
 				 const uint8_t *app_data, size_t app_data_len)
 {
-	const ContactInfo *c = lookupContactByPubKey(id.pub_key, PUB_KEY_SIZE);
+	snapshotAdvertPrev(lookupContactByPubKey(id.pub_key, PUB_KEY_SIZE));
+	BaseChatMesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
+	_advert_prev.known = false;
+	AdvertDataParser parser(app_data, app_data_len);
 
+	if (packet->getPathHashCount() == 0 && parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) {
+		_mc_neighbours.note(neighbourKey(id.pub_key), (int8_t)(packet->getSNR() * 4),
+				    (uint32_t)(k_uptime_get() / 1000));
+	}
+}
+
+struct CompanionMesh::McNeighbours : public neighbours::TableList {
+	McNeighbours(const neighbours::Table &t, uint32_t now, CompanionMesh &mesh)
+		: TableList(t, now), _mesh(mesh) {}
+
+protected:
+	void label(const neighbours::Entry &e, neighbours::Row &r) const override
+	{
+		const uint8_t prefix[4] = {(uint8_t)(e.id >> 24), (uint8_t)(e.id >> 16), (uint8_t)(e.id >> 8), (uint8_t)e.id};
+		ContactInfo *c = _mesh.lookupContactByPubKey(prefix, sizeof(prefix));
+
+		if (c && c->name[0]) {
+			neighbours::setRowName(r, c->name);
+		} else {
+			mesh::Utils::toHex(r.name, prefix, sizeof(prefix));
+		}
+	}
+
+private:
+	CompanionMesh &_mesh;
+};
+
+void CompanionMesh::formatMcNeighbours(char *reply, size_t cap, size_t page, bool recent)
+{
+	neighbours::format(reply, cap, "MeshCore neighbors",
+			   McNeighbours(_mc_neighbours, (uint32_t)(k_uptime_get() / 1000), *this), page, recent);
+}
+
+void CompanionMesh::fillDashboardSides(struct ui_dash &d)
+{
+	neighbours::Row rows[UI_DASH_NODES] = {};
+	const size_t total = neighbours::top(
+		McNeighbours(_mc_neighbours, (uint32_t)(k_uptime_get() / 1000), *this), rows, UI_DASH_NODES);
+	const size_t n = total < UI_DASH_NODES ? total : UI_DASH_NODES;
+
+	d.mc_n_total = (uint8_t)total;
+
+	for (size_t i = 0; i < n; i++) {
+		snprintf(d.mc_n[i].name, sizeof(d.mc_n[i].name), "%.*s", (int)sizeof(d.mc_n[i].name) - 1, rows[i].name);
+		d.mc_n[i].snr_x4 = rows[i].snr_x4;
+		d.mc_n[i].age_s = rows[i].age_s;
+	}
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	mtFillDashboard(d);
+#endif
+}
+
+void CompanionMesh::snapshotAdvertPrev(const ContactInfo *c)
+{
 	_advert_prev.known = c && c->type != ADV_TYPE_NONE;
 	if (_advert_prev.known) {
 		_advert_prev.type = c->type;
@@ -697,8 +774,6 @@ void CompanionMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id,
 		_advert_prev.gps_lon = c->gps_lon;
 		memcpy(_advert_prev.name, c->name, sizeof(_advert_prev.name));
 	}
-	BaseChatMesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
-	_advert_prev.known = false;
 }
 
 /* BaseChatMesh virtual implementations */
@@ -711,14 +786,7 @@ void CompanionMesh::onDiscoveredContact(ContactInfo &contact, bool is_new, uint8
 	 * nothing to write. Otherwise an addition or a changed name, type or position
 	 * flushes on the short deadline, a bare re-advert on the long one. */
 	if (!is_new) {
-		bool substantive = !_advert_prev.known ||
-				   _advert_prev.type != contact.type ||
-				   _advert_prev.gps_lat != contact.gps_lat ||
-				   _advert_prev.gps_lon != contact.gps_lon ||
-				   strncmp(_advert_prev.name, contact.name,
-					   sizeof(_advert_prev.name)) != 0;
-
-		markContactsDirty(substantive);
+		markContactsDirty(contactChangedSubstantively(_advert_prev, contact));
 	}
 
 	// Update advert path table
@@ -1075,6 +1143,12 @@ void CompanionMesh::onSendTimeout()
 void CompanionMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt,
 	uint32_t timestamp, const char *text)
 {
+	deliverChannelMessage(findChannelIdx(channel), pkt, timestamp, text);
+}
+
+void CompanionMesh::deliverChannelMessage(uint8_t channel_idx, mesh::Packet *pkt,
+	uint32_t timestamp, const char *text)
+{
 	LOG_INF("onChannelMessageRecv: timestamp=%u text='%s'", timestamp, text);
 
 	// Build incoming channel message frame
@@ -1092,8 +1166,6 @@ void CompanionMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh
 		frame[i++] = PACKET_CHANNEL_MSG_RECV;
 	}
 
-	// channel index
-	uint8_t channel_idx = findChannelIdx(channel);
 	frame[i++] = channel_idx;
 
 	uint8_t path_len = (pkt && pkt->isRouteFlood()) ? pkt->path_len : OUT_PATH_UNKNOWN;
@@ -1127,6 +1199,80 @@ void CompanionMesh::onChannelMessageRecv(const mesh::GroupChannel &channel, mesh
 		);
 	}
 #endif
+	ChannelDetails ch;
+
+	if (pkt && prefs.ping.mc.enable && getChannel(channel_idx, ch) && strcmp(ch.name, PING_MC_CHANNEL) == 0) {
+		const uint8_t hops = pkt->getPathHashCount();
+		const ping::Heard heard = {hops, pkt->_snr, (int16_t)_radio->getLastRSSI(),
+					   {pkt->path, pkt->getPathHashSize(), hops}};
+
+		pingReply(ping::PROTO_MC, channel_idx, ch, heard, text);
+	}
+}
+
+/* The ping bot's answer goes out the way the app's own channel text does, and the app is shown it as a message from this node. */
+void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDetails &ch,
+			      const ping::Heard &heard, const char *text)
+{
+	char out[MAX_TEXT_LEN + 1];
+	ping::Counters &counters = ping::countersOf(_ping_stats, w);
+	const ping::Counters before = counters;
+	size_t n = ping::reply(prefs.ping, counters, w, text, heard, pingName, this,
+			       out, sizeof(out) - 32);
+
+	if (n == 0) {
+		return;
+	}
+	if (!_ping_limit[w].allow(getRTCClock()->getCurrentTime())) {
+		ping::unsent(counters, before, true);
+		return;
+	}
+	const uint32_t ts = getRTCClock()->getCurrentTimeUnique();
+	bool sent;
+
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	if (w == ping::PROTO_MT) {
+		bool mt_sent = false;
+
+		sent = mtSendChannelText(channel_idx, ts, out, n, mt_sent) && mt_sent;
+	} else
+#endif
+	{
+		sent = sendGroupMessage(ts, ch.channel, prefs.node_name, out, n);
+	}
+	if (!sent) {
+		ping::unsent(counters, before, false);
+		return;
+	}
+	char shown[sizeof(prefs.node_name) + sizeof(out) + 2];
+
+	snprintf(shown, sizeof(shown), "%s: %s", prefs.node_name, out);
+	deliverChannelMessage(channel_idx, nullptr, ts, shown);
+}
+
+/* A repeater of that hash among the contacts (MeshCore), or a Meshtastic node ending in that byte. */
+int CompanionMesh::pingName(void *ctx, ping::Protocol w, const uint8_t *hash, uint8_t size, char *out, size_t cap)
+{
+	CompanionMesh &m = *(CompanionMesh *)ctx;
+	int found = 0;
+
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	if (w == ping::PROTO_MT) {
+		return m.mtNameOfRelay(hash[0], out, cap);
+	}
+#else
+	(void)w;
+#endif
+	ContactInfo c;
+
+	for (int i = 0; i < m.getNumContacts(); i++) {
+		if (m.getContactByIdx(i, c) && c.type == ADV_TYPE_REPEATER && memcmp(c.id.pub_key, hash, size) == 0) {
+			if (found++ == 0) {
+				snprintf(out, cap, "%s", c.name);
+			}
+		}
+	}
+	return found > 1 ? 2 : found;
 }
 
 void CompanionMesh::onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt,
@@ -1928,6 +2074,20 @@ bool CompanionMesh::handleCmdSendTxtMsg(const uint8_t *data, size_t len)
 			pub_key_prefix[3], pub_key_prefix[4], pub_key_prefix[5]);
 
 		ContactInfo *contact = lookupContactByPubKey(pub_key_prefix, 6);
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		bool mt_sent = false;
+		uint32_t mt_ack = 0;
+
+		if (contact && txt_type == TXT_TYPE_PLAIN &&
+		    mtSendDirectText(*contact, msg_timestamp, attempt, text, text_len, mt_sent, mt_ack)) {
+			if (mt_sent) {
+				sendPacketSent(MSG_SEND_SENT_FLOOD, mt_ack, MT_ACK_TIMEOUT_MS);
+			} else {
+				writeErrFrame(ERR_BAD_STATE);
+			}
+			return true;
+		}
+#endif
 		if (contact && (txt_type == TXT_TYPE_PLAIN || txt_type == TXT_TYPE_CLI_DATA ||
 				txt_type == TXT_TYPE_CLI_COMMAND)) {
 			LOG_DBG("CMD_SEND_TXT_MSG: contact='%s' text='%s' text_len=%u", contact->name, text, (unsigned)text_len);
@@ -1998,6 +2158,18 @@ bool CompanionMesh::handleCmdSendChannelTxtMsg(const uint8_t *data, size_t len)
 		} else {
 			ChannelDetails ch;
 			if (getChannel(ch_idx, ch)) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+				bool mt_sent = false;
+
+				if (mtSendChannelText(ch_idx, msg_timestamp, text, text_len, mt_sent)) {
+					if (mt_sent) {
+						writeOKFrame();
+					} else {
+						writeErrFrame(ERR_BAD_STATE);
+					}
+					return true;
+				}
+#endif
 				if (sendGroupMessage(msg_timestamp, ch.channel, prefs.node_name, text, text_len)) {
 					writeOKFrame();
 				} else {
@@ -2124,6 +2296,9 @@ bool CompanionMesh::handleCmdSetAdvertName(const uint8_t *data, size_t len)
 #endif
 		/* v-contact name tracks the node name — update the app's copy. */
 		vcontactPushAdvert();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		mtPrefsChanged();
+#endif
 	}
 	writeOKFrame();
 	return true;
@@ -2251,12 +2426,29 @@ bool CompanionMesh::handleCmdAddUpdateContact(const uint8_t *data, size_t len)
 		}
 		c.sync_since = 0;
 		c.shared_secret_valid = false;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		uint32_t mt_node = 0;
+		bool mt_known = existing && mtNodeOf(*existing, mt_node);
+
+		/* The app does not carry sync_since: keep the node number of a
+		 * Meshtastic contact or an edit would turn it into a MeshCore one. */
+		if (mt_known) {
+			c.sync_since = mt_node;
+		}
+		/* Marking a Meshtastic node a favourite asks it, once, for its NodeInfo. */
+		bool mt_asks = mt_known && mtFavouriteAsks(*existing, c.flags, mt_node);
+#endif
 
 		if (existing) {
 			// Update existing
 			*existing = c;
 			markContactsDirty();
 			writeOKFrame();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+			if (mt_asks) {
+				mtSendNodeInfoTo(mt_node, mt::kNoChannel, true);
+			}
+#endif
 		} else if (addContact(c)) {
 			markContactsDirty();
 			writeOKFrame();
@@ -2273,6 +2465,11 @@ bool CompanionMesh::handleCmdRemoveContact(const uint8_t *data, size_t len)
 {
 	if (len >= 1 + PUB_KEY_SIZE) {
 		ContactInfo *c = lookupContactByPubKey(&data[1], PUB_KEY_SIZE);
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		if (c) {
+			mtForgetContact(*c);
+		}
+#endif
 		if (c && removeContact(*c)) {
 			_store->deleteBlobByKey(&data[1], PUB_KEY_SIZE);
 			markContactsDirty();
@@ -2944,6 +3141,12 @@ bool CompanionMesh::handleCmdSetChannel(const uint8_t *data, size_t len)
 		// Copy 16-byte secret, zero upper 16 bytes
 		memset(ch.channel.secret, 0, sizeof(ch.channel.secret));
 		memcpy(ch.channel.secret, &data[2 + 32], 16);
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		if (!mtSlotRewritten(data[1], ch)) {
+			writeErrFrame(ERR_ILLEGAL_ARG);  /* a Meshtastic channel is added with z.mt.channel.add */
+			return true;
+		}
+#endif
 		// setChannel computes the hash based on whether upper 16 bytes are zero
 		if (setChannel(data[1], ch)) {
 			markChannelsDirty();

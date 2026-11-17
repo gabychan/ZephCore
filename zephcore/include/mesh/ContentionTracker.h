@@ -21,8 +21,13 @@ public:
 
 	/* FNV-1a 32-bit hash for ring buffer correlation (not dedup SHA256). */
 	static uint32_t computePacketHash32(const Packet *pkt);
+	/* A foreign (Meshtastic) frame: FNV-1a over sender and packet id, bytes 4..11.
+	 * computePacketHash32() of the queued frame gives the same value. */
+	static uint32_t computeForeignHash32(const uint8_t *frame, int len);
 
-	void trackRetransmit(uint32_t hash32, uint32_t now_ms);
+	/* ZEPHCORE: foreign is a Meshtastic frame: its dupes defer our copy like any other, but
+	 * the sample never reaches the EMA that sets the MeshCore flood delay. */
+	void trackRetransmit(uint32_t hash32, uint32_t now_ms, bool foreign = false);
 
 	/* Returns true if packet matched a tracked retransmit (dupe recorded). */
 	bool recordDupeIfTracked(uint32_t hash32, uint32_t now_ms);
@@ -40,6 +45,13 @@ public:
 	uint16_t getReactiveHeadroom(uint32_t hash32, uint32_t airtime_ms) const;
 
 	void addReactiveExtension(uint32_t hash32, uint16_t added_ms);
+
+	/* New TX time of a pending packet deferred by delay_ms: counted from its
+	 * current slot (or now, if that has passed), so it never moves earlier. */
+	static uint32_t deferredSchedule(uint32_t scheduled, uint32_t now, uint16_t delay_ms)
+	{
+		return ((int32_t)(scheduled - now) > 0 ? scheduled : now) + delay_ms;
+	}
 
 	/* Finalize expired entries into EMA. */
 	void tick(uint32_t now_ms);
@@ -89,6 +101,7 @@ private:
 		uint8_t dupe_count;
 		uint16_t reactive_added_ms;
 		bool active;
+		bool foreign;
 	};
 
 	Entry _ring[RING_SIZE];

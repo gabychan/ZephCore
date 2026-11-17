@@ -130,7 +130,9 @@ void Dispatcher::loop() {
     if (_radio->isSendComplete()) {
       // ZEPHCORE: charge the COMPUTED airtime, not the wall-clock send time,
       // which includes blocking LBT and event latency (up to 8x in the field).
-      uint32_t t = _radio->getEstAirtimeFor(outbound->getRawLength());
+      // A foreign frame is its payload alone, with Meshtastic's preamble.
+      uint32_t t = outbound->isForeign() ? _radio->getEstForeignAirtimeFor(outbound->payload_len)
+                                         : _radio->getEstAirtimeFor(outbound->getRawLength());
       MESH_DEBUG_PRINTLN("TX complete: air=%ums wall=%ums", t, (uint32_t)_ms->getMillis() - outbound_start);
       total_air_time += t;
 
@@ -144,7 +146,9 @@ void Dispatcher::loop() {
 
       _radio->onSendFinished();
       logTx(outbound, 2 + outbound->getPathByteLen() + outbound->payload_len);
-      if (outbound->isRouteFlood()) {
+      if (outbound->isForeign()) {
+        // ZEPHCORE: not a MeshCore packet; neither counter is its.
+      } else if (outbound->isRouteFlood()) {
         n_sent_flood++;
       } else {
         n_sent_direct++;
@@ -271,6 +275,11 @@ void Dispatcher::checkRecv() {
       if (len <= 0) {
         break;  // ring empty
       }
+      // ZEPHCORE: a foreign frame is not a MeshCore raw packet: it is not logged as one.
+      if (onRecvForeign(raw, len, _radio->getLastSNR(), _radio->getLastRSSI())) {
+        rx_air_time += _radio->getEstForeignAirtimeFor(len);  // on the air all the same
+        continue;
+      }
       logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
 
       pkt = _mgr->allocNew();
@@ -358,6 +367,7 @@ void Dispatcher::onLbtRefused(uint32_t now, int len) {
 
     if ((int32_t)(now - lbt_next_warn) >= 0) {
       _err_flags |= ERR_EVENT_CAD_TIMEOUT;
+      stall_lbt.record(now, streak);
       LOG_WRN("checkSend: LBT has refused TX for %ums (len=%d, noise=%d) — channel busy or CAD too sensitive",
               (unsigned)streak, len, _radio->getNoiseFloor());
       lbt_next_warn = now + getCADFailMaxDuration();
@@ -408,6 +418,7 @@ void Dispatcher::checkSend() {
 
     if (now - cad_busy_start > getCADFailMaxDuration()) {
       _err_flags |= ERR_EVENT_CAD_TIMEOUT;
+      stall_rx.record(now, now - cad_busy_start);  // ZEPHCORE
 
       LOG_ERR("checkSend: CAD timeout exceeded (isReceiving=%d, isRadioReady=%d, inRecvMode=%d, rssi=%.1f, snr=%.1f, noise=%d, rx_ok=%u, rx_err=%u)",
               (int)is_receiving, (int)is_radio_ready, (int)_radio->isInRecvMode(),
@@ -438,6 +449,7 @@ void Dispatcher::checkSend() {
     }
     raw[len++] = outbound->path_len;
     len += Packet::writePath(&raw[len], outbound->path, outbound->path_len);
+    if (outbound->isForeign()) len = 0;  // ZEPHCORE: a foreign frame is its payload alone
 
     if (len + outbound->payload_len > MAX_TRANS_UNIT) {
       MESH_DEBUG_PRINTLN("%s Dispatcher::checkSend(): FATAL: Invalid packet queued... too long, len=%d", getLogDateTime(), len + outbound->payload_len);
@@ -460,6 +472,7 @@ void Dispatcher::checkSend() {
         return;
       }
 
+      _radio->setNextTxForeign(outbound->isForeign());  // ZEPHCORE
       bool success = _radio->startSendRaw(raw, len);
       if (!success) {
         onLbtRefused(now, len);  // ZEPHCORE: re-queue (upstream drops the packet)
@@ -497,6 +510,30 @@ void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_mil
     // system work queue, off the mesh thread, and need the drain signal.
     notifyTxQueued(delay_millis);
   }
+}
+
+// ZEPHCORE: a foreign frame rides the normal queue, so it gets LBT, the duty-cycle
+// budget and the TX thread like any packet; only the radio sync word differs.
+bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis) {
+  if (len <= 0 || len > MAX_PACKET_PAYLOAD || !_radio->supportsForeign()) return false;
+  Packet* pkt = obtainNewPacket();
+  if (pkt == NULL) return false;
+  pkt->header = Packet::FOREIGN_HEADER;
+  pkt->path_len = 0;
+  pkt->payload_len = (uint16_t)len;
+  memcpy(pkt->payload, frame, len);
+  sendPacket(pkt, priority, delay_millis);
+  return true;
+}
+
+// ZEPHCORE: how many foreign frames wait in the outbound queue.
+int Dispatcher::getForeignQueued() const {
+  int n = 0, total = _mgr->getOutboundTotal();
+  for (int i = 0; i < total; i++) {
+    Packet* pkt = _mgr->getOutboundByIdx(i);
+    if (pkt && pkt->isForeign()) n++;
+  }
+  return n;
 }
 
 // Utility function -- handles the case where millis() wraps around back to zero

@@ -1,0 +1,94 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Zephtacore: what the companion and the repeater share of the Meshtastic
+ * side, driven by the same mt. settings: hears a frame through the bridge,
+ * repeats it with the timing of the role, lets a repeat give way to an echo,
+ * and sends what we originate (NodeInfo, and what the role adds).
+ */
+
+#pragma once
+
+#include <helpers/NeighbourList.h>
+#include <helpers/meshtastic/MtBridge.h>
+#include <helpers/meshtastic/MtConfig.h>
+#include <helpers/meshtastic/MtPolicy.h>
+#include <helpers/meshtastic/MtZeroHop.h>
+#include <mesh/Mesh.h>
+
+class MtRelayPort {
+public:
+	struct Policy {
+		bool enabled;    /* off: nothing is heard or repeated as Meshtastic */
+		bool relay_all;  /* false: all but mt::RelayClass::Other */
+		bool early;      /* router timing: before every client */
+		bool zerohop;    /* hops are kept for what a fixed neighbour repeated */
+		const uint32_t *zerohop_nodes;  /* mt::kZeroHopNodesMax nodes listed by hand */
+	};
+	struct Stats {
+		uint32_t heard, relayed, opaque, dropped, shed, too_long, kept;
+	};
+	/* What a role adds to the NodeInfo: its position and its metrics, if it has them. */
+	struct Source {
+		virtual ~Source() {}
+		virtual bool position(mt::Position &) { return false; }
+		virtual bool metrics(mt::DeviceMetrics &) { return false; }
+	};
+
+	MtRelayPort(mesh::Mesh &mesh, mt::Bridge &bridge) : _mesh(mesh), _bridge(bridge) {}
+
+	/* The bridge's AES-128 block function. */
+	static bool aesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
+	/* The same with an AES-256 key, for the PKI code. */
+	static bool aesBlock256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]);
+	/* Our node number, names and packet id seed. */
+	static void initSelf(mt::Bridge &bridge, const mesh::LocalIdentity &id, const char *name,
+			     mesh::RNG &rng);
+
+	/* The node was renamed. */
+	static void renameSelf(mt::Bridge &bridge, const char *name);
+
+	static Policy policyFor(const mt::RepeaterPrefs &p);
+
+	/* Puts the settings into the bridge. Channels and keys are the role's. */
+	void apply(const mt::RepeaterPrefs &p);
+	/* First NodeInfo (and telemetry) soon after boot or after a change. */
+	void arm(uint32_t now_ms, const mt::RepeaterPrefs &p);
+	/* Sends what is due on this channel. */
+	void tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t channel, Source &src);
+	/* The soonest deadline, false when nothing is planned. */
+	bool nextAt(uint32_t &at_ms) const;
+
+	/* RX_NOT_MESHTASTIC leaves the frame to MeshCore. */
+	mt::RxResult onFrame(const uint8_t raw[], int len, float snr, mt::Sink &sink,
+			     const Policy &policy);
+
+	/* A frame the Meshtastic side did not take: RX_NOT_MESHTASTIC when it is shaped like
+	 * MeshCore, RX_IGNORED otherwise. Only the first reaches the MeshCore stack. */
+	static mt::RxResult unopened(const uint8_t raw[], int len, uint32_t self);
+
+	/* A frame we originate, after 0 to 7 slots. */
+	bool send(const uint8_t *frame, size_t len);
+
+	const Stats &stats() const { return _stats; }
+	/* The nodes heard directly: hop_start set and equal to hop_limit. */
+	neighbours::Table &neighbours() { return _neighbours; }
+	const neighbours::Table &neighbours() const { return _neighbours; }
+	/* The role a node announces in its NodeInfo. */
+	void noteRole(uint32_t node, uint32_t role) { _zerohop.noteRole(node, role, _neighbours); }
+	/* "heard=.. relayed=.." for get z.mt.stats. */
+	void formatStats(char *out, size_t cap) const;
+
+private:
+	mesh::Mesh &_mesh;
+	mt::Bridge &_bridge;
+	Stats _stats = {};
+	neighbours::Table _neighbours;
+	mt::ZeroHop _zerohop;
+	mt::Timer _nodeinfo, _telemetry;
+
+	uint32_t slotMs() const;
+	void noteDirect(const uint8_t raw[], int len, int8_t snr_x4);
+	void keepHop(const uint8_t raw[], int len, uint8_t *relay, const Policy &policy);
+	void echoHeard(const uint8_t raw[], int len);
+	void queue(const uint8_t *relay, size_t len, int8_t snr_x4, const Policy &policy);
+};

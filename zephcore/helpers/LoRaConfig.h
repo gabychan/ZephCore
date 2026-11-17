@@ -17,7 +17,11 @@ struct LoRaConfig {
 	static constexpr float FREQ_MHZ = 869.618f;       /* MeshCore default channel (EU 869 MHz ISM) */
 	static constexpr float BANDWIDTH_KHZ = 62.5f;     /* MeshCore default */
 	static constexpr uint8_t SPREADING_FACTOR = 7;    /* SF7: HU regional default since 2026-08 */
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+	static constexpr uint8_t CODING_RATE = 6;         /* CR 4/6: the SFNarrow preset */
+#else
 	static constexpr uint8_t CODING_RATE = 5;         /* CR 4/5: lowest overhead */
+#endif
 #ifdef CONFIG_ZEPHCORE_DEFAULT_TX_POWER_DBM
 	static constexpr int8_t TX_POWER_DBM = CONFIG_ZEPHCORE_DEFAULT_TX_POWER_DBM; /* per board (external PAs) */
 #else

@@ -216,3 +216,111 @@ TEST(pjson_tz_fraction, "UNIT-PJSON-009", "A quarter-hour timezone survives pref
     CHECK(companionPrefsFromJson(q, u));
     CHECK(q.tz_offset == 5.5f);
 }
+
+TEST(pjson_server_mt, "UNIT-PJSON-010", "The repeater's Meshtastic settings survive prefs.json; a file without mt{} keeps the defaults") {
+    NodePrefs p = defaults();
+    p.mt.enable = 0;
+    p.mt.role = mt::ROLE_ROUTER;
+    p.mt.hops = 5;
+    p.mt.relay = mt::RELAY_ESSENTIAL;
+    p.mt.relay_opaque = 0;
+    p.mt.zerohop = mt::ZEROHOP_AUTO;
+    p.mt.zerohop_nodes[1] = 0xA1B2C3D4u;
+    p.mt.nodeinfo_s = 3600;
+    p.mt.telemetry_s = 900;
+    strcpy(p.mt.channel, "Mesh");
+    p.mt.psk_len = 16;
+    for (int i = 0; i < 16; i++) p.mt.psk[i] = (uint8_t)(0x30 + i);
+    p.mt.defaults_rev = 2;
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.mt.enable == 0 && q.mt.role == mt::ROLE_ROUTER && q.mt.hops == 5);
+    CHECK(q.mt.relay == mt::RELAY_ESSENTIAL && q.mt.relay_opaque == 0);
+    CHECK(q.mt.zerohop == mt::ZEROHOP_AUTO && q.mt.zerohop_nodes[0] == 0 && q.mt.zerohop_nodes[1] == 0xA1B2C3D4u);
+    CHECK(q.mt.nodeinfo_s == 3600 && q.mt.telemetry_s == 900);
+    CHECK(std::string(q.mt.channel) == "Mesh" && q.mt.psk_len == 16 && q.mt.psk[15] == 0x3F);
+    CHECK(q.mt.defaults_rev == 2);
+
+    MemStream old("{name:\"R\",lat:0,lon:0,radio:{freq:869.6180,bw:62.5000,sf:8,cr:5,tx:20}}");
+    NodePrefs d = defaults();
+    CHECK(serverPrefsFromJson(d, old));
+    CHECK(d.mt.enable == 1 && d.mt.role == mt::ROLE_CLIENT_BASE && d.mt.relay == mt::RELAY_ESSENTIAL);
+    CHECK(d.mt.zerohop == mt::ZEROHOP_OFF && d.mt.defaults_rev == 0);
+    CHECK(std::string(d.mt.channel) == "SFNarrow" && d.mt.psk_len == 1 && d.mt.psk[0] == 1);
+}
+
+TEST(pjson_ping, "UNIT-PJSON-011", "The ping bot's settings survive prefs.json in both roles; an invalid command comes back off") {
+    NodePrefs p = defaults();
+    CHECK(p.ping.mc.enable == 0 && p.ping.mt.enable == 0 && p.ping.snr == 1 && p.ping.rssi == 0);
+    ping::setTrigger(p.ping.mc, "/ping");
+    p.ping.mc.enable = 1;
+    ping::setTrigger(p.ping.mt, "!eco");
+    p.ping.rssi = 1;
+    p.ping.snr = 0;
+    p.ping.ignore_direct = 1;
+    p.ping.ignore_remote = 1;
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.ping.mc.enable == 1 && std::string(q.ping.mc.trigger) == "/ping");
+    CHECK(q.ping.mt.enable == 0 && std::string(q.ping.mt.trigger) == "!eco");
+    CHECK(q.ping.rssi == 1 && q.ping.snr == 0 && q.ping.ignore_direct == 1 && q.ping.ignore_remote == 1);
+
+    MemStream c;
+    CHECK(companionPrefsToJson(p, c));
+    NodePrefs r = defaults();
+    CHECK(companionPrefsFromJson(r, c));
+    CHECK(r.ping.mc.enable == 1 && std::string(r.ping.mt.trigger) == "!eco" && r.ping.snr == 0);
+
+    MemStream bad("{zc:{ping_mc_en:1,ping_mc_trig:\"two words\",ping_snr:7}}");
+    NodePrefs b = defaults();
+    CHECK(serverPrefsFromJson(b, bad));
+    sanitizeNodePrefs(&b);
+    CHECK(b.ping.mc.enable == 0 && std::string(b.ping.mc.trigger) == "" && b.ping.snr == 1);
+}
+
+TEST(pjson_mt_channels, "UNIT-PJSON-012", "A companion's Meshtastic channels survive prefs.json; a file without them has none") {
+    NodePrefs p = defaults();
+    CHECK(mt::addChannel(p.mt, "SFNarrow", (const uint8_t*)"\x01", 1) == mt::ADD_OK);
+    uint8_t key[16];
+    for (int i = 0; i < 16; i++) key[i] = (uint8_t)(0x40 + i);
+    CHECK(mt::addChannel(p.mt, "Mine", key, 16) == mt::ADD_OK);
+    MemStream s;
+    CHECK(companionPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(companionPrefsFromJson(q, s));
+    CHECK(std::string(q.mt.channels[0].name) == "SFNarrow" && q.mt.channels[0].psk_len == 1 && q.mt.channels[0].psk[0] == 1);
+    CHECK(std::string(q.mt.channels[1].name) == "Mine" && q.mt.channels[1].psk_len == 16 && q.mt.channels[1].psk[15] == 0x4F);
+    CHECK(q.mt.channels[2].name[0] == '\0');
+
+    MemStream old("{name:\"C\",lat:0,lon:0,mt:{en:1}}");
+    NodePrefs d = defaults();
+    CHECK(companionPrefsFromJson(d, old));
+    CHECK(d.mt.channels[0].name[0] == '\0');
+}
+
+TEST(pjson_fw, "UNIT-PJSON-013", "The MeshCore receive limits survive prefs.json; a file without them leaves no limit") {
+    NodePrefs p = defaults();
+    CHECK(p.fw.advert_gap_min == 0 && p.fw.hop_rate == 0);
+    p.fw.advert_gap_min = 30;
+    p.fw.hop_rate = 200;
+    p.fw.drop = 0x41;
+    p.mtfw.drop = 0x12;
+    p.mtfw.advert_gap_min = 5;
+    p.mtfw.hop_rate = 9;
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.fw.advert_gap_min == 30 && q.fw.hop_rate == 200 && q.fw.drop == 0x41);
+    CHECK(q.mtfw.drop == 0x12 && q.mtfw.advert_gap_min == 5 && q.mtfw.hop_rate == 9);
+
+    MemStream empty;
+    CHECK(serverPrefsToJson(defaults(), empty));
+    NodePrefs r = defaults();
+    CHECK(serverPrefsFromJson(r, empty));
+    CHECK(r.fw.advert_gap_min == 0 && r.fw.hop_rate == 0 && r.mtfw.drop == 0 && r.mtfw.hop_rate == 0);
+}

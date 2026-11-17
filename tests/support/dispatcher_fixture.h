@@ -15,10 +15,15 @@ struct Radio : mesh::Radio {
     bool accept = true, completion = false, block_final_gate = false;
     unsigned receiving_queries = 0, attempts = 0, finished = 0, recoveries = 0;
     unsigned completion_queries = 0, relaxations = 0, cad_ticks = 0, radio_ticks = 0;
-    uint32_t airtime = 100, maintenance = mesh::MAINTENANCE_IDLE;
+    uint32_t airtime = 100, foreign_airtime = 60, maintenance = mesh::MAINTENANCE_IDLE;
+    int foreign_airtime_len = -1;
     int8_t cad_offset = 0;
     std::deque<std::vector<uint8_t>> incoming;
     std::vector<std::vector<uint8_t>> sent;
+    std::vector<bool> sent_foreign;
+    bool next_foreign = false, foreign_capable = true;
+    void setNextTxForeign(bool foreign) override { next_foreign = foreign; }
+    bool supportsForeign() const override { return foreign_capable; }
     int recvRaw(uint8_t *bytes, int size) override {
         if (incoming.empty()) return 0;
         auto raw = incoming.front(); incoming.pop_front();
@@ -26,11 +31,12 @@ struct Radio : mesh::Radio {
         std::copy(raw.begin(), raw.end(), bytes); return int(raw.size());
     }
     uint32_t getEstAirtimeFor(int) override { return airtime; }
+    uint32_t getEstForeignAirtimeFor(int len) override { foreign_airtime_len = len; return foreign_airtime; }
     float packetScore(float, int) override { return 0.5f; }
     bool startSendRaw(const uint8_t *bytes, int len) override {
         ++attempts;
         if (!accept) return false;
-        sent.emplace_back(bytes, bytes + len); active = true; recv_mode = false;
+        sent.emplace_back(bytes, bytes + len); sent_foreign.push_back(next_foreign); active = true; recv_mode = false;
         return true;
     }
     bool isSendComplete() override {
@@ -64,6 +70,9 @@ struct Dispatcher : mesh::Dispatcher {
     std::vector<uint32_t> wakes;
     std::vector<int8_t> offsets;
     unsigned successes = 0, failures = 0;
+    bool consume_foreign = false;
+    std::vector<std::vector<uint8_t>> foreign_rx;
+    unsigned raw_logged = 0;
     Dispatcher(Radio& radio, Clock& clock, mesh::PacketManager& pool) : mesh::Dispatcher(radio, clock, pool) {
         setTxQueuedCallback([](uint32_t delay, void *self) {
             static_cast<Dispatcher*>(self)->wakes.push_back(delay);
@@ -74,6 +83,10 @@ struct Dispatcher : mesh::Dispatcher {
         if (action == ACTION_MANUAL_HOLD) held.push_back(p);
         return action;
     }
+    bool onRecvForeign(const uint8_t raw[], int len, float, float) override {
+        foreign_rx.emplace_back(raw, raw + len); return consume_foreign;
+    }
+    void logRxRaw(float, float, const uint8_t[], int) override { ++raw_logged; }
     uint8_t getDutyCyclePercent() const override { return duty; }
     uint32_t getDutyCycleWindowMs() const override { return window; }
     uint32_t getCADFailRetryDelay() const override { return 100; }

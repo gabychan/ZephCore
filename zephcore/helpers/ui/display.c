@@ -73,10 +73,10 @@ static uint8_t  font_w;
 static uint8_t  font_h;
 static bool     is_epd;       /* true for e-paper displays */
 
+const uint8_t *zephcore_font_6x8_glyph(uint8_t c);
+
 #if MC_DISPLAY_COLOR_PANEL
 static bool     has_color;    /* true when a raw RGB565 TFT is available */
-
-const uint8_t *zephcore_font_6x8_glyph(uint8_t c);
 
 #if IS_ENABLED(CONFIG_ZEPHCORE_DISPLAY_LARGE_FONT)
 #define COLOR_FONT_SCALE_NUM 3
@@ -806,6 +806,47 @@ void mc_display_invert_rect(int x, int y, int w, int h)
 		(uint16_t)(x + DISP_INSET), (uint16_t)(y + DISP_INSET),
 		(uint16_t)w, (uint16_t)h
 	);
+}
+
+void mc_display_text_px(int x, int y, const char *text, int scale)
+{
+	if (!disp_initialized || !text || scale < 1) {
+		return;
+	}
+	if (is_epd) {
+		epd_hash_u32((uint32_t)x);
+		epd_hash_u32((uint32_t)y);
+		epd_hash_u32((uint32_t)scale);
+		epd_hash_bytes(text, strlen(text));
+	}
+	for (; *text; text++, x += 6 * scale) {
+		const uint8_t *glyph = zephcore_font_6x8_glyph((uint8_t)*text);
+
+		for (int col = 0; col < 6; col++) {
+			for (int row = 0; row < 8; row++) {
+				if (!(glyph[col] & (1u << row))) {
+					continue;
+				}
+				for (int dy = 0; dy < scale; dy++) {
+					for (int dx = 0; dx < scale; dx++) {
+						struct cfb_position pos = {
+							.x = (int16_t)(x + col * scale + dx + DISP_INSET),
+							.y = (int16_t)(y + row * scale + dy + DISP_INSET)
+						};
+						cfb_draw_point(disp_dev, &pos);
+					}
+				}
+			}
+		}
+	}
+}
+
+void mc_display_rect(int x, int y, int w, int h)
+{
+	mc_display_hline(x, y, w);
+	mc_display_hline(x, y + h - 1, w);
+	mc_display_fill_rect(x, y, 1, h);
+	mc_display_fill_rect(x + w - 1, y, 1, h);
 }
 
 void mc_display_xbm(int x, int y, const uint8_t *data, int w, int h)

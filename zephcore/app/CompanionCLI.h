@@ -84,6 +84,9 @@ public:
 	int formatCadStatus(char* buf, int cap) override {
 		return _radio.formatCadStatus(buf, cap);
 	}
+	int formatTxStallStatus(char* buf, int cap) override {
+		return _mesh.formatTxStalls(buf, cap);
+	}
 	void applyCadPrefs() override {
 		_radio.setCadParams(_mesh.prefs.cad_auto != 0,
 					_mesh.prefs.cad_offset,
@@ -143,6 +146,37 @@ public:
 
 	MeshTimeSync* getMeshTimeSync() override {
 		return _mesh.getMeshTimeSync();
+	}
+
+	ping::Stats* pingStats() override { return _mesh.pingStats(); }
+
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	/* z.mt.*: the node has no channel of its own, so channel and telemetry do not apply. */
+	void onMtPrefsChanged() override { _mesh.mtPrefsChanged(); }
+	bool onMtChannelAdded(const char* slot) override { return _mesh.mtChannelAdded(slot); }
+	void onMtChannelRemoved(const char* slot) override { _mesh.mtChannelRemoved(slot); }
+	void formatMtStatsReply(char* reply, size_t cap) override { _mesh.mtFormatStats(reply, cap); }
+	void formatMtNeighbours(char* reply, size_t cap, size_t page, bool recent) override { _mesh.mtFormatNeighbours(reply, cap, page, recent); }
+#endif
+	void formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) override { _mesh.formatMcNeighbours(reply, cap, page, recent); }
+
+	void fillZInfo(zinfo::Info& info) override {
+		info.flash_used_kb = _store.getStorageUsedKb();
+		info.flash_total_kb = _store.getStorageTotalKb();
+		info.contacts = (uint16_t)_mesh.getNumContacts();
+		info.max_contacts = MAX_CONTACTS;
+	}
+	void fillZStats(zinfo::Stats& s) override {
+		s.recv = _radio.getPacketsRecv();
+		s.sent = _radio.getPacketsSent();
+		s.errors = _radio.getPacketsRecvErrors();
+		s.flood_tx = _mesh.getNumSentFlood();
+		s.direct_tx = _mesh.getNumSentDirect();
+		s.flood_rx = _mesh.getNumRecvFlood();
+		s.direct_rx = _mesh.getNumRecvDirect();
+		s.tx_air_s = _mesh.getTotalAirTime() / 1000;
+		s.rx_air_s = _mesh.getReceiveAirTime() / 1000;
+		s.queue = _pool.getOutboundTotal();
 	}
 
 	/* stats-core / stats-radio / stats-packets, as the repeater prints them. */

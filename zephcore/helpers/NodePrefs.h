@@ -11,6 +11,12 @@
 #include <stdint.h>
 #include <string.h>
 #include "LoRaConfig.h"
+#include "PingBot.h"
+#include "McFirewall.h"
+#include "RxStats.h"
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+#include "meshtastic/MtConfig.h"
+#endif
 
 /* LEDS_RADIO_* / LEDS_HB_* mode values for the leds_radio_mode and leds_hb_mode
  * fields below.  They live in led_gate.h because the heartbeat consumers are C
@@ -197,6 +203,13 @@ struct NodePrefs {
 	char wifi_ssid[33];
 	char wifi_pwd[64];
 	uint8_t wifi_enabled;           // 1 = join wifi_ssid when set (upstream default)
+	ping::Prefs ping;               // ping bot; prefs.json zc{} ping_*
+	fw::Prefs fw;                   // MeshCore receive limits (repeater); prefs.json zc{} fw_*
+	fw::Prefs mtfw;                 // the same for Meshtastic (repeater); prefs.json zc{} mfw_*
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+	/* The Meshtastic side of Zephtacore; prefs.json mt{} (ADR 0013). */
+	mt::RepeaterPrefs mt;
+#endif
 };
 
 /* Range guards for prefs that came off flash: a blob can be intact and
@@ -287,6 +300,9 @@ static inline void sanitizeNodePrefs(NodePrefs* p) {
 	p->backoff_multiplier = sanePrefFloat(p->backoff_multiplier, 0.0f, 2.0f, 0.2f);
 	p->node_lat = sanePrefFloat(p->node_lat, -90.0, 90.0, 0.0);
 	p->node_lon = sanePrefFloat(p->node_lon, -180.0, 180.0, 0.0);
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+	mt::sanitize(p->mt);
+#endif
 
 	p->cr           = clampPref<uint8_t>(p->cr, 5, 8);
 	p->tx_power_dbm = clampPref<int8_t>(p->tx_power_dbm, -9, 30);
@@ -318,6 +334,7 @@ static inline void sanitizeNodePrefs(NodePrefs* p) {
 	 * that was neither 0 nor 1 silently switched adaptive CAD off instead of
 	 * restoring the default — left over from when the default was dry-run. */
 	p->cad_auto            = saneBool<uint8_t>(p->cad_auto, 1);
+	ping::sanitize(p->ping);
 	p->allow_read_only     = saneBool<uint8_t>(p->allow_read_only, 0);
 	p->powersaving_enabled = saneBool<uint8_t>(p->powersaving_enabled, POWERSAVING_DEFAULT);
 	p->powersaving_set     = saneBool<uint8_t>(p->powersaving_set, 0);
@@ -448,6 +465,19 @@ static inline void initNodePrefs(NodePrefs* prefs) {
 	prefs->v_contact_enabled = 1;     // Default ON — v-contact loopback admin chat (companion)
 	prefs->v_battery_alert_mv = 0xFFFF; // Sentinel: derive from board auto-shutdown threshold
 	prefs->wifi_enabled = 1;          // as upstream: WiFi still stays off until an SSID is set
+	ping::setDefaults(prefs->ping);   // Default OFF
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+#ifdef CONFIG_ZEPHTACORE_MT_HOP_LIMIT
+	const uint8_t mt_hops = CONFIG_ZEPHTACORE_MT_HOP_LIMIT;
+#else
+	const uint8_t mt_hops = 3;
+#endif
+#ifdef CONFIG_ZEPHCORE_ROLE_COMPANION
+	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_OFF, mt::ROLE_CLIENT_MUTE);  // a companion does not repeat unless asked
+#else
+	mt::setDefaults(prefs->mt, mt_hops, mt::RELAY_ESSENTIAL, mt::ROLE_CLIENT_BASE);
+#endif
+#endif
 	/* Companion-only default, set here so every caller of initNodePrefs() sees
 	 * it. 0 means disabled and is a legal stored value. */
 #ifdef CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS

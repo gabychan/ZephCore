@@ -74,11 +74,90 @@ protected:
 		def("in_rot", _p->input_rotate);
 		def("pwr_sav_set", _p->powersaving_set);
 		def("gps_stby", _p->gps_standby_max);
+		def("ping_mc_en", _p->ping.mc.enable);
+		def("ping_mc_trig", _p->ping.mc.trigger, sizeof(_p->ping.mc.trigger));
+		def("ping_mt_en", _p->ping.mt.enable);
+		def("ping_mt_trig", _p->ping.mt.trigger, sizeof(_p->ping.mt.trigger));
+		def("ping_rssi", _p->ping.rssi);
+		def("ping_snr", _p->ping.snr);
+		def("ping_nd", _p->ping.ignore_direct);
+		def("ping_nr", _p->ping.ignore_remote);
+		def("fw_drop", _p->fw.drop);
+		def("fw_gap", _p->fw.advert_gap_min);
+		def("fw_rate", _p->fw.hop_rate);
+		def("mfw_drop", _p->mtfw.drop);
+		def("mfw_gap", _p->mtfw.advert_gap_min);
+		def("mfw_rate", _p->mtfw.hop_rate);
 	}
 
 public:
 	explicit ZcCommonJson(NodePrefs *p) : _p(p) {}
 };
+
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+/* One channel of the companion's table: a value of prefs.json is at most
+ * CONFIG_MAX_TOKEN_LEN long, so the table is an object per entry. */
+class MtChannelJson : public ConfigSerializer {
+	mt::ChannelEntry *_e;
+
+protected:
+	void structure() override
+	{
+		def("n", _e->name, sizeof(_e->name));
+		def("l", _e->psk_len);
+		def("k", (void *)_e->psk, sizeof(_e->psk));
+	}
+
+public:
+	explicit MtChannelJson(mt::ChannelEntry *e) : _e(e) {}
+};
+
+class MtChannelsJson : public ConfigSerializer {
+	NodePrefs *_p;
+
+protected:
+	void structure() override
+	{
+		for (int i = 0; i < mt::kTableMax; i++) {
+			char key[3] = {'c', (char)('0' + i), '\0'};
+			MtChannelJson e(&_p->mt.channels[i]);
+
+			def(key, e);
+		}
+	}
+
+public:
+	explicit MtChannelsJson(NodePrefs *p) : _p(p) {}
+};
+
+/* mt{}: the Meshtastic side of both roles. */
+class MtJson : public ConfigSerializer {
+	NodePrefs *_p;
+	MtChannelsJson _chs;
+
+protected:
+	void structure() override
+	{
+		def("en", _p->mt.enable);
+		def("role", _p->mt.role);
+		def("hops", _p->mt.hops);
+		def("relay", _p->mt.relay);
+		def("opaque", _p->mt.relay_opaque);
+		def("zh", _p->mt.zerohop);
+		def("zh_nodes", (void *)_p->mt.zerohop_nodes, sizeof(_p->mt.zerohop_nodes));
+		def("ni_s", _p->mt.nodeinfo_s);
+		def("tel_s", _p->mt.telemetry_s);
+		def("ch", _p->mt.channel, sizeof(_p->mt.channel));
+		def("psk_len", _p->mt.psk_len);
+		def("psk", (void *)_p->mt.psk, sizeof(_p->mt.psk));
+		def("chs", _chs);
+		def("dr", _p->mt.defaults_rev);
+	}
+
+public:
+	explicit MtJson(NodePrefs *p) : _p(p), _chs(p) {}
+};
+#endif
 
 /* ── Companion: upstream examples/companion_radio/NodePrefs.h ──────── */
 
@@ -159,6 +238,9 @@ class CompanionJson : public ConfigSerializer {
 	CompJson _comp;
 	WifiJson _wifi;
 	ZcCompanionJson _zc;
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+	MtJson _mt;
+#endif
 
 protected:
 	void structure() override
@@ -172,11 +254,17 @@ protected:
 		def("comp", _comp);
 		def("wifi", _wifi);
 		def("zc", _zc);
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+		def("mt", _mt);
+#endif
 	}
 
 public:
 	explicit CompanionJson(NodePrefs *p)
 		: _p(p), _radio(p), _gps(p), _comp(p), _wifi(p), _zc(p)
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+		, _mt(p)
+#endif
 	{
 		/* upstream: repeat.disable; ours: client_repeat (1 = forward) */
 		_repeat.disable = p->client_repeat ? 0 : 1;
@@ -258,6 +346,9 @@ class ServerJson : public ConfigSerializer {
 	RoomJson _room;
 	PowerJson _power;
 	ZcServerJson _zc;
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+	MtJson _mt;
+#endif
 
 protected:
 	void structure() override
@@ -276,11 +367,18 @@ protected:
 		def("room", _room);
 		def("power", _power);
 		def("zc", _zc);
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+		def("mt", _mt);
+#endif
 	}
 
 public:
 	explicit ServerJson(NodePrefs *p)
-		: _p(p), _radio(p), _gps(p), _repeat(p), _room(p), _power(p), _zc(p) {}
+		: _p(p), _radio(p), _gps(p), _repeat(p), _room(p), _power(p), _zc(p)
+#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
+		, _mt(p)
+#endif
+	{}
 
 	bool save(Stream &s) { return saveSerial(s); }
 	bool load(Stream &s) { return loadSerial(s); }

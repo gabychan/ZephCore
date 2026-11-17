@@ -1,4 +1,5 @@
 #include "dispatcher_fixture.h"
+#include <cstring>
 using namespace test_support;
 
 TEST(dispatch_send, "UNIT-DISPATCH-001", "Immediate wake delayed dispatch and exactly-once completion") {
@@ -185,4 +186,106 @@ TEST(dispatch_generated_rx, "UNIT-DISPATCH-017", "Generated dispatcher inputs ob
     // Packet::readFrom has a stricter nonempty-payload contract; don't conflate them.
     const uint8_t empty[] = {9, 0}; mesh::Packet p;
     CHECK(f.dispatcher.tryParsePacket(&p, empty, sizeof(empty)) && p.payload_len == 0);
+}
+
+TEST(dispatch_foreign_rx, "UNIT-DISPATCH-018", "A consumed foreign frame never reaches the MeshCore parser") {
+    Fixture f; f.begin();
+    const std::vector<uint8_t> meshcore = {9, 0, 0xAA}, other = {0xDE, 0xAD, 0xBE, 0xEF, 1, 2, 3};
+    f.radio.incoming = {other, meshcore};
+    f.dispatcher.consume_foreign = true; f.dispatcher.loop();
+    CHECK(f.dispatcher.foreign_rx.size() == 2 && f.dispatcher.received.empty());
+    CHECK(f.pool.getFreeCount() == 32);  // nothing was allocated for a consumed frame
+    f.radio.incoming = {meshcore};
+    f.dispatcher.consume_foreign = false; f.dispatcher.loop();
+    CHECK(f.dispatcher.foreign_rx.size() == 3 && f.dispatcher.received.size() == 1);
+    CHECK(f.dispatcher.received[0].header == 9 && f.dispatcher.received[0].payload_len == 1);
+}
+TEST(dispatch_foreign_tx, "UNIT-DISPATCH-019", "A foreign frame goes out as its payload alone, flagged for the radio") {
+    Fixture f; f.begin();
+    std::vector<uint8_t> frame(40);
+    for (size_t i = 0; i < frame.size(); i++) frame[i] = (uint8_t)(i * 3 + 1);
+    CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
+    CHECK(!f.dispatcher.sendForeign(frame.data(), 0, 1, 0));
+    std::vector<uint8_t> big(185, 1);
+    CHECK(!f.dispatcher.sendForeign(big.data(), (int)big.size(), 1, 0));
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 1 && f.radio.sent[0] == frame && f.radio.sent_foreign[0]);
+    f.complete();
+    CHECK(f.pool.getFreeCount() == 32 && f.dispatcher.successes == 1);
+    // A MeshCore packet queued afterwards is not flagged and keeps its framing.
+    f.dispatcher.sendPacket(f.packet(), 2, 0); f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 2 && !f.radio.sent_foreign[1] &&
+          f.radio.sent[1] == std::vector<uint8_t>({9, 0, 0xAA}));
+    f.complete();
+}
+
+TEST(dispatch_foreign_airtime, "UNIT-DISPATCH-021", "A foreign TX is charged its own airtime on its payload length and is not a MeshCore flood") {
+    Fixture f; f.begin();
+    std::vector<uint8_t> frame(40, 7);
+    CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
+    f.dispatcher.loop(); f.complete();
+    CHECK(f.radio.foreign_airtime_len == 40 && f.dispatcher.getTotalAirTime() == 60);
+    CHECK(f.dispatcher.getNumSentFlood() == 0 && f.dispatcher.getNumSentDirect() == 0);
+    f.dispatcher.sendPacket(f.packet(), 2, 0); f.dispatcher.loop(); f.complete();
+    CHECK(f.dispatcher.getTotalAirTime() == 160 && f.dispatcher.getNumSentFlood() == 1);
+}
+
+TEST(dispatch_foreign_rx_airtime, "UNIT-DISPATCH-022", "A consumed foreign frame counts as receive airtime, with its own preamble; a MeshCore one with the MeshCore estimate") {
+    Fixture f; f.begin();
+    const std::vector<uint8_t> meshcore = {9, 0, 0xAA}, other(30, 0xDE);
+    f.radio.incoming = {other};
+    f.dispatcher.consume_foreign = true; f.dispatcher.loop();
+    CHECK(f.radio.foreign_airtime_len == 30 && f.dispatcher.getReceiveAirTime() == 60);
+    f.radio.incoming = {meshcore};
+    f.dispatcher.consume_foreign = false; f.dispatcher.loop();
+    CHECK(f.dispatcher.getReceiveAirTime() == 160);
+}
+
+TEST(dispatch_foreign_queue, "UNIT-DISPATCH-023", "Foreign frames in the queue are counted, and the lowest priority leaves after a due MeshCore packet") {
+    Fixture f; f.begin();
+    CHECK(f.dispatcher.getForeignQueued() == 0);
+    std::vector<uint8_t> frame(30, 9);
+    for (int i = 0; i < 3; i++) CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 0xFE, 0));
+    f.dispatcher.sendPacket(f.packet(), 5, 0);
+    CHECK(f.dispatcher.getForeignQueued() == 3);
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 1 && !f.radio.sent_foreign[0]);   // the MeshCore packet first
+    f.complete();
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 2 && f.radio.sent_foreign[1]);     // then the foreign ones
+    CHECK(f.dispatcher.getForeignQueued() == 2);
+}
+
+TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause with age and longest streak") {
+    mesh::TxStall lbt, rx;
+    char buf[96];
+    mesh::formatTxStalls(buf, sizeof(buf), lbt, rx, 5000);
+    CHECK(std::string(buf) == "lbt n=0 | rx n=0");
+    lbt.record(10000, 4100);
+    lbt.record(20000, 8200);
+    lbt.record(30000, 4100);
+    rx.record(0, 4050);  // uptime 0 still reads as "happened"
+    mesh::formatTxStalls(buf, sizeof(buf), lbt, rx, 95000);
+    CHECK(std::string(buf) == "lbt n=3 ago=65s max=8200ms | rx n=1 ago=94s max=4050ms");
+    CHECK(mesh::formatTxStalls(buf, 8, lbt, rx, 95000) > 8);  // truncated, never overrun
+    CHECK(std::strlen(buf) == 7);
+}
+TEST(dispatch_foreign_needs_radio, "UNIT-DISPATCH-024", "A radio that cannot take a second sync word is never handed a foreign frame") {
+    Fixture f; f.begin();
+    f.radio.foreign_capable = false;
+    std::vector<uint8_t> frame(40, 7);
+    CHECK(!f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
+    CHECK(f.pool.getFreeCount() == 32 && f.dispatcher.getForeignQueued() == 0);
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.empty());
+}
+TEST(dispatch_foreign_not_logged_raw, "UNIT-DISPATCH-025", "A consumed foreign frame is not logged as a raw MeshCore packet; a MeshCore one is") {
+    Fixture f; f.begin();
+    const std::vector<uint8_t> meshcore = {9, 0, 0xAA}, other = {0xDE, 0xAD, 0xBE, 0xEF, 1, 2, 3};
+    f.radio.incoming = {other, other};
+    f.dispatcher.consume_foreign = true; f.dispatcher.loop();
+    CHECK(f.dispatcher.foreign_rx.size() == 2 && f.dispatcher.raw_logged == 0);
+    f.radio.incoming = {meshcore};
+    f.dispatcher.consume_foreign = false; f.dispatcher.loop();
+    CHECK(f.dispatcher.raw_logged == 1);
 }

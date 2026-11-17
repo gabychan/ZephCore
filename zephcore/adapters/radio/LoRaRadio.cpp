@@ -38,6 +38,48 @@ static uint16_t rxDutyDetectSymbols(uint8_t sf)
 	return (sf >= 7) ? d : (uint16_t)(d + 4);
 }
 
+/* Meshtastic's sub-GHz preamble (RadioInterface::preambleLengthDefault). */
+static constexpr uint16_t kMeshtasticPreambleLen = 16;
+
+void LoRaRadio::applySyncWord(SyncKind kind)
+{
+	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_sync_word) {
+		return;
+	}
+	int ret = _ops.set_sync_word(_dev, kind);
+
+	if (ret < 0) {
+		LOG_ERR("sync word %d write failed: %d", (int)kind, ret);
+	}
+}
+
+bool LoRaRadio::supportsForeign() const
+{
+	return IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) && _ops.set_sync_word && _ops.set_tx_preamble_len;
+}
+
+void LoRaRadio::setMtListen(bool on)
+{
+	if (atomic_set(&_mt_listen, on ? 1 : 0) == (on ? 1 : 0)) {
+		return;
+	}
+	LOG_INF("rx sync word: %s", on ? "MeshCore and Meshtastic" : "MeshCore");
+	/* A receiver already running takes the new word now; otherwise the next startReceive() does. */
+	if (atomic_get(&_in_recv_mode) && !atomic_get(&_tx_active)) {
+		hwCancelReceive();
+		atomic_set(&_in_recv_mode, 0);
+		startReceive();
+	}
+}
+
+void LoRaRadio::applyTxPreamble()
+{
+	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_tx_preamble_len) {
+		return;
+	}
+	_ops.set_tx_preamble_len(_dev, _tx_foreign ? kMeshtasticPreambleLen : 0);
+}
+
 /* ── Constructor ─────────────────────────────────────────────── */
 
 LoRaRadio::LoRaRadio(const struct device *lora_dev, MainBoard &board)
@@ -554,6 +596,7 @@ void LoRaRadio::clearRadioOverride()
 void LoRaRadio::startReceive()
 {
 	configureRx();
+	applySyncWord(atomic_get(&_mt_listen) ? SyncKind::HybridRx : SyncKind::MeshCore);
 
 	int ret;
 
@@ -568,7 +611,9 @@ void LoRaRadio::startReceive()
 
 		const uint8_t sf = (uint8_t)cfg.datarate;
 		const uint32_t bw_hz = bandwidth_to_hz(cfg.bandwidth);
-		const uint16_t P = cfg.preamble_len;
+		/* While Meshtastic is heard, its frames carry 16 preamble symbols whatever the SF. */
+		const uint16_t P = atomic_get(&_mt_listen) && cfg.preamble_len > kMeshtasticPreambleLen
+					   ? kMeshtasticPreambleLen : cfg.preamble_len;
 		const uint16_t D = rxDutyDetectSymbols(sf);
 
 		if (bw_hz > 0 && P > 2 * D + 1) {
@@ -705,6 +750,8 @@ bool LoRaRadio::startSendRaw(const uint8_t *bytes, int len)
 	/* LBT: stay in RX (no cancel) so the driver's send_async takes its
 	 * RX->TX entry and restores RX itself on CAD-busy. */
 	configureTx();
+	applySyncWord(_tx_foreign ? SyncKind::Meshtastic : SyncKind::MeshCore);
+	applyTxPreamble();
 
 	memcpy(_tx_buf, bytes, len);
 	/* Published before the _tx_start_sem handoff below so txWaitBudgetMs()
@@ -798,6 +845,16 @@ bool LoRaRadio::isRadioReady()
 
 uint32_t LoRaRadio::getEstAirtimeFor(int len_bytes)
 {
+	return estAirtime(len_bytes, false);
+}
+
+uint32_t LoRaRadio::getEstForeignAirtimeFor(int len_bytes)
+{
+	return estAirtime(len_bytes, true);
+}
+
+uint32_t LoRaRadio::estAirtime(int len_bytes, bool foreign)
+{
 	/* The params the radio is actually running (a tempradio override
 	 * included), resolved through the same BW enum as buildModemConfig(). */
 	uint8_t sf = getActiveSpreadingFactor();
@@ -819,7 +876,8 @@ uint32_t LoRaRadio::getEstAirtimeFor(int len_bytes)
 	 * Treating SF5 as SF6 charged 397 ms for a 126-byte SF5/BW62.5 CR4/8
 	 * packet whose Semtech airtime is 237 ms (confirmed by TX timing). */
 	float fine_sync = (!_ops.loramac_node && sf <= 6) ? 1.0f : 0.0f;
-	float t_preamble = (preambleLengthForSF(sf) + 4.25f + 2.0f * fine_sync) * t_sym;
+	const uint16_t preamble = foreign ? kMeshtasticPreambleLen : preambleLengthForSF(sf);
+	float t_preamble = (preamble + 4.25f + 2.0f * fine_sync) * t_sym;
 
 	/* LDRO threshold must track the SX126x driver's should_enable_ldro()
 	 * exactly (symbol time > 16.38 ms) so this estimate's DE matches the

@@ -566,6 +566,52 @@ void RepeaterMesh::sendFloodReply(mesh::Packet* packet, unsigned long delay_mill
   }
 }
 
+/* The ping bot's channel is known only while the bot is on, so a repeater without it never opens a group packet. */
+int RepeaterMesh::searchChannelsByHash(const uint8_t* hash, mesh::GroupChannel channels[], int max_matches) {
+  if (!_prefs.ping.mc.enable || max_matches < 1 || hash[0] != _ping_channel.hash[0]) {
+    return 0;
+  }
+  channels[0] = _ping_channel;
+  return 1;
+}
+
+/* "<sender>: <text>" on the ping channel; the answer goes back as the same kind of channel text. */
+void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mesh::GroupChannel& channel, uint8_t* data, size_t len) {
+  if (type != PAYLOAD_TYPE_GRP_TXT || len < 5 || (data[4] >> 2) != 0) {
+    return;
+  }
+  data[len] = 0;
+  char out[96];
+  const uint8_t hops = packet->getPathHashCount();
+  const ping::Heard heard = {hops, packet->_snr, (int16_t)_radio->getLastRSSI(),
+                             {packet->path, packet->getPathHashSize(), hops}};
+
+  const ping::Counters before = _ping_stats.mc;
+
+  /* No names: a repeater keeps only the keys of its neighbours, so the route is in hex. */
+  if (ping::reply(_prefs.ping, _ping_stats.mc, ping::PROTO_MC, (const char*)&data[5], heard, nullptr, nullptr,
+                  out, sizeof(out)) == 0) {
+    return;
+  }
+  if (!_ping_limit_mc.allow(getRTCClock()->getCurrentTime())) {
+    ping::unsent(_ping_stats.mc, before, true);
+    return;
+  }
+  uint8_t temp[5 + sizeof(_prefs.node_name) + 2 + sizeof(out)];
+  const uint32_t timestamp = getRTCClock()->getCurrentTimeUnique();
+
+  memcpy(temp, &timestamp, 4);
+  temp[4] = 0;  // TXT_TYPE_PLAIN
+  int n = snprintf((char*)&temp[5], sizeof(temp) - 5, "%s: %s", _prefs.node_name, out);
+  mesh::Packet* pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_TXT, channel, temp, 5 + n);
+
+  if (pkt) {
+    sendFloodReply(pkt, SERVER_RESPONSE_DELAY, packet->getPathHashSize());
+  } else {
+    ping::unsent(_ping_stats.mc, before, false);
+  }
+}
+
 bool RepeaterMesh::allowPacketForward(const mesh::Packet *packet) {
   if (_prefs.disable_fwd) return false;
   if (packet->isRouteFlood()
@@ -591,6 +637,42 @@ bool RepeaterMesh::allowPacketForward(const mesh::Packet *packet) {
     }
   }
   return true;
+}
+
+// ZEPHCORE: ours. The receive limits of "z.mc.fw.*": an advert inside its key's gap, or a frame over
+// the ceiling of the repeater it came through, or a type a drop rule silences, is neither processed nor repeated.
+bool RepeaterMesh::filterRecvFloodPacket(mesh::Packet* packet) {
+  const uint32_t hash = mesh::ContentionTracker::computePacketHash32(packet);
+  bool dropped;
+
+  if (_firewall.screened(hash, dropped)) {
+    return dropped;
+  }
+  dropped = screenFlood(packet);
+  _firewall.noteScreened(hash, dropped);
+  return dropped;
+}
+
+bool RepeaterMesh::screenFlood(const mesh::Packet* packet) {
+  const uint32_t now = (uint32_t)_ms->getMillis();
+
+  if (_firewall.ruleDropped(_prefs.fw, fw::ruleOf(packet->getPayloadType()))) {
+    return true;
+  }
+  if (packet->getPayloadType() == PAYLOAD_TYPE_ADVERT && packet->payload_len >= PUB_KEY_SIZE) {
+    uint32_t key;
+    memcpy(&key, packet->payload, sizeof(key));
+    if (_firewall.advertInGap(_prefs.fw, key, now)) {
+      return true;
+    }
+  }
+  const uint8_t hops = packet->getPathHashCount();
+
+  if (hops == 0) {
+    return false;
+  }
+  const uint8_t size = packet->getPathHashSize();
+  return _firewall.hopOverRate(_prefs.fw, &packet->path[(hops - 1) * size], size, now);
 }
 
 // ZEPHCORE: ours. Zephyr clock formatting.
@@ -680,6 +762,12 @@ mesh::DispatcherAction RepeaterMesh::onRecvPacket(mesh::Packet* pkt) {
   // Determine the request packet's region so sendFloodReply() can echo the same
   // scope. Runs for every packet (not just floods) so recv_pkt_region is cleared
   // for direct packets instead of inheriting the last flood's region.
+  if (pkt->isRouteFlood()) {
+    const uint8_t hops = pkt->getPathHashCount();
+    const uint8_t size = pkt->getPathHashSize();
+
+    _rx_mc.heard(hops, hops ? &pkt->path[(hops - 1) * size] : nullptr, hops ? size : 0);
+  }
   recv_pkt_unscoped_flood = mesh::isUnscopedFlood(pkt);
   if (recv_pkt_unscoped_flood) {
     if (region_map.getWildcard().flags & REGION_DENY_FLOOD) {
@@ -785,6 +873,11 @@ static bool isShare(const mesh::Packet *packet) {
 void RepeaterMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp,
         const uint8_t* app_data, size_t app_data_len) {
   mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
+
+  /* Only a verified advert opens its key's gap (z.mc.fw.gap). */
+  uint32_t key;
+  memcpy(&key, id.pub_key, sizeof(key));
+  _firewall.advertKept(_prefs.fw, key, (uint32_t)_ms->getMillis());
 
   /* Signature already verified by mesh::Mesh before this hook fires.
    * Skip share rebroadcasts — they replay stale stored adverts and would
@@ -1071,6 +1164,14 @@ void RepeaterMesh::begin(RepeaterDataStore* store) {
    * begin() — the radio reads freq/bw/sf/cr through _prefs during
    * Mesh::begin() → Dispatcher::begin() → Radio::begin(). */
   mesh::Mesh::begin();
+  {
+    /* A hashtag channel's secret is the first 16 bytes of SHA256 of its name. */
+    uint8_t digest[32];
+    mesh::Utils::sha256(digest, sizeof(digest), (const uint8_t*)PING_MC_CHANNEL, strlen(PING_MC_CHANNEL));
+    memset(&_ping_channel, 0, sizeof(_ping_channel));
+    memcpy(_ping_channel.secret, digest, 16);
+    mesh::Utils::sha256(_ping_channel.hash, sizeof(_ping_channel.hash), _ping_channel.secret, 16);
+  }
   _contention.setBackoffMultiplier(_prefs.backoff_multiplier);
   acl.load(_store->getFS(), self_id);
   region_map.load(_store->getFS());
@@ -1083,6 +1184,9 @@ void RepeaterMesh::begin(RepeaterDataStore* store) {
     }
   }
 
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  mtApplyPrefs();
+#endif
   updateAdvertTimer();
   updateFloodAdvertTimer();
 
@@ -1249,6 +1353,37 @@ void RepeaterMesh::formatNeighborsReply(char* reply) {
   *dp = 0;
 }
 
+// ZEPHCORE: ours. "get z.mc.neighbors".
+#if MAX_NEIGHBOURS > 0
+namespace {
+class McNeighbours : public neighbours::List {
+public:
+  McNeighbours(const NeighbourInfo* n, uint32_t now) : _n(n), _now(now) {}
+  size_t size() const override { return MAX_NEIGHBOURS; }
+  bool key(size_t i, int8_t& snr_x4, uint32_t& age_s) const override {
+    snr_x4 = _n[i].snr;
+    age_s = _now > _n[i].heard_timestamp ? _now - _n[i].heard_timestamp : 0;
+    return _n[i].heard_timestamp != 0;
+  }
+  void row(size_t i, neighbours::Row& r) const override {
+    key(i, r.snr_x4, r.age_s);
+    mesh::Utils::toHex(r.name, _n[i].id.pub_key, 4);
+  }
+private:
+  const NeighbourInfo* _n;
+  uint32_t _now;
+};
+}
+#endif
+
+void RepeaterMesh::formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) {
+#if MAX_NEIGHBOURS > 0
+  neighbours::format(reply, cap, "MeshCore neighbors", McNeighbours(neighbours, getRTCClock()->getCurrentTime()), page, recent);
+#else
+  snprintf(reply, cap, "MeshCore neighbors: -none-");
+#endif
+}
+
 // ZEPHCORE: ours. NeighbourInfo::clear().
 void RepeaterMesh::removeNeighbor(const uint8_t* pubkey, int key_len) {
 #if MAX_NEIGHBOURS > 0
@@ -1298,6 +1433,21 @@ void RepeaterMesh::formatPacketStatsReply(char* reply) {
                getNumRecvFlood(), getNumRecvDirect());
 }
 
+// ZEPHCORE: ours. The counters of "get z.stats".
+void RepeaterMesh::fillZStats(zinfo::Stats& s) {
+  auto& radio_driver = getRadioDriver(_radio);
+  s.recv = radio_driver.getPacketsRecv();
+  s.sent = radio_driver.getPacketsSent();
+  s.errors = radio_driver.getPacketsRecvErrors();
+  s.flood_tx = getNumSentFlood();
+  s.direct_tx = getNumSentDirect();
+  s.flood_rx = getNumRecvFlood();
+  s.direct_rx = getNumRecvDirect();
+  s.tx_air_s = getTotalAirTime() / 1000;
+  s.rx_air_s = getReceiveAirTime() / 1000;
+  s.queue = _mgr->getOutboundTotal();
+}
+
 // ZEPHCORE: ours. Through RepeaterDataStore.
 void RepeaterMesh::saveIdentity(const mesh::LocalIdentity& new_id) {
   if (_store) {
@@ -1312,6 +1462,10 @@ void RepeaterMesh::clearStats() {
   radio_driver.resetDutyCycleTimeoutRestarts();
   resetStats();
   ((SimpleMeshTables *)getTables())->resetStats();
+  _rx_mc.clear();
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  _rx_mt.clear();
+#endif
 }
 
 // ZEPHCORE: ours. Reply-header budget, blank lines, uplink and neighbour CLI.
@@ -1461,6 +1615,9 @@ void RepeaterMesh::loop() {
   }
 #endif
 
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  mtTick();
+#endif
   timeSyncTick();
 
   uint32_t now = k_uptime_get();
@@ -1578,6 +1735,13 @@ uint32_t RepeaterMesh::msUntilNextMaintenance() {
   if (_uplink_next_status_at) {
     next = mesh::maintenanceSooner(next,
                  mesh::maintenanceUntil(now, _uplink_next_status_at));
+  }
+#endif
+
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  uint32_t mt_at;
+  if (_mtport.nextAt(mt_at)) {
+    next = mesh::maintenanceSooner(next, mesh::maintenanceUntil(now, mt_at));
   }
 #endif
 

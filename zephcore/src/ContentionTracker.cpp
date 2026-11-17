@@ -17,9 +17,21 @@ ContentionTracker::ContentionTracker()
 	memset(_ring, 0, sizeof(_ring));
 }
 
+uint32_t ContentionTracker::computeForeignHash32(const uint8_t *frame, int len)
+{
+	uint32_t h = 0x811c9dc5u;
+	for (int i = 4; i < 12 && i < len; i++) {
+		h = (h ^ frame[i]) * 0x01000193u;
+	}
+	return h;
+}
+
 /* FNV-1a over payload_type + first 8 payload bytes */
 uint32_t ContentionTracker::computePacketHash32(const Packet *pkt)
 {
+	if (pkt->isForeign()) {
+		return computeForeignHash32(pkt->payload, pkt->payload_len);
+	}
 	uint32_t h = 0x811c9dc5u; /* FNV-1a offset basis */
 	uint8_t t = pkt->getPayloadType();
 	h = (h ^ t) * 0x01000193u;
@@ -44,6 +56,10 @@ void ContentionTracker::finalizeEntry(int idx)
 {
 	if (!_ring[idx].active) return;
 
+	if (_ring[idx].foreign) {
+		_ring[idx].active = false;
+		return;
+	}
 	uint32_t sample_x256 = (uint32_t)_ring[idx].dupe_count << 8;
 
 	int32_t diff = (int32_t)sample_x256 - (int32_t)_ema_x256;
@@ -63,9 +79,11 @@ void ContentionTracker::finalizeEntry(int idx)
 	_ring[idx].active = false;
 }
 
-void ContentionTracker::trackRetransmit(uint32_t hash32, uint32_t now_ms)
+void ContentionTracker::trackRetransmit(uint32_t hash32, uint32_t now_ms, bool foreign)
 {
-	_last_retransmit_ms = now_ms;
+	if (!foreign) {
+		_last_retransmit_ms = now_ms;
+	}
 
 	/* Evict oldest if ring slot occupied */
 	if (_ring[_next_idx].active) {
@@ -78,6 +96,7 @@ void ContentionTracker::trackRetransmit(uint32_t hash32, uint32_t now_ms)
 	e.dupe_count = 0;
 	e.reactive_added_ms = 0;
 	e.active = true;
+	e.foreign = foreign;
 
 	_next_idx = (_next_idx + 1) % RING_SIZE;
 }

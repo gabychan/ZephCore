@@ -13,7 +13,13 @@
 #include <helpers/ui/display.h>
 #endif
 #include <helpers/MeshTimeSync.h>
+#include <helpers/meshtastic/MtConfig.h>
+#include <helpers/meshtastic/MtFirewall.h>
 #include <helpers/OffgridPolicy.h>
+#include <helpers/NeighbourList.h>
+#include <helpers/ZCommand.h>
+#include <helpers/ZInfo.h>
+#include <helpers/HeapStats.h>
 #include <helpers/LoopWakeStats.h>
 extern "C" void power_diag_line(int n, char *out, size_t cap);  /* TEMPORARY: helpers/power_diag.c */
 #include <helpers/time_sync.h>
@@ -331,8 +337,153 @@ void CommonCLI::scheduleReboot(uint8_t type)
 /* CLI commands are case-sensitive, matching upstream Arduino MeshCore. Do
  * not fold the input buffer: a value can be the second token (`password
  * <value>`). */
+/* Zephtacore: "get/set z.mt.*", the same settings and commands in every role. */
+bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char* reply) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	const size_t cap = replyCap(sender_timestamp);
+
+	if (strcmp(command, "get z.mt.stats") == 0) {
+		_callbacks->formatMtStatsReply(reply, cap);
+		return true;
+	}
+	mt::CmdResult r = mt::handleCommand(_prefs->mt, command, reply, cap, _callbacks->mtStandalone());
+
+	if (r.changed) {
+		mt::sanitize(_prefs->mt);
+		if (r.added[0] != '\0' && !_callbacks->onMtChannelAdded(r.added)) {
+			if (mt::ChannelEntry *e = mt::findChannel(_prefs->mt, r.added)) {
+				*e = mt::ChannelEntry{};
+			}
+			snprintf(reply, cap, "Error: no room in the app for %s, or the app has its own channel by that name", r.added);
+			return true;
+		}
+		if (r.removed[0] != '\0') {
+			_callbacks->onMtChannelRemoved(r.removed);
+		}
+		_callbacks->onMtPrefsChanged();
+		savePrefs();
+	}
+	return r.handled;
+#else
+	(void)sender_timestamp; (void)command; (void)reply;
+	return false;
+#endif
+}
+
+/* "get z.info": version, uptime, battery, flash, heap and contacts in one line. */
+void CommonCLI::replyZInfo(size_t cap, char* reply) {
+	zinfo::Info info = {};
+
+	info.fw = _callbacks->getFirmwareVer();
+	info.uptime_s = (uint32_t)(k_uptime_get() / 1000);
+	info.batt_mv = _board->getBattMilliVolts();
+	const HeapTotals heap = heapTotals();
+
+	info.heap_used = heap.used;
+	info.heap_total = heap.total;
+	info.heap_peak = heap.peak;
+	_callbacks->fillZInfo(info);
+	zinfo::formatInfo(reply, cap, info);
+}
+
+/* "get z.stats": the MeshCore counters and, where built, the Meshtastic ones. */
+void CommonCLI::replyZStats(size_t cap, char* reply) {
+	zinfo::Stats stats = {};
+	char mt[160];  /* the 7 counters of get z.mt.stats at 10 digits each */
+
+	_callbacks->fillZStats(stats);
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	_callbacks->formatMtStatsReply(mt, sizeof(mt));
+	/* A role without the Meshtastic side answers "not available": no tail. */
+	zinfo::formatStats(reply, cap, stats, strncmp(mt, "> ", 2) == 0 ? mt + 2 : nullptr);
+#else
+	(void)mt;
+	zinfo::formatStats(reply, cap, stats, nullptr);
+#endif
+}
+
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
+	if (zcmd::helpReply(command, IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC), reply, replyCap(sender_timestamp))) {
+		return;
+	}
 	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
+		return;
+	}
+	size_t page;
+	bool recent;
+
+	if (neighbours::parseArgs(command, "get z.mc.", page, recent)) {
+		_callbacks->formatMcNeighbours(reply, replyCap(sender_timestamp), page, recent);
+		return;
+	}
+	if (neighbours::parseArgs(command, "get z.mt.", page, recent)) {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		_callbacks->formatMtNeighbours(reply, replyCap(sender_timestamp), page, recent);
+#else
+		strcpy(reply, "not available");
+#endif
+		return;
+	}
+	if (strcmp(command, "get z.info") == 0) {
+		replyZInfo(replyCap(sender_timestamp), reply);
+		return;
+	}
+	if (strcmp(command, "get z.stats") == 0) {
+		replyZStats(replyCap(sender_timestamp), reply);
+		return;
+	}
+	if (ping::isCommand(command)) {
+		ping::Stats* stats = _callbacks->pingStats();
+#if !IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		if (strncmp(command + 6, "mt.", 3) == 0) {
+			stats = nullptr;
+		}
+#endif
+		if (!stats) {
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
+			return;
+		}
+		const ping::CmdResult pr = ping::handleCommand(_prefs->ping, *stats, command, reply, replyCap(sender_timestamp));
+
+		if (pr.changed) {
+			ping::sanitize(_prefs->ping);
+			_callbacks->onPingPrefsChanged();
+			savePrefs();
+		}
+		return;
+	}
+	if (rxstats::isCommand(command)) {
+		const bool mt = rxstats::isMeshtastic(command);
+		rxstats::Observer* observer = IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !mt ? _callbacks->rxStats(mt) : nullptr;
+
+		if (!observer) {
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
+		} else {
+			rxstats::handleCommand(*observer, command, reply, replyCap(sender_timestamp));
+		}
+		return;
+	}
+	if (fw::isCommand(command)) {
+		const bool mt = fw::isMeshtastic(command);
+		fw::Firewall* firewall = IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !mt ? _callbacks->firewall(mt) : nullptr;
+
+		if (!firewall) {
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available in this role");
+			return;
+		}
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+		const fw::Rules& rules = mt ? mt::kFwRules : fw::kMcRules;
+		fw::Prefs& fwprefs = mt ? _prefs->mtfw : _prefs->fw;
+#else
+		const fw::Rules& rules = fw::kMcRules;
+		fw::Prefs& fwprefs = _prefs->fw;
+#endif
+		if (fw::handleCommand(fwprefs, *firewall, rules, command, reply, replyCap(sender_timestamp)).changed) {
+			savePrefs();
+		}
+		return;
+	}
+	if (handleMtCmd(sender_timestamp, command, reply)) {
 		return;
 	}
 	// hook for variant-specific CLI processing
@@ -1213,6 +1364,12 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, const char* command, cha
 	} else if (memcmp(config, "loop.wakes", 10) == 0) {
 		loopWakeFormat(reply, replyCap(sender_timestamp));
 #endif
+	} else if (memcmp(config, "z.tx.stalls", 11) == 0) {
+		size_t cap = replyCap(sender_timestamp);
+		int n = snprintf(reply, cap, "> ");
+		if (_callbacks->formatTxStallStatus(reply + n, (int)cap - n) == 0) {
+			strcpy(reply, "not available");
+		}
 	} else if (memcmp(config, "dc.restarts", 11) == 0) {
 		snprintf(reply, CLI_REPLY_SIZE, "> %u",
 			 (uint32_t)_callbacks->getDutyCycleTimeoutRestarts());
@@ -1507,6 +1664,7 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, const char* command, cha
 		if (isValidName(&config[5])) {
 			StrHelper::strncpy(_prefs->node_name, &config[5], sizeof(_prefs->node_name));
 			savePrefs();
+			_callbacks->onMtPrefsChanged();
 			strcpy(reply, "OK");
 		} else {
 			strcpy(reply, "Error: name cannot contain [ ] \\ : , ? *");

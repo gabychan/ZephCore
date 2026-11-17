@@ -12,6 +12,7 @@
 #include <helpers/ClientACL.h>
 #include <helpers/RegionMap.h>
 #include <helpers/SensorManager.h>
+#include <helpers/ZInfo.h>
 #include "NodePrefs.h"
 
 class MeshTimeSync;
@@ -65,6 +66,25 @@ public:
 	virtual void formatStatsReply(char* reply)           { strcpy(reply, "not available"); }
 	virtual void formatRadioStatsReply(char* reply)      { strcpy(reply, "not available"); }
 	virtual void formatPacketStatsReply(char* reply)     { strcpy(reply, "not available"); }
+
+	/* Zephtacore "z.mt." commands: standalone = the node has a channel of its own
+	 * (repeater); the role applies the settings after a change. */
+	virtual ping::Stats* pingStats() { return nullptr; }  /* null: the role has no ping bot */
+	virtual void onPingPrefsChanged() {}
+	virtual rxstats::Observer* rxStats(bool meshtastic) { (void)meshtastic; return nullptr; }  /* null: the role keeps none */
+	virtual fw::Firewall* firewall(bool meshtastic) { (void)meshtastic; return nullptr; }  /* null: the role has no receive limits */
+	virtual bool mtStandalone() const { return false; }
+	virtual void onMtPrefsChanged() {}
+	/* False when the app has no room for the channel just added. */
+	virtual bool onMtChannelAdded(const char* slot) { (void)slot; return true; }
+	virtual void onMtChannelRemoved(const char* slot) { (void)slot; }
+	virtual void formatMtStatsReply(char* reply, size_t cap) { (void)cap; strcpy(reply, "not available"); }
+	/* "get z.info" and "get z.stats": the role fills what it has (storage and contacts; the counters). */
+	virtual void fillZInfo(zinfo::Info& info) { (void)info; }
+	virtual void fillZStats(zinfo::Stats& stats) { (void)stats; }
+	/* "get z.mc.neighbors [page]" and "get z.mt.neighbors [page]": nodes heard directly, best SNR first. */
+	virtual void formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) { (void)cap; (void)page; (void)recent; strcpy(reply, "not available"); }
+	virtual void formatMtNeighbours(char* reply, size_t cap, size_t page, bool recent) { (void)cap; (void)page; (void)recent; strcpy(reply, "not available"); }
 	virtual mesh::LocalIdentity& getSelfId() = 0;
 	virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
 	virtual void clearStats() = 0;
@@ -93,6 +113,9 @@ public:
 	// Duty-cycle preamble false-positive counter (SX126x only)
 	virtual uint32_t getDutyCycleTimeoutRestarts() const { return 0; }
 	virtual void resetDutyCycleTimeoutRestarts() {}
+
+	// Times TX was blocked for getCADFailMaxDuration(), per cause
+	virtual int formatTxStallStatus(char* buf, int cap) { (void)buf; (void)cap; return 0; }
 
 	// Adaptive CAD (LBT detPeak calibration)
 	virtual int formatCadStatus(char* buf, int cap) { (void)buf; (void)cap; return 0; }
@@ -140,6 +163,9 @@ class CommonCLI {
 	void savePrefs();
 	void scheduleReboot(uint8_t type);
 	bool handleRadioCmd(uint32_t sender_timestamp, const char* command, char* reply);
+	bool handleMtCmd(uint32_t sender_timestamp, const char* command, char* reply);
+	void replyZInfo(size_t cap, char* reply);
+	void replyZStats(size_t cap, char* reply);
 	void handleGetCmd(uint32_t sender_timestamp, const char* command, char* reply);
 	void handleSetCmd(uint32_t sender_timestamp, const char* command, char* reply);
 	void handleRegionCmd(uint32_t sender_timestamp, char* command, char* reply);

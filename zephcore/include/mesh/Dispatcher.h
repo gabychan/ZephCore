@@ -5,6 +5,7 @@
 #include <mesh/Packet.h>
 #include <mesh/Utils.h>
 #include <mesh/Maintenance.h>  // ZEPHCORE: deadline-driven maintenance
+#include <mesh/TxStall.h>  // ZEPHCORE: per-cause TX stalls
 #include <string.h>
 
 namespace mesh {
@@ -36,6 +37,11 @@ public:
    * \returns  estimated transmit air-time needed for packet of 'len_bytes', in milliseconds.
   */
   virtual uint32_t getEstAirtimeFor(int len_bytes) = 0;
+  // ZEPHCORE: the same for a Meshtastic frame, which carries its own preamble length.
+  virtual uint32_t getEstForeignAirtimeFor(int len_bytes) { return getEstAirtimeFor(len_bytes); }
+  // ZEPHCORE: the spreading factor and bandwidth (kHz x10) in use now, a tempradio override included.
+  virtual uint8_t getActiveSpreadingFactor() const { return 0; }
+  virtual uint16_t getActiveBandwidthKHzX10() const { return 0; }
 
   virtual float packetScore(float snr, int packet_len) = 0;
 
@@ -46,6 +52,25 @@ public:
    * \returns true if successfully started
   */
   virtual bool startSendRaw(const uint8_t* bytes, int len) = 0;
+
+  /**
+   * \brief  ZEPHCORE: selects the protocol of the next startSendRaw() (true: Meshtastic).
+   *         Radios that cannot send a second sync word ignore it.
+  */
+  virtual void setNextTxForeign(bool foreign) { }
+
+  /**
+   * \brief  ZEPHCORE: whether the receiver also takes Meshtastic frames (true) or listens
+   *         with MeshCore's sync word alone (false, the default).
+   *         Radios that cannot send a second sync word ignore it.
+  */
+  virtual void setMtListen(bool on) { }
+
+  /**
+   * \brief  ZEPHCORE: whether this radio can take and send a second sync word. Without it a
+   *         foreign frame would go out on MeshCore's sync word, so none is queued.
+  */
+  virtual bool supportsForeign() const { return false; }
 
   /**
    * \returns true if the previous 'startSendRaw()' completed successfully.
@@ -195,6 +220,7 @@ class Dispatcher {
   uint8_t outbound_priority;
   uint32_t lbt_busy_start;
   uint32_t lbt_next_warn;
+  TxStall stall_lbt, stall_rx;  // ZEPHCORE: what ERR_EVENT_CAD_TIMEOUT stands for
   int8_t cad_offset_shadow;
   bool cad_offset_shadow_valid;
   tx_queued_callback_t _tx_queued_cb;
@@ -216,6 +242,10 @@ protected:
   virtual DispatcherAction onRecvPacket(Packet* pkt) = 0;
 
   virtual void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) { }   // custom hook
+
+  // ZEPHCORE: offers a received frame to a second protocol before it is parsed as
+  // MeshCore. Returns true when the frame was consumed.
+  virtual bool onRecvForeign(const uint8_t raw[], int len, float snr, float rssi) { return false; }
 
   virtual void logRx(Packet* packet, int len, float score) { }   // hooks for custom logging
   virtual void logTx(Packet* packet, int len) { }
@@ -253,6 +283,10 @@ public:
   Packet* obtainNewPacket();
   void releasePacket(Packet* packet);
   void sendPacket(Packet* packet, uint8_t priority, uint32_t delay_millis=0);
+  // ZEPHCORE: queues a complete on-air frame of another protocol (len <= MAX_PACKET_PAYLOAD).
+  bool sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis=0);
+  // ZEPHCORE: foreign frames waiting in the outbound queue.
+  int getForeignQueued() const;
 
   uint32_t getTotalAirTime() const { return total_air_time; }
   uint32_t getReceiveAirTime() const {return rx_air_time; }
@@ -264,10 +298,14 @@ public:
   void resetStats() {
     n_sent_flood = n_sent_direct = n_recv_flood = n_recv_direct = 0;
     _err_flags = 0;
+    stall_lbt = stall_rx = TxStall();  // ZEPHCORE
   }
 
   // ZEPHCORE: error flags and event-loop callbacks.
   uint16_t getErrFlags() const { return _err_flags; }
+  int formatTxStalls(char* buf, int cap) const {
+    return mesh::formatTxStalls(buf, cap, stall_lbt, stall_rx, (uint32_t)_ms->getMillis());
+  }
   void setTxQueuedCallback(tx_queued_callback_t cb, void* user_data) {
     _tx_queued_cb = cb;
     _tx_queued_user_data = user_data;

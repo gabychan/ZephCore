@@ -8,6 +8,7 @@
 #include <mesh/StaticPoolPacketManager.h>
 #include <mesh/SimpleMeshTables.h>
 #include <helpers/MeshTimeSync.h>
+#include <helpers/NeighbourList.h>
 #include <helpers/NodePrefs.h>
 #include "RepeaterDataStore.h"
 #if IS_ENABLED(CONFIG_ZEPHCORE_REPEATER_UPLINK)
@@ -24,6 +25,11 @@
 #include <helpers/RoutingPolicy.h>
 #include <helpers/TransportKeyStore.h>
 #include <helpers/RateLimiter.h>
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+#include <helpers/meshtastic/MtBridge.h>
+#include "MtRelayPort.h"
+#include <helpers/meshtastic/MtFirewall.h>
+#endif
 
 struct RepeaterStats {
   uint16_t batt_milli_volts;
@@ -108,6 +114,48 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   RateLimiter login_fail_limiter;  // ZEPHCORE: wrong-password attempts (MeshCore#2556)
   uint32_t pending_discover_tag;
   unsigned long pending_discover_until;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  // Zephtacore: the Meshtastic side of the repeater (RepeaterMeshtastic.cpp).
+  struct MtSink : mt::Sink {
+    explicit MtSink(RepeaterMesh& mesh) : m(mesh) {}
+    void onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id, uint32_t reply_id, const char* text,
+                size_t len, int8_t snr_x4, uint8_t hops, uint8_t relay) override;
+    RepeaterMesh& m;
+    void onNodeInfo(uint32_t from, const mt::User& user) override;
+    void onPosition(uint32_t, const mt::Position&) override {}
+  };
+  mt::Bridge _mt{MtRelayPort::aesBlock};
+  MtRelayPort _mtport{*this, _mt};
+  MtSink _mt_sink{*this};
+  struct MtSource : MtRelayPort::Source {
+    explicit MtSource(RepeaterMesh& mesh) : m(mesh) {}
+    bool position(mt::Position& pos) override;
+    bool metrics(mt::DeviceMetrics& d) override;
+    RepeaterMesh& m;
+    uint32_t at = 0, last_tx = 0, last_rx = 0;  // millis and air times at the last metrics
+  };
+  MtSource _mt_source{*this};
+  bool _mt_ready = false;
+  void mtApplyPrefs();
+  void mtSetChannels();
+  void mtPing(const char* text, size_t len, uint32_t id, int8_t snr_x4, uint8_t hops, uint8_t relay, bool relayed);
+  void mtTick();
+  void mtFormatStats(char* reply, size_t cap) const;
+  void mtFormatNeighbours(char* reply, size_t cap, size_t page, bool recent) const;
+#endif
+  mesh::GroupChannel _ping_channel;  // PING_MC_CHANNEL
+  ping::Stats _ping_stats = {};
+  RateLimiter _ping_limit_mc{ping::kAnswersPerWindow, ping::kAnswerWindowS};
+  RateLimiter _ping_limit_mt{ping::kAnswersPerWindow, ping::kAnswerWindowS};
+  fw::Firewall _firewall;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  fw::Firewall _mt_firewall;
+  mt::FwScreen _mt_screen{_mt_firewall, _prefs.mtfw};
+#endif
+  rxstats::Observer _rx_mc;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  rxstats::Observer _rx_mt;
+#endif
   bool region_load_active;
   unsigned long dirty_contacts_expiry;
 #if MAX_NEIGHBOURS
@@ -160,6 +208,8 @@ protected:
   }
 
   bool allowPacketForward(const mesh::Packet* packet) override;
+  bool filterRecvFloodPacket(mesh::Packet* packet) override;
+  bool screenFlood(const mesh::Packet* packet);
   const char* getLogDateTime() override;
   void logRxRaw(float snr, float rssi, const uint8_t raw[], int len) override;
 
@@ -184,6 +234,9 @@ protected:
   int formatCadStatus(char* buf, int cap) override {
     return _radio->formatCadStatus(buf, cap);
   }
+  int formatTxStallStatus(char* buf, int cap) override {
+    return formatTxStalls(buf, cap);
+  }
   void applyCadPrefs() override {
     _radio->setCadParams(_prefs.cad_auto != 0, _prefs.cad_offset,
                          _prefs.probe_interval, _prefs.cad_busycap,
@@ -204,6 +257,8 @@ protected:
 
   void onAnonDataRecv(mesh::Packet* packet, const uint8_t* secret, const mesh::Identity& sender, uint8_t* data, size_t len) override;
   int searchPeersByHash(const uint8_t* hash) override;
+  int searchChannelsByHash(const uint8_t* hash, mesh::GroupChannel channels[], int max_matches) override;
+  void onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mesh::GroupChannel& channel, uint8_t* data, size_t len) override;
   void getPeerSharedSecret(uint8_t* dest_secret, int peer_idx) override;
   void onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp, const uint8_t* app_data, size_t app_data_len);
   void onPeerDataRecv(mesh::Packet* packet, uint8_t type, int sender_idx, const uint8_t* secret, uint8_t* data, size_t len) override;
@@ -267,6 +322,7 @@ public:
   void formatStatsReply(char *reply) override;
   void formatRadioStatsReply(char *reply) override;
   void formatPacketStatsReply(char *reply) override;
+  void fillZStats(zinfo::Stats &s) override;
   void startRegionsLoad() override;
   bool saveRegions() override;
   void onDefaultRegionChanged(const RegionEntry* r) override;
@@ -287,6 +343,29 @@ public:
   bool configSideDetectors(const uint8_t* sfs, uint8_t num) override;
 
   // ZEPHCORE: CommonCLICallbacks additions.
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  bool mtStandalone() const override { return true; }
+  void onMtPrefsChanged() override { mtApplyPrefs(); }
+  void formatMtStatsReply(char* reply, size_t cap) override { mtFormatStats(reply, cap); }
+  void formatMtNeighbours(char* reply, size_t cap, size_t page, bool recent) override { mtFormatNeighbours(reply, cap, page, recent); }
+#endif
+  void formatMcNeighbours(char* reply, size_t cap, size_t page, bool recent) override;
+  ping::Stats* pingStats() override { return &_ping_stats; }
+  fw::Firewall* firewall(bool meshtastic) override {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+    if (meshtastic) return &_mt_firewall;
+#endif
+    return meshtastic ? nullptr : &_firewall;
+  }
+  rxstats::Observer* rxStats(bool meshtastic) override {
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+    if (meshtastic) return &_rx_mt;
+#endif
+    return meshtastic ? nullptr : &_rx_mc;
+  }
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  void onPingPrefsChanged() override { mtSetChannels(); }
+#endif
   uint32_t getDefaultGpsIntervalSec() const override { return CONFIG_ZEPHCORE_REPEATER_GPS_INTERVAL_SEC; }
   void freezeRadioParams(float freq, float bw, uint8_t sf, uint8_t cr) override;
   bool setFemRxGain(bool enable) override;
@@ -309,4 +388,7 @@ public:
   // uplink status, time sync) into the base maintenance deadline, so the event
   // loop arms one wake for loop() and maintenanceLoop().
   uint32_t msUntilNextMaintenance() override;
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+  bool onRecvForeign(const uint8_t raw[], int len, float snr, float rssi) override;
+#endif
 };

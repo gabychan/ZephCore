@@ -9,6 +9,7 @@ add_executable(zephcore_unit
   unit/policy_tests.cpp
   unit/pool_tests.cpp
   unit/contention_tests.cpp
+  unit/foreign_relay_tests.cpp
   unit/advert_tests.cpp
   unit/dispatcher_tests.cpp
   unit/identity_tests.cpp
@@ -22,6 +23,14 @@ add_executable(zephcore_unit
   unit/telemetry_text_tests.cpp
   unit/kiss_modem_tests.cpp
   unit/chat_contacts_tests.cpp
+  unit/meshtastic_tests.cpp
+  unit/neighbour_tests.cpp
+  unit/ping_tests.cpp
+  unit/fw_tests.cpp
+  unit/rxstats_tests.cpp
+  unit/zcommand_tests.cpp
+  unit/zinfo_tests.cpp
+  unit/uidash_tests.cpp
   support/hash_capture.cpp
   support/identity_utils_boundary.cpp
   ${PRODUCTION}/src/Dispatcher.cpp
@@ -42,12 +51,16 @@ add_executable(zephcore_unit
   ${PRODUCTION}/helpers/ConfigSerializer.cpp
   ${PRODUCTION}/helpers/ui/telemetry_text.cpp
   ${PRODUCTION}/app/KissModem.cpp
+  ${PRODUCTION}/helpers/meshtastic/MtWire.cpp
+  ${PRODUCTION}/helpers/meshtastic/MtBridge.cpp
+  ${PRODUCTION}/helpers/meshtastic/MtPki.cpp
+  ${PRODUCTION}/helpers/meshtastic/MtConfig.cpp
 )
 target_compile_features(zephcore_unit PRIVATE cxx_std_17)
-target_compile_definitions(zephcore_unit PRIVATE CONFIG_ZEPHCORE_PACKET_LOGGING=0
+target_compile_definitions(zephcore_unit PRIVATE CONFIG_ZEPHCORE_PACKET_LOGGING=0 CONFIG_ZEPHTACORE_MESHTASTIC=1
   CONFIG_ZEPHCORE_UI_DESIGN_JOYSTICK=1 CONFIG_ZEPHCORE_UI_DESIGN_BUTTON=0)
 target_include_directories(zephcore_unit PRIVATE
-  support unit ${PRODUCTION} ${PRODUCTION}/include ${PRODUCTION}/helpers ${PRODUCTION}/helpers/compat
+  support unit ${PRODUCTION} ${PRODUCTION}/include ${PRODUCTION}/helpers ${PRODUCTION}/helpers/compat ${PRODUCTION}/helpers/meshtastic ${PRODUCTION}/helpers/ui ${PRODUCTION}/helpers
   ${PRODUCTION}/lib/monocypher
   ${PRODUCTION}/adapters/radio
   ${PRODUCTION}/patches/zephyr-new/include ${PRODUCTION}/patches/zephyr-new/drivers/lora/lr11xx)

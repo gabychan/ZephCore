@@ -1384,3 +1384,51 @@ config ZEPHCORE_UI_DESIGN_JOYSTICK
 endmenu
 
 endmenu
+
+menu "Zephtacore (Meshtastic bridge)"
+
+config ZEPHTACORE_MESHTASTIC
+	bool "Hear and speak Meshtastic on the same radio"
+	depends on ZEPHCORE_ROLE_COMPANION || ZEPHCORE_ROLE_REPEATER
+	depends on !ZEPHCORE_RADIO_SX127X
+	default n
+	help
+	  Receives MeshCore and Meshtastic with one radio (SX126x, LR1110 or
+	  LR2021, hybrid sync word) and picks the sync word per transmitted
+	  frame. Channels named "#mt-<name>" in the companion app, added with
+	  "z.mt.channel.add", carry a Meshtastic channel (name and key):
+	  text sent on one goes out as a Meshtastic frame, and text, node
+	  names and positions heard on it reach the app as channel messages
+	  and contacts.
+
+	  The repeater repeats Meshtastic floods by default; the companion
+	  does not until "z.mt.relay" is set. Settings are under "z.mt." in
+	  the CLI.
+
+	  Needs a radio family that can write the sync word (SX126x, LR1110,
+	  LR2021): it is not offered with the SX127x driver.
+
+config ZEPHTACORE_DEFAULT_CHANNELS
+	string "Meshtastic channels a companion adds by default"
+	depends on ZEPHTACORE_MESHTASTIC && ZEPHCORE_ROLE_COMPANION
+	default "SFNarrow:1,Test:2,Bots:2"
+	help
+	  Comma separated "name:psk_index": Meshtastic's default key has
+	  index 1 and index n adds n-1 to its last byte. The first boot on
+	  a firmware with a new defaults revision (CompanionMesh::
+	  MT_DEFAULTS_REV) adds the ones the node does not have yet; later
+	  boots leave the list as the user has it. "Bots" is where the ping
+	  bot answers.
+
+config ZEPHTACORE_MT_HOP_LIMIT
+	int "hop_limit of the Meshtastic frames we send (0-7)"
+	depends on ZEPHTACORE_MESHTASTIC
+	range 0 7
+	default 7
+	help
+	  Meshtastic's own default is 3. 7 is what the Spanish SFNarrow
+	  community network uses, and its nodes drop a frame whose
+	  hop_start is lower than they expect only by policy, so match the
+	  network you join.
+
+endmenu

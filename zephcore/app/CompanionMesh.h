@@ -5,14 +5,24 @@
 
 #pragma once
 
+#include <helpers/ContactChange.h>
+#include <helpers/RateLimiter.h>
 #include <helpers/BaseChatMesh.h>
 #include <helpers/BaseSerialInterface.h>
 #include <helpers/MeshTimeSync.h>
+#include <helpers/NeighbourList.h>
+#include <helpers/ui/ui_dash.h>
 #include <helpers/TransportKeyStore.h>
 #include <ZephyrDataStore.h>
 #include <NodePrefs.h>
 #include <helpers/OffgridPolicy.h>
 #include <zephyr/kernel.h>
+
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+#include <helpers/meshtastic/MtBridge.h>
+#include "MtRelayPort.h"
+#include <helpers/meshtastic/MtPolicy.h>
+#endif
 
 /* Push notification codes */
 #define PUSH_CODE_ADVERT              0x80
@@ -95,6 +105,7 @@ public:
 	CompanionMesh(mesh::Radio &radio, mesh::MillisecondClock &ms, mesh::RNG &rng,
 		mesh::RTCClock &rtc, mesh::PacketManager &mgr, mesh::MeshTables &tables,
 		ZephyrDataStore &store);
+	ping::Stats *pingStats() { return &_ping_stats; }
 
 	void begin();
 	void loop();
@@ -105,6 +116,10 @@ public:
 	 * advert honours the location policy, path-hash mode and default scope.
 	 * False if the packet pool was full. */
 	bool sendSelfAdvert(bool flood) override;
+	/* "get z.mc.neighbors": repeaters heard with no hops, best SNR first. */
+	void formatMcNeighbours(char *reply, size_t cap, size_t page, bool recent);
+	/* The dashboard page: the best neighbours of each side, and the Meshtastic counters and setup. */
+	void fillDashboardSides(struct ui_dash &d);
 
 	/* One companion-protocol frame from the app; true if handled. */
 	bool handleCmdFrame(const uint8_t *data, size_t len);
@@ -227,6 +242,13 @@ protected:
 	uint32_t calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis, uint8_t path_len) const override;
 	void onSendTimeout() override;
 	void onChannelMessageRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint32_t timestamp, const char *text) override;
+	/* Channels may share a secret, so a caller that knows the slot passes it. */
+	void deliverChannelMessage(uint8_t channel_idx, mesh::Packet *pkt, uint32_t timestamp, const char *text);
+	void pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDetails &ch, const ping::Heard &heard, const char *text);
+	static int pingName(void *ctx, ping::Protocol w, const uint8_t *hash, uint8_t size, char *out, size_t cap);
+	ping::Stats _ping_stats = {};
+	RateLimiter _ping_limit[2] = {{ping::kAnswersPerWindow, ping::kAnswerWindowS},
+				      {ping::kAnswersPerWindow, ping::kAnswerWindowS}};  /* by protocol */
 	void onChannelDataRecv(const mesh::GroupChannel &channel, mesh::Packet *pkt, uint16_t data_type,
 		const uint8_t *data, size_t data_len) override;
 	uint8_t onContactRequest(const ContactInfo &contact, uint32_t sender_timestamp, const uint8_t *data, uint8_t len, uint8_t *reply) override;
@@ -266,6 +288,11 @@ protected:
 	uint8_t getDutyCyclePercent() const override;
 	uint8_t getExtraAckTransmitCount() const override;
 
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	/* Zephtacore: a frame that is not MeshCore goes to the Meshtastic bridge first. */
+	bool onRecvForeign(const uint8_t raw[], int len, float snr, float rssi) override;
+#endif
+
 	/* Adaptive CAD: persist the staircase's learned offset */
 	void onCadOffsetChanged(int8_t offset) override {
 		prefs.cad_offset = offset;
@@ -286,6 +313,134 @@ protected:
 	bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], int len) override;
 
 private:
+#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
+	/* ---- Meshtastic bridge, see app/CompanionMeshtastic.cpp ----
+	 * Channels "#mt-<name>" (added with z.mt.channel.add) are Meshtastic channels;
+	 * Meshtastic nodes appear as contacts keyed by a key derived from their node
+	 * number. Nothing here enters the MeshCore routing path. */
+	struct MtSink : mt::Sink {
+		CompanionMesh &m;
+		explicit MtSink(CompanionMesh &mesh) : m(mesh) {}
+		void onText(uint8_t channel_id, uint32_t from, uint32_t to, uint32_t id,
+			    uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
+			    uint8_t hops, uint8_t relay) override;
+		void onNodeInfo(uint32_t from, const mt::User &user) override;
+		void onPosition(uint32_t from, const mt::Position &pos) override;
+		void onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
+				  const char *text, size_t len, int8_t snr_x4, uint8_t hops) override;
+		bool peerKey(uint32_t node, uint8_t key[32]) override;
+		void onAck(uint32_t from, uint32_t request_id, uint32_t error_reason) override;
+		void onNodeInfoRequest(uint8_t channel_id, uint32_t from) override;
+		void onUnknownKey(uint32_t from) override;
+		void onPkiFailed(uint32_t from) override;
+	};
+	struct MtKey {
+		uint32_t node;
+		uint8_t key[PUB_KEY_SIZE];
+	};
+	static constexpr int MT_KEY_CACHE = 16;
+	mt::Bridge _mt{MtRelayPort::aesBlock};
+	MtRelayPort _mtport{*this, _mt};
+	MtSink _mt_sink{*this};
+	MtKey _mt_keys[MT_KEY_CACHE] = {};
+	uint8_t _mt_key_next = 0;
+	uint32_t _mt_key_stored[MT_KEY_CACHE] = {};  /* nodes whose key is in the file: no scan for their NodeInfo */
+	uint8_t _mt_key_stored_next = 0;
+	bool _mt_ready = false;
+	/* NodeInfo we send to a node on our own account (answering its request,
+	 * asking for a key we lack): once per node per interval. */
+	mt::NodeRateLimit _mt_info_limit;
+	/* Text sent on a Meshtastic channel ("#mt-<name>"), kept so that hearing a node repeat the frame
+	 * can be shown to the app as a MeshCore repeat of the same message. */
+	struct MtSent {
+		uint32_t id;
+		uint32_t timestamp;
+		uint8_t channel;
+		uint8_t len;
+		uint8_t n_relays;
+		uint8_t relays[8];
+		char text[MAX_TEXT_LEN];
+	};
+	static constexpr int MT_SENT_KEEP = 3;
+	static constexpr int MT_RELAYS_KEEP = 8;
+	MtSent _mt_sent[MT_SENT_KEEP] = {};
+	uint8_t _mt_sent_next = 0;
+	struct MtLastDirect {
+		uint32_t node, timestamp, id;
+	} _mt_last_direct = {};
+	/* Who wrote the last texts on Meshtastic channels (ours included), by Meshtastic
+	 * packet id: a reply names its target by id in Meshtastic and by "@[name] "
+	 * in MeshCore. */
+	struct MtRecent {
+		uint32_t id;
+		char name[32];
+	};
+	static constexpr int MT_RECENT_KEEP = 8;
+	MtRecent _mt_recent[MT_RECENT_KEEP] = {};
+	uint8_t _mt_recent_next = 0;
+
+	/* The table entry behind a channel slot: the slot is named for it and holds the secret derived from that name. */
+	const mt::ChannelEntry *mtEntryOfSlot(int idx);
+	int mtSlotByName(const char *slot);
+	/* Puts the slot in the first free place, a hole left by a removal included. */
+	bool mtPlaceChannel(const char *slot, const uint8_t secret[16]);
+	/* Creates the slot of every table entry that has none. */
+	void mtReconcileChannels();
+	void mtSyncChannels();
+	void mtSetup();
+	bool mtKeyFor(uint32_t node, uint8_t key[PUB_KEY_SIZE]);
+	/* Contacts that are Meshtastic nodes whose number ends in relay: the first one's name in out, how many. */
+	int mtNameOfRelay(uint8_t relay, char *out, size_t cap);
+	bool mtNodeOf(const ContactInfo &contact, uint32_t &node);
+	void mtUpsertContact(uint32_t node, const char *name, bool has_pos, int32_t lat_i, int32_t lon_i);
+	int mtFirstChannel() const;
+	void mtNodeInfoTick();
+	void mtNoteText(uint32_t id, const char *name);
+	const char *mtRecentName(uint32_t id) const;
+	uint32_t mtReplyTarget(const char *text, size_t len, const char **body, size_t *body_len) const;
+	/* App commands; false when the channel or contact is not a Meshtastic one. */
+	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent);
+	void mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rssi);
+	/* A retry (attempt > 0 of the same timestamp) goes out with the packet id of the first try. */
+	bool mtSendDirectText(const ContactInfo &contact, uint32_t timestamp, uint8_t attempt,
+			      const char *text, size_t len, bool &sent, uint32_t &ack);
+	void mtStoreKey(uint32_t node, const uint8_t key[32]);
+	bool mtKeyInUse(uint32_t node);
+	void mtSendAck(uint32_t to, uint32_t request_id);
+	/* Our NodeInfo to a node on a channel (kNoChannel: the first one), asking for
+	 * its own (name and public key) when want_response. */
+	void mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool want_response);
+	/* Same, once per node per hour, for NodeInfo we send unasked. */
+	void mtSendNodeInfoLimited(uint32_t node, uint8_t channel_id, bool want_response);
+	bool mtFavouriteAsks(const ContactInfo &existing, uint8_t new_flags, uint32_t node);
+	int mtContactIndex(const ContactInfo &contact);
+	void mtForgetContact(const ContactInfo &contact);
+public:
+	/* Bump when the default channel list changes; the next boot adds what is missing. */
+	static constexpr uint8_t MT_DEFAULTS_REV = 2;
+	/* How long the app waits for the ACK of a message to a Meshtastic node. */
+	static constexpr uint32_t MT_ACK_TIMEOUT_MS = 20000;
+	/* Adds the channels of CONFIG_ZEPHTACORE_DEFAULT_CHANNELS that are not in the list. */
+	void mtAddDefaultChannels();
+	/* z.mt.* settings changed through the CLI, and its stats. */
+	void mtPrefsChanged();
+	/* z.mt.channel.add: creates its slot; false when the app cannot hold it. */
+	bool mtChannelAdded(const char *slot);
+	/* The app is about to write slot idx. A #mt- name that carries its own secret is taken when the table
+	 * holds it (a move) or when it renames the entry of that slot; any other #mt- slot is refused: false,
+	 * nothing changed. An entry the writes leave without a slot is dropped by mtDropOrphanChannels(). */
+	bool mtSlotRewritten(int idx, const ChannelDetails &next);
+	/* Drops the entries no slot holds, once the app has stopped writing channels. */
+	void mtDropOrphanChannels();
+	/* z.mt.channel.remove: frees the slot of that name. */
+	void mtChannelRemoved(const char *slot);
+	/* The receiver takes Meshtastic frames while z.mt.enable is on. */
+	void mtApplyListen();
+	void mtFormatStats(char *reply, size_t cap) const;
+	void mtFormatNeighbours(char *reply, size_t cap, size_t page, bool recent);
+	void mtFillDashboard(struct ui_dash &d);
+private:
+#endif
 	ZephyrDataStore *_store;
 	BaseSerialInterface *_serial;
 	GetBatteryCallback _batt_cb;
@@ -360,12 +515,11 @@ private:
 	 * onDiscoveredContact() can tell an addition or a real change (name,
 	 * type, position) from a re-advert. Set by onAdvertRecv() around the
 	 * base class call. */
-	struct AdvertPrev {
-		bool known;
-		uint8_t type;
-		int32_t gps_lat, gps_lon;
-		char name[sizeof(ContactInfo::name)];
-	} _advert_prev;
+	ContactSnapshot _advert_prev;
+	struct McNeighbours;
+	struct MtNeighbours;
+	neighbours::Table _mc_neighbours;  /* repeaters heard with no hops, by the first 4 bytes of the key */
+	void snapshotAdvertPrev(const ContactInfo *c);
 
 	/* Forward-only: our clock stamps outgoing DMs, and peers keep per-sender
 	 * replay high-water marks. */

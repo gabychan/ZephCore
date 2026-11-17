@@ -540,6 +540,17 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
       src/main_repeater.cpp
       app/RepeaterMesh.cpp
     )
+    if(CONFIG_ZEPHTACORE_MESHTASTIC)
+      message(STATUS "Zephtacore: Meshtastic repeater")
+      target_sources(app PRIVATE
+        app/RepeaterMeshtastic.cpp
+        app/MtRelayPort.cpp
+        helpers/meshtastic/MtWire.cpp
+        helpers/meshtastic/MtBridge.cpp
+        helpers/meshtastic/MtPki.cpp
+        helpers/meshtastic/MtConfig.cpp
+      )
+    endif()
   else()
     message(STATUS "ZephCore Role: ROOM SERVER")
     target_sources(app PRIVATE
@@ -651,6 +662,17 @@ else()
     # COMPANION_SERIAL (e.g. plain ESP32/S3 companions) failed to link otherwise.
     helpers/CommonCLI.cpp
   )
+  if(CONFIG_ZEPHTACORE_MESHTASTIC)
+    message(STATUS "Zephtacore: Meshtastic bridge")
+    target_sources(app PRIVATE
+      app/CompanionMeshtastic.cpp
+      app/MtRelayPort.cpp
+      helpers/meshtastic/MtWire.cpp
+      helpers/meshtastic/MtBridge.cpp
+      helpers/meshtastic/MtPki.cpp
+      helpers/meshtastic/MtConfig.cpp
+    )
+  endif()
   # Companion transports: main_companion.cpp registers every one the build
   # has in upstream's MultiSerialInterface — BLE NUS when there is a
   # controller, TCP (native Linux, WiFi companion), and the wired link below.

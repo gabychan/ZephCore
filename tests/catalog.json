@@ -78,6 +78,11 @@
       "source": "tests/unit/contention_tests.cpp"
     },
     {
+      "id": "UNIT-CONTENTION-005",
+      "name": "A dupe defers a pending packet from its own slot, never earlier",
+      "source": "tests/unit/contention_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-001",
       "name": "Immediate wake delayed dispatch and exactly-once completion",
       "source": "tests/unit/dispatcher_tests.cpp"
@@ -591,6 +596,736 @@
       "id": "UNIT-KISS-005",
       "name": "msUntilNextTx reports each timed state and nothing while idle",
       "source": "tests/unit/kiss_modem_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-001",
+      "name": "Reference AES-128 matches the FIPS-197 vector",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-002",
+      "name": "Default key variants and the LongFast channel hash",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-003",
+      "name": "Header fields, flag bits and bounds",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-004",
+      "name": "CTR keystream layout, counter carry and round trip",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-005",
+      "name": "Data golden bytes, round trip and malformed input",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-006",
+      "name": "Position and User encode, decode and truncation",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-007",
+      "name": "Text sent by one node is delivered once on the other",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-008",
+      "name": "Direct text reaches only its addressee",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-009",
+      "name": "NodeInfo and Position reach the sink",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-010",
+      "name": "Relay lowers hop_limit, sets the relay byte and keeps the payload",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-011",
+      "name": "Frames of another channel or key are left to MeshCore",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-012",
+      "name": "MeshCore-like and random frames are not claimed",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-013",
+      "name": "Meshtastic slot, SNR-weighted window and client rebroadcast delay",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-014",
+      "name": "Queued Meshtastic relay hashes by sender and id, as the frame heard",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-015",
+      "name": "Reference AES-256 and SHA-256 match their standard vectors",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-016",
+      "name": "X25519 shared key hashes as Meshtastic does; a weak peer key is refused",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-017",
+      "name": "A real Meshtastic PKI packet opens, and sealing it again reproduces it",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-018",
+      "name": "Seal and open round trip; any altered input is refused",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-019",
+      "name": "User carries the public key; our NodeInfo publishes it",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-020",
+      "name": "A PKI direct text reaches only its addressee, as channel 0, and is acked",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-021",
+      "name": "Only unicast text on channel 0 is taken for PKI; channel traffic is untouched",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-022",
+      "name": "Routing error reason: 0 is an ACK, others a NAK, none is not routing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-023",
+      "name": "An ACK or NAK for us reaches the sink, by PKI or on a channel; not one for others",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-024",
+      "name": "A PKI direct text can ask for an ACK, and the receiver sees it",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-025",
+      "name": "A unicast NodeInfo asking for ours reaches the sink; a broadcast one does not",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-026",
+      "name": "A PKI frame for us from a node with no key calls the sink once; known keys do not",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-027",
+      "name": "A node is let through once per interval, wrap-safe, with a bounded table",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-028",
+      "name": "Marking a favourite asks only on the change, and only when a name or key is missing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-029",
+      "name": "Only a new record or a changed name, type or position is worth writing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-030",
+      "name": "Text, ACK, NodeInfo, traceroute and position are essential; the rest is repeated only in all",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-054",
+      "name": "Repeat decision for every port in essential and all, held or opaque channel",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-031",
+      "name": "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-032",
+      "name": "A well formed MeshCore frame is never taken for Meshtastic",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-033",
+      "name": "mt. commands read and change the settings, reject bad values, and leave other commands alone",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-034",
+      "name": "The channel takes a name and an optional 1 or 16 byte base64 key; a bad key changes nothing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-035",
+      "name": "Out of range stored settings are put back in range",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-010",
+      "name": "The repeater's Meshtastic settings survive prefs.json; a file without mt{} keeps the defaults",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-036",
+      "name": "A router waits at most 2 x cw slots, before the first slot a client may use",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-037",
+      "name": "A frame is repeated when it names no next hop or names us; a fallback flood and an originator retry are repeated again",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-038",
+      "name": "Device metrics encode as Meshtastic's Telemetry and travel as a TELEMETRY_APP frame",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-039",
+      "name": "A companion has no channel or telemetry setting; its relay starts off; timers wrap",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-040",
+      "name": "Every MeshCore payload type, route and path width passes the shape test; Meshtastic broadcast and version 2/3 first bytes never do",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-041",
+      "name": "A frame of our own waits 0 to 7 slots, never as long as a client repeat",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-018",
+      "name": "A consumed foreign frame never reaches the MeshCore parser",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-019",
+      "name": "A foreign frame goes out as its payload alone, flagged for the radio",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-020",
+      "name": "TX stalls are counted per cause with age and longest streak",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-021",
+      "name": "A foreign TX is charged its own airtime on its payload length and is not a MeshCore flood",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-022",
+      "name": "A consumed foreign frame counts as receive airtime, with its own preamble; a MeshCore one with the MeshCore estimate",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-023",
+      "name": "Foreign frames in the queue are counted, and the lowest priority leaves after a due MeshCore packet",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-001",
+      "name": "A direct ping is answered with the SNR alone by default, and with the RSSI when it is on",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-002",
+      "name": "MeshCore: the whole route, a name when the hash is known, its hex otherwise, ? when shared",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-003",
+      "name": "Meshtastic: the last relay only, by name or in hex",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-004",
+      "name": "A long name is cut to 14 bytes without splitting a UTF-8 character",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-005",
+      "name": "Each protocol answers only its own exact command, without regard to case, and only when on",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-006",
+      "name": "ignore.direct and ignore.remote turn pings away; each protocol counts its own",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-007",
+      "name": "A long route is cut with .. keeping the signal; a small buffer is never overrun",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-008",
+      "name": "z.mc.ping.*, z.mt.ping.* and z.ping.* read and change the settings; a protocol needs a command to turn on",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-009",
+      "name": "status is per protocol: state, command and counters; it cannot be set",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-010",
+      "name": "A prefs blob out of range comes back valid; a protocol without a trigger is off",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-011",
+      "name": "enable takes exactly on or off: offline, off junk and a command that is too long are errors",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-012",
+      "name": "A line flagged plain has no sender, so a colon in the text is not one",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-013",
+      "name": "No hop_start but a relay: not direct, so ignore.direct keeps it and ignore.remote drops it",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-014",
+      "name": "1 and 0 mean on and off in every on/off setting, with and without a command",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-001",
+      "name": "With no limit set nothing is dropped, however often a key or a repeater is heard",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-002",
+      "name": "A kept advert closes its key's gap until the window passes; other keys are not affected",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-003",
+      "name": "An advert nobody kept opens no gap, so a forged one cannot silence the real key",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-004",
+      "name": "The gap survives the 32-bit millisecond wrap",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-005",
+      "name": "Forty-eight keys are remembered; the forty-ninth takes the slot written longest ago",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-006",
+      "name": "A repeater gets hop_rate frames a minute through, then none until the window passes",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-007",
+      "name": "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash is counted too",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-008",
+      "name": "Sixteen repeaters are counted; the seventeenth takes the window opened longest ago and starts a fresh count",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-009",
+      "name": "z.mc.fw.gap and z.mc.fw.rate get and set 0 to 255; anything else is refused; stats is read only",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-010",
+      "name": "A rule drops its payload types and no others; CONTROL and unknown types always pass; each rule counts its own",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-011",
+      "name": "z.mc.fw.drop turns each rule on or off, lists the ones on with their counts, and none clears them",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-012",
+      "name": "Meshtastic: a rule drops its port, a NodeInfo gap and a relay ceiling follow, routing and unopened frames have no type",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-013",
+      "name": "A frame the screen drops is not delivered, repeated or remembered; a copy of an accepted one is a duplicate, not screened",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-014",
+      "name": "z.mt.fw.* use the Meshtastic rule names and refuse the MeshCore ones",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FW-015",
+      "name": "A copy of a frame already screened gets its verdict again and is not counted; the ring keeps 32 frames",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-001",
+      "name": "Frames are counted by hops crossed, 7 or more together, unknown apart; empty buckets are left out",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-002",
+      "name": "Frames are counted per relay of 1 to 3 bytes, most frames first; no relay counts none",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-003",
+      "name": "A full table drops the relay that carried least to make room",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-004",
+      "name": "A line that does not fit the reply is left out whole",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-005",
+      "name": "clear empties both tables",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-006",
+      "name": "get answers the histogram or the relays of its protocol; set is refused; other z commands are not handled",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-001",
+      "name": "z.info gives version, uptime, battery, flash, heap and contacts in one line",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-002",
+      "name": "a field the role or build does not have is left out of the line",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-003",
+      "name": "uptime is days and hours, hours and minutes, or minutes",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-004",
+      "name": "a small reply buffer is cut, never overrun, and stays terminated",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-005",
+      "name": "z.stats gives the MeshCore counters, then the Meshtastic ones when there are any",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-001",
+      "name": "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-002",
+      "name": "an age is in seconds, minutes, hours or days",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-003",
+      "name": "SNR lights 0 to 4 bars, a step at 8, 3, -3 and -10 dB",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-004",
+      "name": "a gauge fills in proportion, shows any use, never passes full or divides by 0",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-005",
+      "name": "time on air is a percentage of the uptime, and the uptime is days and hours, hours and minutes, or minutes",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-006",
+      "name": "the best nodes come first, as many as asked for, and the call says how many there are in all",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-007",
+      "name": "with recent the node heard last comes first",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-001",
+      "name": "on and 1 are on, off and 0 are off, anything else is not a value",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-002",
+      "name": "help at the end of get or set gives the usage of that key",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-003",
+      "name": "help on a group lists its keys, whole words only, within the reply",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-004",
+      "name": "what is not a help request, or names no key, goes on to its own handler",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-005",
+      "name": "a build without Meshtastic has no z.mt help",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-042",
+      "name": "A channel's slot is #mt-<name> in lower case; its secret is the first 16 bytes of the SHA-256 of that name, as for a # channel",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-043",
+      "name": "z.mt.channel.add and .remove keep a table of channels on a companion; names differing only in case, a bad key and a ninth channel are refused",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-044",
+      "name": "An entry with a bad name or key is cleared when the settings are put in range",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-045",
+      "name": "The app moves a channel of the table to another slot and keeps its key; it cannot create a #mt- channel",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-046",
+      "name": "Renaming the slot of an entry to another #mt- name renames the entry and keeps its key",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-047",
+      "name": "An entry no slot holds is dropped when the app's writes stop; one a slot holds stays",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-048",
+      "name": "z.mt.enable and z.mt.relay.opaque take 1 and 0 as on and off",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-049",
+      "name": "Hops are kept only past the first hop, for one live neighbour with a fixed role or a listed node",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-050",
+      "name": "router, router_late and client_base are fixed; a node that changes role is forgotten; the table favours neighbours",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-051",
+      "name": "Two repeaters that keep each other's hops do not pass a frame back and forth",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-052",
+      "name": "z.mt.zerohop starts off, takes off or auto, and keeps a list of up to eight nodes",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-053",
+      "name": "A repeater may be client, client_base, router, router_late or repeater; a companion client_mute or client; a muted client repeats nothing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-011",
+      "name": "The ping bot's settings survive prefs.json in both roles; an invalid command comes back off",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-012",
+      "name": "A companion's Meshtastic channels survive prefs.json; a file without them has none",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-013",
+      "name": "The MeshCore receive limits survive prefs.json; a file without them leaves no limit",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-001",
+      "name": "With no neighbour the reply is the title and -none-",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-002",
+      "name": "Lines come best SNR first, with SNR to a tenth and the age in the largest unit",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-003",
+      "name": "A page holds 4 lines of the ranking; a page past the last says so and a tie keeps list order",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-004",
+      "name": "A line that does not fit the reply is left out whole",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-005",
+      "name": "A long name is cut to 14 bytes without splitting a UTF-8 character",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-006",
+      "name": "A node heard again updates its entry; a full table drops the one heard longest ago",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-007",
+      "name": "A known node is never entered twice while the table has free entries",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-008",
+      "name": "A short name is set only for a node already in the table",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-009",
+      "name": "The longest page of 4 lines fits the room a remote reply has (161 bytes less a 4-byte header)",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-010",
+      "name": "With recent the lines come heard-last first, the title says so, and a tie keeps list order",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-011",
+      "name": "The short name of a node heard before it is entered is kept for its entry",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-056",
+      "name": "A PKI direct text from a node with no key is not lost when its retry arrives with the key known",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-057",
+      "name": "A PKI direct text goes through the firewall screen like a channel text",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-058",
+      "name": "A node whose number ends in 00 puts 0xFF in the relay byte, and a next hop naming it is repeated",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-059",
+      "name": "When the AES block fails nothing is sent in clear, and nothing is opened",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-060",
+      "name": "A packet id is never 0, and our own sends do not use up the duplicate table",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-061",
+      "name": "Node numbers, channel names, keys, ports and positions are checked in full",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-062",
+      "name": "An advert, ACK or trace shorter than its fixed part is not MeshCore",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-063",
+      "name": "A key we hold that no longer opens a PKI frame is reported, an unknown key is not",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-024",
+      "name": "A radio that cannot take a second sync word is never handed a foreign frame",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-025",
+      "name": "A consumed foreign frame is not logged as a raw MeshCore packet; a MeshCore one is",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-001",
+      "name": "A foreign repeat is queued once, at most 8 wait, and a radio that cannot send it queues none",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-002",
+      "name": "A copy heard from another node pushes our repeat back from its own slot, never earlier; another frame leaves it alone",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-003",
+      "name": "The dupes of a foreign repeat never reach the flood delay of MeshCore",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-006",
+      "name": "set <key> help on a key that takes any text is that value; get help still gives the usage; a refusal leaves the reply alone",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-012",
+      "name": "The command takes neighbors or vecinos, a plain page number and recent or recientes in any order; anything else is page 0",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-015",
+      "name": "An answer that was not sent leaves the counters as they were; one the limit turned away is counted ignored, saturating",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-064",
+      "name": "A direct text sent with the id of the first try carries that id; without one it takes a new id each time",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-065",
+      "name": "The default channel list gives name and key index in order, and stops at an entry that is not one",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-004",
+      "name": "A dupe of a MeshCore flood we hold pushes it back by 0.2 x its airtime from its own slot, never earlier, within the cap; a flood not tracked stays",
+      "source": "tests/unit/foreign_relay_tests.cpp"
     }
   ]
 }
