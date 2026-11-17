@@ -53,6 +53,11 @@ void LoRaRadio::applySyncWord(SyncKind kind)
 	}
 }
 
+bool LoRaRadio::supportsForeign() const
+{
+	return IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) && _ops.set_sync_word && _ops.set_tx_preamble_len;
+}
+
 void LoRaRadio::setMtListen(bool on)
 {
 	if (atomic_set(&_mt_listen, on ? 1 : 0) == (on ? 1 : 0)) {
@@ -606,13 +611,9 @@ void LoRaRadio::startReceive()
 
 		const uint8_t sf = (uint8_t)cfg.datarate;
 		const uint32_t bw_hz = bandwidth_to_hz(cfg.bandwidth);
-#ifdef CONFIG_ZEPHTACORE_MESHTASTIC
-		/* Meshtastic frames carry 16 preamble symbols whatever the SF. */
-		const uint16_t P = cfg.preamble_len < kMeshtasticPreambleLen ? cfg.preamble_len
-									     : kMeshtasticPreambleLen;
-#else
-		const uint16_t P = cfg.preamble_len;
-#endif
+		/* While Meshtastic is heard, its frames carry 16 preamble symbols whatever the SF. */
+		const uint16_t P = atomic_get(&_mt_listen) && cfg.preamble_len > kMeshtasticPreambleLen
+					   ? kMeshtasticPreambleLen : cfg.preamble_len;
 		const uint16_t D = rxDutyDetectSymbols(sf);
 
 		if (bw_hz > 0 && P > 2 * D + 1) {

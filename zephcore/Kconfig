@@ -1390,6 +1390,7 @@ menu "Zephtacore (Meshtastic bridge)"
 config ZEPHTACORE_MESHTASTIC
 	bool "Hear and speak Meshtastic on the same radio"
 	depends on ZEPHCORE_ROLE_COMPANION || ZEPHCORE_ROLE_REPEATER
+	depends on !ZEPHCORE_RADIO_SX127X
 	default n
 	help
 	  Receives MeshCore and Meshtastic with one radio (SX126x, LR1110 or
@@ -1405,8 +1406,7 @@ config ZEPHTACORE_MESHTASTIC
 	  the CLI.
 
 	  Needs a radio family that can write the sync word (SX126x, LR1110,
-	  LR2021). On other families the build still links, but the second
-	  protocol is never heard or sent.
+	  LR2021): it is not offered with the SX127x driver.
 
 config ZEPHTACORE_MT_HOP_LIMIT
 	int "hop_limit of the Meshtastic frames we send (0-7)"

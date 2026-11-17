@@ -21,8 +21,9 @@ struct Radio : mesh::Radio {
     std::deque<std::vector<uint8_t>> incoming;
     std::vector<std::vector<uint8_t>> sent;
     std::vector<bool> sent_foreign;
-    bool next_foreign = false;
+    bool next_foreign = false, foreign_capable = true;
     void setNextTxForeign(bool foreign) override { next_foreign = foreign; }
+    bool supportsForeign() const override { return foreign_capable; }
     int recvRaw(uint8_t *bytes, int size) override {
         if (incoming.empty()) return 0;
         auto raw = incoming.front(); incoming.pop_front();

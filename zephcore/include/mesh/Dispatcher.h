@@ -67,6 +67,12 @@ public:
   virtual void setMtListen(bool on) { }
 
   /**
+   * \brief  ZEPHCORE: whether this radio can take and send a second sync word. Without it a
+   *         foreign frame would go out on MeshCore's sync word, so none is queued.
+  */
+  virtual bool supportsForeign() const { return false; }
+
+  /**
    * \returns true if the previous 'startSendRaw()' completed successfully.
    * ZEPHCORE: one-shot — returns true exactly once per completed transmit and
    * consumes that completion (like RadioLibWrapper). Never use it as a state

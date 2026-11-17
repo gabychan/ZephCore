@@ -514,7 +514,7 @@ void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_mil
 // ZEPHCORE: a foreign frame rides the normal queue, so it gets LBT, the duty-cycle
 // budget and the TX thread like any packet; only the radio sync word differs.
 bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis) {
-  if (len <= 0 || len > MAX_PACKET_PAYLOAD) return false;
+  if (len <= 0 || len > MAX_PACKET_PAYLOAD || !_radio->supportsForeign()) return false;
   Packet* pkt = obtainNewPacket();
   if (pkt == NULL) return false;
   pkt->header = Packet::FOREIGN_HEADER;

@@ -55,6 +55,7 @@ public:
 	bool startSendRaw(const uint8_t *bytes, int len) override;
 	void setNextTxForeign(bool foreign) override { _tx_foreign = foreign; }
 	void setMtListen(bool on) override;
+	bool supportsForeign() const override;
 	bool isSendComplete() override;
 	void onSendFinished() override;
 	bool isInRecvMode() const override;

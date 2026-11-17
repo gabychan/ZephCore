@@ -1271,6 +1271,11 @@
       "id": "UNIT-MT-063",
       "name": "A key we hold that no longer opens a PKI frame is reported, an unknown key is not",
       "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-024",
+      "name": "A radio that cannot take a second sync word is never handed a foreign frame",
+      "source": "tests/unit/dispatcher_tests.cpp"
     }
   ]
 }
