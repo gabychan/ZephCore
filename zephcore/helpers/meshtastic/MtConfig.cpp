@@ -448,67 +448,41 @@ static void setChannel(RepeaterPrefs &p, const char *args, char *reply, size_t c
 	snprintf(reply, cap, "OK");
 }
 
-CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap,
-			bool standalone)
+static void getSetting(const RepeaterPrefs &p, const char *name, char *reply, size_t cap)
 {
-	const bool get = strncmp(command, "get z.mt.", 9) == 0;
-	const bool set = strncmp(command, "set z.mt.", 9) == 0;
-
-	if (!get && !set) {
-		return {};
+	if (strcmp(name, "enable") == 0) {
+		snprintf(reply, cap, "> %s", nameOf(kBools, p.enable));
+	} else if (strcmp(name, "role") == 0) {
+		snprintf(reply, cap, "> %s", nameOf(kRoles, p.role));
+	} else if (strcmp(name, "hops") == 0) {
+		snprintf(reply, cap, "> %u", p.hops);
+	} else if (strcmp(name, "relay") == 0) {
+		snprintf(reply, cap, "> %s", nameOf(kRelays, p.relay));
+	} else if (strcmp(name, "relay.opaque") == 0) {
+		snprintf(reply, cap, "> %s", nameOf(kBools, p.relay_opaque));
+	} else if (strcmp(name, "zerohop") == 0) {
+		zeroHopShow(p, reply, cap);
+	} else if (strcmp(name, "nodeinfo") == 0) {
+		snprintf(reply, cap, "> %u", (unsigned)p.nodeinfo_s);
+	} else if (strcmp(name, "telemetry") == 0) {
+		snprintf(reply, cap, "> %u", (unsigned)p.telemetry_s);
+	} else if (strcmp(name, "channel") == 0) {
+		snprintf(reply, cap, "> %s (%s key)", p.channel,
+			 p.psk_len == 1 && p.psk[0] == 1 ? "default" : "custom");
+	} else if (strcmp(name, "channels") == 0) {
+		channelList(p, reply, cap);
+	} else {
+		snprintf(reply, cap, "Error: unknown z.mt setting");
 	}
-	const char *key = command + 9;
-	char name[24];
-	size_t n = 0;
+}
 
-	while (key[n] && key[n] != ' ' && n < sizeof(name) - 1) {
-		name[n] = key[n];
-		n++;
-	}
-	name[n] = '\0';
-	const char *val = key[n] == ' ' ? key + n + 1 : "";
+/* res.changed says whether a setting moved. */
+static void setSetting(RepeaterPrefs &p, const char *name, const char *val, char *reply, size_t cap,
+		       bool standalone, CmdResult &res)
+{
 	uint32_t u;
 	uint8_t b;
 	bool changed = false;
-	CmdResult res = {};
-
-	res.handled = true;
-	if (!standalone && (strcmp(name, "channel") == 0 || strcmp(name, "telemetry") == 0)) {
-		snprintf(reply, cap, "Error: not available here, use z.mt.channel.add and z.mt.channel.remove");
-		return res;
-	}
-	if (standalone && (strncmp(name, "channel.", 8) == 0 || strcmp(name, "channels") == 0)) {
-		snprintf(reply, cap, "Error: not available here, the node has one channel: z.mt.channel");
-		return res;
-	}
-
-	if (get) {
-		if (strcmp(name, "enable") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kBools, p.enable));
-		} else if (strcmp(name, "role") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kRoles, p.role));
-		} else if (strcmp(name, "hops") == 0) {
-			snprintf(reply, cap, "> %u", p.hops);
-		} else if (strcmp(name, "relay") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kRelays, p.relay));
-		} else if (strcmp(name, "relay.opaque") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kBools, p.relay_opaque));
-		} else if (strcmp(name, "zerohop") == 0) {
-			zeroHopShow(p, reply, cap);
-		} else if (strcmp(name, "nodeinfo") == 0) {
-			snprintf(reply, cap, "> %u", (unsigned)p.nodeinfo_s);
-		} else if (strcmp(name, "telemetry") == 0) {
-			snprintf(reply, cap, "> %u", (unsigned)p.telemetry_s);
-		} else if (strcmp(name, "channel") == 0) {
-			snprintf(reply, cap, "> %s (%s key)", p.channel,
-				 p.psk_len == 1 && p.psk[0] == 1 ? "default" : "custom");
-		} else if (strcmp(name, "channels") == 0) {
-			channelList(p, reply, cap);
-		} else {
-			snprintf(reply, cap, "Error: unknown z.mt setting");
-		}
-		return res;
-	}
 
 	if (strcmp(name, "enable") == 0) {
 		if (zcmd::parseOnOff(val, b)) { changed = p.enable != b; p.enable = b; snprintf(reply, cap, "OK"); }
@@ -561,6 +535,34 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 		snprintf(reply, cap, "Error: unknown z.mt setting");
 	}
 	res.changed = changed;
+}
+
+CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap,
+			bool standalone)
+{
+	const zcmd::Parsed line = zcmd::parse(command);
+
+	if (!line.ok || line.proto != 't') {
+		return {};
+	}
+	char name[24];
+	const char *val = zcmd::splitValue(line.key, name, sizeof(name));
+	CmdResult res = {};
+
+	res.handled = true;
+	if (!standalone && (strcmp(name, "channel") == 0 || strcmp(name, "telemetry") == 0)) {
+		snprintf(reply, cap, "Error: not available here, use z.mt.channel.add and z.mt.channel.remove");
+		return res;
+	}
+	if (standalone && (strncmp(name, "channel.", 8) == 0 || strcmp(name, "channels") == 0)) {
+		snprintf(reply, cap, "Error: not available here, the node has one channel: z.mt.channel");
+		return res;
+	}
+	if (line.get) {
+		getSetting(p, name, reply, cap);
+	} else {
+		setSetting(p, name, val, reply, cap, standalone, res);
+	}
 	return res;
 }
 
