@@ -324,3 +324,28 @@ TEST(pjson_fw, "UNIT-PJSON-013", "The MeshCore receive limits survive prefs.json
     CHECK(serverPrefsFromJson(r, empty));
     CHECK(r.fw.advert_gap_min == 0 && r.fw.hop_rate == 0 && r.mtfw.drop == 0 && r.mtfw.hop_rate == 0);
 }
+
+TEST(pjson_server_autoshutdown, "UNIT-PJSON-014", "A repeater's auto-shutdown threshold survives prefs.json; a file without it keeps the default") {
+    NodePrefs p = defaults();
+    p.auto_shutdown_mv = 3400;
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.auto_shutdown_mv == 3400);
+
+    // 0 (off) is a choice too, not a missing value.
+    p.auto_shutdown_mv = 0;
+    MemStream off;
+    CHECK(serverPrefsToJson(p, off));
+    NodePrefs r = defaults();
+    CHECK(serverPrefsFromJson(r, off));
+    CHECK(r.auto_shutdown_mv == 0);
+
+    // A file written before the keys existed leaves the default alone.
+    MemStream old_file("{name:\"R\"}");
+    NodePrefs d = defaults();
+    uint16_t def_mv = d.auto_shutdown_mv;
+    CHECK(serverPrefsFromJson(d, old_file));
+    CHECK(d.auto_shutdown_mv == def_mv);
+}
