@@ -76,7 +76,12 @@
     return `'${String(value).replace(/'/g, "'\\''")}'`;
   }
 
-  const api = { firmwareCodingRate, buildConfigCommands, catalogFiles, findCatalogFile, kconfigString, shellQuote };
+  // The CLI answers a refused command with "Error: ..." or "ERR ..." (observer), maybe after "> ".
+  function isErrorReply(text) {
+    return /^[>\s]*(Error|ERR)\b/im.test(text || "");
+  }
+
+  const api = { isErrorReply, firmwareCodingRate, buildConfigCommands, catalogFiles, findCatalogFile, kconfigString, shellQuote };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZephtacoreLogic = api;
 })(typeof window !== "undefined" ? window : globalThis);

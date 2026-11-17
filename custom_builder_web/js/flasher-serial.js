@@ -8,6 +8,7 @@ window.ZephtacoreSerial = (function () {
   let readableStreamClosed = null;
   let writableStreamClosed = null;
   let isConnected = false;
+  let rxListeners = [];
   let commandHistory = [];
   let historyIdx = -1;
 
@@ -104,6 +105,7 @@ window.ZephtacoreSerial = (function () {
         if (done) break;
         if (value) {
           logToTerminal(value, "rx");
+          rxListeners.forEach((fn) => fn(value));
         }
       }
     } catch (err) {
@@ -131,6 +133,33 @@ window.ZephtacoreSerial = (function () {
     }
     historyIdx = commandHistory.length;
     return true;
+  }
+
+  // Sends a command and returns what the node answers: the text received until
+  // it stays quiet for quietMs, or timedOut when nothing came back in timeoutMs.
+  async function sendCommandAndWait(cmd, { timeoutMs = 3000, quietMs = 300 } = {}) {
+    let received = "";
+    let quietTimer = null;
+    let timeoutTimer = null;
+    let finish;
+    const done = new Promise((resolve) => (finish = resolve));
+
+    const listener = (chunk) => {
+      received += chunk;
+      clearTimeout(quietTimer);
+      quietTimer = setTimeout(() => finish({ text: received.trim(), timedOut: false }), quietMs);
+    };
+    rxListeners.push(listener);
+    timeoutTimer = setTimeout(() => finish({ text: received.trim(), timedOut: received === "" }), timeoutMs);
+
+    try {
+      if (!(await sendCommand(cmd))) return { text: "", timedOut: false, sent: false };
+      return { ...(await done), sent: true };
+    } finally {
+      clearTimeout(quietTimer);
+      clearTimeout(timeoutTimer);
+      rxListeners = rxListeners.filter((fn) => fn !== listener);
+    }
   }
 
   function updateUIState(connected) {
@@ -196,6 +225,7 @@ window.ZephtacoreSerial = (function () {
   return {
     setup,
     sendCommand,
+    sendCommandAndWait,
     connect,
     disconnect,
     isConnected: () => isConnected

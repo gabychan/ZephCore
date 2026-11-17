@@ -2,7 +2,7 @@
  * Zephtacore Web Flasher Core Engine - Direct USB Configuration Injection
  */
 function initFlasherCore() {
-  const { buildConfigCommands, catalogFiles, findCatalogFile } = window.ZephtacoreLogic;
+  const { buildConfigCommands, catalogFiles, findCatalogFile, isErrorReply } = window.ZephtacoreLogic;
   const dropzone = document.getElementById("flasherDropzone");
   const fileInput = document.getElementById("firmwareFileInput");
   const boardSelect = document.getElementById("flasherBoardSelect");
@@ -129,8 +129,13 @@ function initFlasherCore() {
     });
   });
 
-  // Sends the settings over the serial port. Returns true only when every command
-  // was written; the node's replies are not read, they show in the terminal.
+  // Sends the settings over the serial port and stops at the first command the node
+  // refuses, does not answer or cannot be sent. Returns true when all were accepted.
+  function fail(cmd, reason) {
+    if (flashStatusText) flashStatusText.textContent = `Envío interrumpido en "${cmd}": ${reason}. Revisa el terminal.`;
+    return false;
+  }
+
   async function injectConfigSequence(cfg) {
     if (!window.ZephtacoreSerial.isConnected()) {
       if (flashStatusText) flashStatusText.textContent = "Sin conexión serie: no se ha enviado ningún ajuste.";
@@ -139,12 +144,17 @@ function initFlasherCore() {
 
     if (flashStatusText) flashStatusText.textContent = "Enviando configuración por puerto serie...";
 
+    const serial = window.ZephtacoreSerial;
     for (const cmd of buildConfigCommands(cfg)) {
-      if (!(await window.ZephtacoreSerial.sendCommand(cmd))) {
-        if (flashStatusText) flashStatusText.textContent = `Se interrumpió el envío en "${cmd}". Revisa el terminal.`;
-        return false;
+      // reboot drops the port as it answers, so it is sent without waiting.
+      if (cmd === "reboot") {
+        if (!(await serial.sendCommand(cmd))) return fail(cmd, "no se pudo enviar");
+        continue;
       }
-      await new Promise((r) => setTimeout(r, 250));
+      const reply = await serial.sendCommandAndWait(cmd);
+      if (!reply.sent) return fail(cmd, "no se pudo enviar");
+      if (reply.timedOut) return fail(cmd, "el nodo no respondió");
+      if (isErrorReply(reply.text)) return fail(cmd, `el nodo respondió: ${reply.text}`);
     }
 
     sessionStorage.removeItem(PENDING_KEY);
@@ -152,7 +162,7 @@ function initFlasherCore() {
       `Configuración enviada.\n\n` +
       `Nombre: ${cfg.name}\n` +
       `Frecuencia LoRa: ${cfg.freq} MHz (SF${cfg.sf} / BW${cfg.bw})\n\n` +
-      `Se ha enviado el comando reboot. Comprueba las respuestas del nodo en el terminal.`
+      `El nodo aceptó todos los comandos y se reinicia.`
     );
     return true;
   }
