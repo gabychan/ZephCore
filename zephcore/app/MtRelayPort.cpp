@@ -20,7 +20,7 @@
 LOG_MODULE_REGISTER(zephcore_mt, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 
 /* The counter blocks of a frame share one key: it is imported once and kept until the next key. */
-static void aesEcb(const uint8_t *key, size_t key_len, const uint8_t in[16], uint8_t out[16])
+static bool aesEcb(const uint8_t *key, size_t key_len, const uint8_t in[16], uint8_t out[16])
 {
 	static uint8_t cached[32];
 	static size_t cached_len;
@@ -39,25 +39,22 @@ static void aesEcb(const uint8_t *key, size_t key_len, const uint8_t in[16], uin
 		psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT);
 		psa_set_key_algorithm(&attr, PSA_ALG_ECB_NO_PADDING);
 		if (psa_import_key(&attr, key, key_len, &cached_id) != PSA_SUCCESS) {
-			memset(out, 0, 16);
-			return;
+			return false;
 		}
 		memcpy(cached, key, key_len);
 		cached_len = key_len;
 	}
-	if (psa_cipher_encrypt(cached_id, PSA_ALG_ECB_NO_PADDING, in, 16, out, 16, &n) != PSA_SUCCESS) {
-		memset(out, 0, 16);
-	}
+	return psa_cipher_encrypt(cached_id, PSA_ALG_ECB_NO_PADDING, in, 16, out, 16, &n) == PSA_SUCCESS;
 }
 
-void MtRelayPort::aesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
+bool MtRelayPort::aesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
 {
-	aesEcb(key, 16, in, out);
+	return aesEcb(key, 16, in, out);
 }
 
-void MtRelayPort::aesBlock256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
+bool MtRelayPort::aesBlock256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
 {
-	aesEcb(key, 32, in, out);
+	return aesEcb(key, 32, in, out);
 }
 
 void MtRelayPort::initSelf(mt::Bridge &bridge, const mesh::LocalIdentity &id, const char *name,

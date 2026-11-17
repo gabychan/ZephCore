@@ -36,16 +36,19 @@ static void buildNonce(uint32_t id, uint32_t extra, uint32_t from, uint8_t nonce
 	nonce[12] = 0;
 }
 
-static void aesBlock(const PkiCrypto &c, const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
+static bool aesBlock(const PkiCrypto &c, const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
 {
 	uint8_t tmp[16];
 
-	c.aes(key, in, tmp);
+	if (!c.aes(key, in, tmp)) {
+		return false;
+	}
 	memcpy(out, tmp, 16);
+	return true;
 }
 
 /* RFC 3610 CBC-MAC over the message, M = 8, L = 2, no AAD. */
-static void ccmTag(const PkiCrypto &c, const uint8_t key[32], const uint8_t nonce[kNonce],
+static bool ccmTag(const PkiCrypto &c, const uint8_t key[32], const uint8_t nonce[kNonce],
 		   const uint8_t *msg, size_t len, uint8_t tag[16])
 {
 	uint8_t x[16] = {};
@@ -54,21 +57,26 @@ static void ccmTag(const PkiCrypto &c, const uint8_t key[32], const uint8_t nonc
 	memcpy(x + 1, nonce, kNonce);
 	x[14] = (uint8_t)(len >> 8);
 	x[15] = (uint8_t)len;
-	aesBlock(c, key, x, x);
+	if (!aesBlock(c, key, x, x)) {
+		return false;
+	}
 	for (size_t off = 0; off < len; off += 16) {
 		size_t n = len - off < 16 ? len - off : 16;
 
 		for (size_t i = 0; i < n; i++) {
 			x[i] ^= msg[off + i];
 		}
-		aesBlock(c, key, x, x);
+		if (!aesBlock(c, key, x, x)) {
+			return false;
+		}
 	}
 	memcpy(tag, x, 16);
+	return true;
 }
 
 /* CTR keystream of RFC 3610: block i is AES(flags 1 | nonce | i, 2 bytes big endian);
  * block 0 masks the tag, the message starts at block 1. */
-static void ccmBlock(const PkiCrypto &c, const uint8_t key[32], const uint8_t nonce[kNonce],
+static bool ccmBlock(const PkiCrypto &c, const uint8_t key[32], const uint8_t nonce[kNonce],
 		     uint16_t counter, uint8_t ks[16])
 {
 	uint8_t a[16];
@@ -77,10 +85,10 @@ static void ccmBlock(const PkiCrypto &c, const uint8_t key[32], const uint8_t no
 	memcpy(a + 1, nonce, kNonce);
 	a[14] = (uint8_t)(counter >> 8);
 	a[15] = (uint8_t)counter;
-	aesBlock(c, key, a, ks);
+	return aesBlock(c, key, a, ks);
 }
 
-static void ccmCtr(const PkiCrypto &c, const uint8_t key[32], const uint8_t nonce[kNonce],
+static bool ccmCtr(const PkiCrypto &c, const uint8_t key[32], const uint8_t nonce[kNonce],
 		   const uint8_t *in, size_t len, uint8_t *out)
 {
 	uint8_t ks[16];
@@ -88,11 +96,14 @@ static void ccmCtr(const PkiCrypto &c, const uint8_t key[32], const uint8_t nonc
 	for (size_t off = 0; off < len; off += 16) {
 		size_t n = len - off < 16 ? len - off : 16;
 
-		ccmBlock(c, key, nonce, (uint16_t)(off / 16 + 1), ks);
+		if (!ccmBlock(c, key, nonce, (uint16_t)(off / 16 + 1), ks)) {
+			return false;
+		}
 		for (size_t i = 0; i < n; i++) {
 			out[off + i] = (uint8_t)(in[off + i] ^ ks[i]);
 		}
 	}
+	return true;
 }
 
 void pkiPrivateKey(const PkiCrypto &c, const uint8_t seed[32], uint8_t priv[32])
@@ -137,9 +148,10 @@ size_t pkiSeal(const PkiCrypto &c, const uint8_t key[32], uint32_t from, uint32_
 		return 0;
 	}
 	buildNonce(id, extra, from, nonce);
-	ccmTag(c, key, nonce, plain, len, tag);
-	ccmCtr(c, key, nonce, plain, len, out);
-	ccmBlock(c, key, nonce, 0, ks);
+	if (!ccmTag(c, key, nonce, plain, len, tag) || !ccmCtr(c, key, nonce, plain, len, out) ||
+	    !ccmBlock(c, key, nonce, 0, ks)) {
+		return 0;
+	}
 	for (size_t i = 0; i < kTag; i++) {
 		out[len + i] = (uint8_t)(tag[i] ^ ks[i]);
 	}
@@ -158,9 +170,11 @@ int pkiOpen(const PkiCrypto &c, const uint8_t key[32], uint32_t from, uint32_t i
 	size_t n = len - kPkiOverhead;
 
 	buildNonce(id, getLe32(in + n + kTag), from, nonce);
-	ccmCtr(c, key, nonce, in, n, out);
-	ccmTag(c, key, nonce, out, n, tag);
-	ccmBlock(c, key, nonce, 0, ks);
+	if (!ccmCtr(c, key, nonce, in, n, out) || !ccmTag(c, key, nonce, out, n, tag) ||
+	    !ccmBlock(c, key, nonce, 0, ks)) {
+		crypto_wipe(out, n);
+		return -1;
+	}
 	for (size_t i = 0; i < kTag; i++) {
 		tag[i] ^= ks[i];
 	}

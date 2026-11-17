@@ -15,7 +15,7 @@ namespace mt {
 /* Bytes a sealed payload adds: tag (8) and extra nonce (4). */
 static constexpr size_t kPkiOverhead = 12;
 
-typedef void (*Aes256BlockFn)(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]);
+typedef bool (*Aes256BlockFn)(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]);
 typedef void (*Sha256Fn)(const uint8_t *msg, size_t len, uint8_t out[32]);
 
 struct PkiCrypto {

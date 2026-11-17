@@ -259,8 +259,8 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 			continue;
 		}
 		memcpy(buf, raw + kHeaderLen, plen);
-		if (c.encrypted) {
-			ctrCrypt(_aes, c.key, h.from, h.id, buf, plen);
+		if (c.encrypted && !ctrCrypt(_aes, c.key, h.from, h.id, buf, plen)) {
+			continue;
 		}
 		if (decodeData(buf, plen, d)) {
 			match = &c;
@@ -443,8 +443,8 @@ size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to
 
 		return sealed ? kHeaderLen + sealed : 0;
 	}
-	if (ch->encrypted) {
-		ctrCrypt(_aes, ch->key, _self, h.id, out + kHeaderLen, n);
+	if (ch->encrypted && !ctrCrypt(_aes, ch->key, _self, h.id, out + kHeaderLen, n)) {
+		return 0;
 	}
 	return kHeaderLen + n;
 }

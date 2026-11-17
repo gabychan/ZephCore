@@ -78,8 +78,8 @@ void refAesKeyed(const uint8_t* key, int key_len, const uint8_t in[16], uint8_t 
     std::memcpy(out, s, 16);
 }
 
-void refAes(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 16, in, out); }
-void refAes256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 32, in, out); }
+bool refAes(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 16, in, out); return true; }
+bool refAes256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 32, in, out); return true; }
 
 // Independent SHA-256 (FIPS 180-4), one shot.
 void refSha256(const uint8_t* msg, size_t len, uint8_t out[32]) {
@@ -1630,4 +1630,31 @@ TEST(mt_relay_byte_zero, "UNIT-MT-058", "A node whose number ends in 00 puts 0xF
     Bridge c3 = makeNode(0xC3C3C300u, "gamma", 11);
     c3.setRelay(true);
     CHECK(c3.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == 0);
+}
+
+namespace {
+bool failAes(const uint8_t[16], const uint8_t[16], uint8_t[16]) { return false; }
+bool failAes256(const uint8_t[32], const uint8_t[16], uint8_t[16]) { return false; }
+}  // namespace
+
+TEST(mt_aes_failure, "UNIT-MT-059", "When the AES block fails nothing is sent in clear, and nothing is opened") {
+    Bridge good = makeNode(0xA1A1A1A1u, "alpha", 7);
+    Bridge bad(failAes);
+    bad.setSelf(0xB2B2B2B2u, "beta", "ZN", 9);
+    const uint8_t psk = 1;
+    CHECK(bad.setChannel(3, "LongFast", &psk, 1));
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    CHECK(bad.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame)) == 0);
+    size_t n = good.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame));
+    CHECK(n > 0);
+    Capture cap;
+    CHECK(bad.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_NOT_MESHTASTIC && cap.texts.empty());
+    uint8_t buf[kMaxFrame], key[32] = {1};
+    const PkiCrypto broken = {failAes256, refSha256, fixedRandom};
+    CHECK(pkiSeal(broken, key, 1, 2, (const uint8_t*)"abc", 3, buf, sizeof(buf)) == 0);
+    CHECK(pkiSeal(kPki, key, 1, 2, (const uint8_t*)"abc", 3, buf, sizeof(buf)) == 15);
+    uint8_t out[16];
+    CHECK(pkiOpen(broken, key, 1, 2, buf, 15, out, sizeof(out)) == -1);
+    CHECK(pkiOpen(kPki, key, 1, 2, buf, 15, out, sizeof(out)) == 3);
 }

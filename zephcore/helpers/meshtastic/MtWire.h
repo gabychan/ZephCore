@@ -51,12 +51,12 @@ bool parseHeader(const uint8_t *raw, size_t len, Header &h);
 void writeHeader(const Header &h, uint8_t out[kHeaderLen]);
 
 /* One AES-128 block encryption (the platform's AES), key 16 bytes. */
-typedef void (*AesBlockFn)(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
+typedef bool (*AesBlockFn)(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]);
 
 /* Meshtastic's channel cipher: AES-128-CTR, IV = packet id (u64 LE) | from
  * (u32 LE) | 0, counter in the last four bytes, big endian. Encrypts and
- * decrypts in place. */
-void ctrCrypt(AesBlockFn aes, const uint8_t key[16], uint32_t from, uint32_t id,
+ * decrypts in place. False when the AES block fails: the data is then not valid. */
+bool ctrCrypt(AesBlockFn aes, const uint8_t key[16], uint32_t from, uint32_t id,
 	      uint8_t *data, size_t len);
 
 /* PSK of 1 byte selects a variant of the default key (0 = no encryption);
