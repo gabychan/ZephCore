@@ -32,11 +32,14 @@ static int lr2021_format_freq_error(const struct device *dev, char *buf, int cap
  * LR2021 (LLD 05). */
 /* 8-bit words: MeshCore 0x12, Meshtastic 0x2B; the hybrid takes the high nibble
  * of one and the low nibble of the other. */
-static int lr20xx_set_sync_word_kind(const struct device *dev, SyncKind kind)
+static uint8_t lr20xx_sync_word(SyncKind kind)
 {
-	lr20xx_set_sync_word(dev, kind == SyncKind::Meshtastic ? 0x2B
-			       : kind == SyncKind::HybridRx ? 0x1B : 0x12);
-	return 0;
+	return kind == SyncKind::Meshtastic ? 0x2B : kind == SyncKind::HybridRx ? 0x1B : 0x12;
+}
+
+static void lr20xx_set_sync_word_kinds(const struct device *dev, SyncKind rx, SyncKind tx)
+{
+	lr20xx_set_sync_words(dev, lr20xx_sync_word(rx), lr20xx_sync_word(tx));
 }
 
 const LoRaRadioOps kLoRaRadioOps = {
@@ -63,7 +66,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.side_detectors = lr20xx_configure_side_detectors,
 	.reset_stats = lr20xx_reset_freq_offset,
 	.format_freq_error = lr2021_format_freq_error,
-	.set_sync_word = lr20xx_set_sync_word_kind,
+	.set_sync_words = lr20xx_set_sync_word_kinds,
 	.set_tx_preamble_len = lr20xx_set_tx_preamble_len,
 };
 

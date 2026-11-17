@@ -16,11 +16,14 @@ namespace mesh {
  * (UM: image cal after > 10 C), with the temperature from the board. */
 /* 8-bit words: MeshCore 0x12, Meshtastic 0x2B; the hybrid takes the high nibble
  * of one and the low nibble of the other. */
-static int lr11xx_set_sync_word_kind(const struct device *dev, SyncKind kind)
+static uint8_t lr11xx_sync_word(SyncKind kind)
 {
-	lr11xx_set_sync_word(dev, kind == SyncKind::Meshtastic ? 0x2B
-			       : kind == SyncKind::HybridRx ? 0x1B : 0x12);
-	return 0;
+	return kind == SyncKind::Meshtastic ? 0x2B : kind == SyncKind::HybridRx ? 0x1B : 0x12;
+}
+
+static void lr11xx_set_sync_word_kinds(const struct device *dev, SyncKind rx, SyncKind tx)
+{
+	lr11xx_set_sync_words(dev, lr11xx_sync_word(rx), lr11xx_sync_word(tx));
 }
 
 const LoRaRadioOps kLoRaRadioOps = {
@@ -47,7 +50,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.side_detectors = nullptr,
 	.reset_stats = nullptr,
 	.format_freq_error = nullptr,
-	.set_sync_word = lr11xx_set_sync_word_kind,
+	.set_sync_words = lr11xx_set_sync_word_kinds,
 	.set_tx_preamble_len = lr11xx_set_tx_preamble_len,
 };
 

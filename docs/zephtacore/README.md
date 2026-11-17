@@ -114,11 +114,16 @@ app message to a Meshtastic contact -> mt::Bridge::buildDirectText (PKI) -> same
 | Ping bot: trigger, route, answer, `z.*ping.*` commands | `zephcore/helpers/PingBot.h` (companion: `CompanionMesh::pingReply`; repeater: `RepeaterMesh::onGroupDataRecv`, `mtPing`) |
 | Node key file | `ZephyrDataStore::getMtKey/putMtKey/removeMtKey` (`zephcore/adapters/datastore`) |
 | RX hook and foreign TX frames | `Dispatcher::onRecvForeign`, `Dispatcher::sendForeign`, `Packet::isForeign` |
-| Sync word per frame | `LoRaRadio::applySyncWord`, `sx126x_set_sync_word_reg` in `patches/zephyr/0003-lora-sx126x-native.patch` |
+| Sync word per frame | `LoRaRadio::applySyncWords`, `sx126x_set_sync_words` in `patches/zephyr/0003-lora-sx126x-native.patch`, `lr11xx_set_sync_words`, `lr20xx_set_sync_words` |
 
 SX126x sync word registers: Meshtastic `0x2B` is `0x24B4`, MeshCore `0x12` is `0x1424`, hybrid receive `0x14B4`
 (first nibble from one, second from the other). The value is taken from Meshtacore, which measured it on a
 ThinkNode M1; it is a bench value, not a datasheet guarantee.
+
+The driver keeps one sync word for RX and one for TX and programs each when it enters that direction: the
+receive word on every RX start from rest, the transmit word once LBT has passed. Setting them touches no
+hardware, so a duty-cycled receiver is never woken out of its cycle, and RX never runs on the word of the frame
+last sent.
 
 A Meshtastic node's contact key is the Ed25519 public key of a keypair seeded from `SHA256("zt-mtnode" || node)`.
 The node number is kept in the contact's `sync_since` field, and a contact counts as Meshtastic only if the key

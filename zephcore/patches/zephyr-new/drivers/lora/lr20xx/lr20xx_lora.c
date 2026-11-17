@@ -99,8 +99,11 @@ struct lr20xx_data {
 	/* Extension features */
 	bool rx_duty_cycle_enabled;
 	bool rx_boost_enabled;
-	/* LoRa sync word to program; 0 derives it from public_network. */
-	uint8_t sync_word;
+	/* LoRa sync words of RX and TX; 0 derives them from public_network. */
+	uint8_t rx_sync_word;
+	uint8_t tx_sync_word;
+	/* rx_sync_word changed after the running receiver was programmed. */
+	bool rx_sync_stale;
 	/* Preamble of the next TX in symbols; 0 uses modem_cfg.preamble_len. */
 	uint16_t tx_preamble_len;
 	bool rx_boost_applied;
@@ -884,7 +887,7 @@ static void lr20xx_apply_side_detectors(struct lr20xx_data *data, bool enable)
 				: LR20XX_RADIO_LORA_IQ_STANDARD;
 		/* One mesh, one sync word: side detectors carry the same
 		 * public/private word as the main detector. */
-		syncwords[i] = data->sync_word ? data->sync_word
+		syncwords[i] = data->rx_sync_word ? data->rx_sync_word
 			     : data->modem_cfg.public_network ? 0x34 : 0x12;
 	}
 
@@ -977,12 +980,18 @@ static void lr20xx_apply_modem_config(struct lr20xx_data *data,
 		pkt.crc, pkt.iq, rc);
 	CHECK_CMD(ctx, "set_pkt_params");
 
-	uint8_t sync = data->sync_word ? data->sync_word
-				       : mc->public_network ? 0x34 : 0x12;
+	uint8_t sync = tx_mode ? data->tx_sync_word : data->rx_sync_word;
+
+	if (sync == 0) {
+		sync = mc->public_network ? 0x34 : 0x12;
+	}
 
 	rc = lr20xx_radio_lora_set_syncword(ctx, sync);
 	LOG_DBG("modem_cfg: set_syncword(0x%02x)=%d", sync, rc);
 	CHECK_CMD(ctx, "set_syncword");
+	if (!tx_mode) {
+		data->rx_sync_stale = false;
+	}
 
 	if (tx_mode) {
 		/* PA config + TX params from Semtech's reference tables, picked
@@ -2380,10 +2389,11 @@ static int lr20xx_lora_recv_async(const struct device *dev,
 
 	k_mutex_lock(&data->spi_mutex, K_FOREVER);
 
-	/* Already in continuous RX: refresh the callback and stay on air (the usual
-	 * caller is LoRaRadio::startSendRaw()'s failure path, after the LBT branch
-	 * restored RX). Not with a duty cycle: this entry point clears that flag. */
-	if (data->in_rx_mode && !data->rx_duty_cycle_enabled) {
+	/* Already in continuous RX on the current sync word: refresh the callback
+	 * and stay on air (the usual caller is LoRaRadio::startSendRaw()'s failure
+	 * path, after the LBT branch restored RX). Not with a duty cycle: this entry
+	 * point clears that flag. */
+	if (data->in_rx_mode && !data->rx_duty_cycle_enabled && !data->rx_sync_stale) {
 		data->async_rx_cb = cb;
 		data->async_rx_user_data = user_data;
 		k_mutex_unlock(&data->spi_mutex);
@@ -2842,13 +2852,15 @@ void lr20xx_set_tx_preamble_len(const struct device *dev, uint16_t len)
 	k_mutex_unlock(&data->spi_mutex);
 }
 
-void lr20xx_set_sync_word(const struct device *dev, uint8_t word)
+void lr20xx_set_sync_words(const struct device *dev, uint8_t rx, uint8_t tx)
 {
 	struct lr20xx_data *data = dev->data;
 
 	/* Applied by the next modem configuration, which every RX and TX start runs. */
 	k_mutex_lock(&data->spi_mutex, K_FOREVER);
-	data->sync_word = word;
+	data->rx_sync_stale |= data->rx_sync_word != rx;
+	data->rx_sync_word = rx;
+	data->tx_sync_word = tx;
 	k_mutex_unlock(&data->spi_mutex);
 }
 
@@ -3193,9 +3205,9 @@ static int lr20xx_lora_recv_duty_cycle(const struct device *dev,
 
 	k_mutex_lock(&data->spi_mutex, K_FOREVER);
 
-	/* A cycle already armed on these periods: refresh the callback and stay on
-	 * air. Anything else takes the full path (and its AGC reset). */
-	if (data->in_rx_mode && data->rx_duty_cycle_enabled &&
+	/* A cycle already armed on these periods and sync word: refresh the callback
+	 * and stay on air. Anything else takes the full path (and its AGC reset). */
+	if (data->in_rx_mode && data->rx_duty_cycle_enabled && !data->rx_sync_stale &&
 	    data->dc_rx_ms == rx_ms && data->dc_sleep_ms == slp_ms) {
 		data->async_rx_cb = cb;
 		data->async_rx_user_data = user_data;

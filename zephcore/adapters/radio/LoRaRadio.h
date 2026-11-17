@@ -349,8 +349,9 @@ private:
 	bool _tx_foreign = false;
 	/* RX takes both sync words; off, MeshCore's alone. */
 	atomic_t _mt_listen = 0;
-	/* Writes one SX126x sync word register; a no-op unless the family has the op. */
-	void applySyncWord(SyncKind kind);
+	/* Hands the driver the sync words of the next RX and TX starts; a no-op
+	 * unless the family has the op. */
+	void applySyncWords();
 	/* Meshtastic frames go out with Meshtastic's 16 symbols, MeshCore ones with ours. */
 	void applyTxPreamble();
 	/* Airtime of len_bytes with the preamble of the given protocol. */

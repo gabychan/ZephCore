@@ -41,21 +41,18 @@ static uint16_t rxDutyDetectSymbols(uint8_t sf)
 /* Meshtastic's sub-GHz preamble (RadioInterface::preambleLengthDefault). */
 static constexpr uint16_t kMeshtasticPreambleLen = 16;
 
-void LoRaRadio::applySyncWord(SyncKind kind)
+void LoRaRadio::applySyncWords()
 {
-	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_sync_word) {
+	if (!IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) || !_ops.set_sync_words) {
 		return;
 	}
-	int ret = _ops.set_sync_word(_dev, kind);
-
-	if (ret < 0) {
-		LOG_ERR("sync word %d write failed: %d", (int)kind, ret);
-	}
+	_ops.set_sync_words(_dev, atomic_get(&_mt_listen) ? SyncKind::HybridRx : SyncKind::MeshCore,
+			    _tx_foreign ? SyncKind::Meshtastic : SyncKind::MeshCore);
 }
 
 bool LoRaRadio::supportsForeign() const
 {
-	return IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) && _ops.set_sync_word && _ops.set_tx_preamble_len;
+	return IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) && _ops.set_sync_words && _ops.set_tx_preamble_len;
 }
 
 void LoRaRadio::setMtListen(bool on)
@@ -596,7 +593,7 @@ void LoRaRadio::clearRadioOverride()
 void LoRaRadio::startReceive()
 {
 	configureRx();
-	applySyncWord(atomic_get(&_mt_listen) ? SyncKind::HybridRx : SyncKind::MeshCore);
+	applySyncWords();
 
 	int ret;
 
@@ -750,7 +747,7 @@ bool LoRaRadio::startSendRaw(const uint8_t *bytes, int len)
 	/* LBT: stay in RX (no cancel) so the driver's send_async takes its
 	 * RX->TX entry and restores RX itself on CAD-busy. */
 	configureTx();
-	applySyncWord(_tx_foreign ? SyncKind::Meshtastic : SyncKind::MeshCore);
+	applySyncWords();
 	applyTxPreamble();
 
 	memcpy(_tx_buf, bytes, len);
