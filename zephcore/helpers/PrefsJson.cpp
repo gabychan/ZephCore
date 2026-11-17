@@ -335,6 +335,10 @@ protected:
 		def("backoff", _p->backoff_multiplier);
 		def("disc_ts", _p->discovery_mod_timestamp);
 		def("gps_set", _p->gps_enabled_set);
+		/* `set autoshutdown` on a repeater or room server: without these the
+		 * threshold lived in RAM and the default came back at every reboot. */
+		def("auto_off_mv", _p->auto_shutdown_mv);
+		def("aoff_set", _p->auto_shutdown_set);
 	}
 
 public:
