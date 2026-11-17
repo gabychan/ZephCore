@@ -1361,6 +1361,11 @@
       "id": "UNIT-ZCMD-007",
       "name": "A z. line is taken apart once: get or set, the protocol, the key and its value; anything else is not one",
       "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-006",
+      "name": "The counters of z.stats come from the radio, the mesh and the packet manager, air time in whole seconds",
+      "source": "tests/unit/zinfo_tests.cpp"
     }
   ]
 }

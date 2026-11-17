@@ -71,3 +71,22 @@ TEST(zinfo_stats, "UNIT-ZINFO-005", "z.stats gives the MeshCore counters, then t
     zinfo::formatStats(out, sizeof(out), s, nullptr);
     CHECK(std::string(out) == "> mc: rx 1234, tx 56, err 3, flood 40/16, direct 20/9, air 12/340s, queue 0");
 }
+
+namespace {
+struct FakeRadio { uint32_t getPacketsRecv() { return 11; } uint32_t getPacketsSent() { return 12; } uint32_t getPacketsRecvErrors() { return 13; } };
+struct FakeMesh {
+    uint32_t getNumSentFlood() const { return 21; } uint32_t getNumSentDirect() const { return 22; }
+    uint32_t getNumRecvFlood() const { return 23; } uint32_t getNumRecvDirect() const { return 24; }
+    uint32_t getTotalAirTime() const { return 5999; } uint32_t getReceiveAirTime() const { return 61000; }
+};
+struct FakeMgr { int getOutboundTotal() { return 3; } };
+}
+
+TEST(zinfo_fill, "UNIT-ZINFO-006", "The counters of z.stats come from the radio, the mesh and the packet manager, air time in whole seconds") {
+    zinfo::Stats s = {};
+    FakeRadio r; FakeMesh m; FakeMgr g;
+    zinfo::fillStats(s, r, m, g);
+    CHECK(s.recv == 11 && s.sent == 12 && s.errors == 13);
+    CHECK(s.flood_tx == 21 && s.direct_tx == 22 && s.flood_rx == 23 && s.direct_rx == 24);
+    CHECK(s.tx_air_s == 5 && s.rx_air_s == 61 && s.queue == 3);
+}

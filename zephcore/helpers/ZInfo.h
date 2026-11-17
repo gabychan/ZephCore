@@ -29,6 +29,23 @@ struct Stats {
 	uint32_t queue;
 };
 
+/* The counters of "get z.stats", from the radio driver, the mesh (anything with the Dispatcher's counters)
+ * and the packet manager of whichever role calls. */
+template <class RadioT, class MeshT, class ManagerT>
+inline void fillStats(Stats &s, RadioT &radio, const MeshT &mesh, ManagerT &mgr)
+{
+	s.recv = radio.getPacketsRecv();
+	s.sent = radio.getPacketsSent();
+	s.errors = radio.getPacketsRecvErrors();
+	s.flood_tx = mesh.getNumSentFlood();
+	s.direct_tx = mesh.getNumSentDirect();
+	s.flood_rx = mesh.getNumRecvFlood();
+	s.direct_rx = mesh.getNumRecvDirect();
+	s.tx_air_s = mesh.getTotalAirTime() / 1000;
+	s.rx_air_s = mesh.getReceiveAirTime() / 1000;
+	s.queue = mgr.getOutboundTotal();
+}
+
 /* "1d02h", "3h05m" or "12m". */
 inline int formatUptime(char *out, size_t cap, uint32_t s)
 {

@@ -166,18 +166,7 @@ public:
 		info.contacts = (uint16_t)_mesh.getNumContacts();
 		info.max_contacts = MAX_CONTACTS;
 	}
-	void fillZStats(zinfo::Stats& s) override {
-		s.recv = _radio.getPacketsRecv();
-		s.sent = _radio.getPacketsSent();
-		s.errors = _radio.getPacketsRecvErrors();
-		s.flood_tx = _mesh.getNumSentFlood();
-		s.direct_tx = _mesh.getNumSentDirect();
-		s.flood_rx = _mesh.getNumRecvFlood();
-		s.direct_rx = _mesh.getNumRecvDirect();
-		s.tx_air_s = _mesh.getTotalAirTime() / 1000;
-		s.rx_air_s = _mesh.getReceiveAirTime() / 1000;
-		s.queue = _pool.getOutboundTotal();
-	}
+	void fillZStats(zinfo::Stats& s) override { zinfo::fillStats(s, _radio, _mesh, _pool); }
 
 	/* stats-core / stats-radio / stats-packets, as the repeater prints them. */
 	void formatStatsReply(char* reply) override {
