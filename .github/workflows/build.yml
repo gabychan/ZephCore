@@ -255,59 +255,6 @@ jobs:
         retention-days: 1
         overwrite: true
 
-  build-linux:
-    needs: setup-zephyr
-    runs-on: ubuntu-24.04
-    concurrency:
-      group: ${{ github.workflow }}-build-linux-${{ github.ref }}
-      cancel-in-progress: true
-
-    steps:
-    - uses: actions/checkout@v6
-
-    - uses: actions/setup-python@v6
-      with:
-        python-version: '${{ env.python_version }}'
-        cache: 'pip'
-    - run: pip install -r requirements.txt
-
-    - uses: actions/cache/restore@v5
-      with:
-        path: modules
-        key: zephyr-modules-${{ runner.os }}-${{ hashFiles('zephcore/west.yml') }}
-
-    - name: Setup Zephyr project
-      uses: zephyrproject-rtos/action-zephyr-setup@be8136a8bba01580485d98b7ad2d32477c36a49a # v1.0.15
-      with:
-        app-path: zephcore
-        toolchains: ${{ env.toolchains }}
-        sdk-version: ${{ env.zephyr_sdk }}
-        ccache-cache-key: ${{ github.job }}
-
-    # native_sim presets are cross-compiled for the target SBC architecture:
-    # femtofox = ARMv7-A (32-bit), rak6421 / rak6421_pi5 = aarch64 (64-bit).
-    - name: Install cross-compile toolchains
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
-          gcc-aarch64-linux-gnu   g++-aarch64-linux-gnu
-
-    - name: build firmwares
-      run: bash build.sh linux
-
-    - name: ccache stats
-      if: always()
-      run: ccache -s -vv
-
-    - uses: actions/upload-artifact@v7
-      with:
-        name: firmware-part-${{ github.job }}
-        path: firmware
-        if-no-files-found: error
-        retention-days: 1
-        overwrite: true
-
   # SWD-only ARM platforms: nRF54L15, EFR32MG24 and STM32WL. None of these SoCs
   # has a USB device peripheral, so all three publish a bare zephyr.hex and are
   # download-only tiles in the catalog. Grouped into one job because the board
@@ -417,7 +364,7 @@ jobs:
         overwrite: true
 
   create-release:
-    needs: [build-nrf, build-esp32-companions, build-esp32-repeaters, build-linux,
+    needs: [build-nrf, build-esp32-companions, build-esp32-repeaters,
             build-swd]
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
