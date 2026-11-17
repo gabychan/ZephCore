@@ -310,3 +310,16 @@ TEST(dispatch_foreign_long, "UNIT-DISPATCH-026", "A foreign frame up to 255 byte
     CHECK(f.pool.getFreeCount() == 32 && f.radio.sent.size() == (size_t)mesh::ForeignTail::SLOTS + 2);
     CHECK(f.dispatcher.sendForeign(over.data(), (int)over.size(), 1, 0));              // the slots are free again
 }
+TEST(dispatch_foreign_expiry, "UNIT-DISPATCH-027", "A foreign TX is given 1.5 x its own airtime before it is abandoned, not the MeshCore one") {
+    Fixture f; f.begin();
+    f.radio.foreign_airtime = 1000;
+    std::vector<uint8_t> frame(40, 7);
+    CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
+    const uint32_t start = f.clock.now;
+    f.dispatcher.loop(); CHECK(f.radio.sent.size() == 1);
+    f.radio.active = false;
+    f.clock.now = start + 1500; f.dispatcher.loop();               // past MeshCore's 300 ms, within its own 1500
+    CHECK(f.dispatcher.failures == 0 && f.radio.finished == 0);
+    f.clock.now = start + 1501; f.dispatcher.loop();
+    CHECK(f.dispatcher.failures == 1 && f.radio.finished == 1 && f.pool.getFreeCount() == 32);
+}

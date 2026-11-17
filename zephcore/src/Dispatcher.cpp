@@ -462,7 +462,9 @@ void Dispatcher::checkSend() {
         len += outbound->transport_codes[0];
       }
 
-      uint32_t max_airtime = _radio->getEstAirtimeFor(len)*3/2;
+      // ZEPHCORE: a foreign frame is timed with its own preamble, as its airtime is charged.
+      uint32_t max_airtime = (outbound->isForeign() ? _radio->getEstForeignAirtimeFor(len)
+                                                    : _radio->getEstAirtimeFor(len))*3/2;
       if (max_airtime < 300) max_airtime = 300;  // ZEPHCORE: IRQ/work-queue latency must not clip short packets
       outbound_start = now;
 

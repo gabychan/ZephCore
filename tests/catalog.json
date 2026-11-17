@@ -1338,6 +1338,11 @@
       "source": "tests/unit/dispatcher_tests.cpp"
     },
     {
+      "id": "UNIT-DISPATCH-027",
+      "name": "A foreign TX is given 1.5 x its own airtime before it is abandoned, not the MeshCore one",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-066",
       "name": "The decoders read nothing outside their buffer on truncated, flipped or random input, and a sealed payload shorter than its overhead opens to nothing",
       "source": "tests/unit/meshtastic_tests.cpp"
