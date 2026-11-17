@@ -48,6 +48,12 @@ inline void fillStats(Stats &s, RadioT &radio, const MeshT &mesh, ManagerT &mgr)
 	s.queue = mgr.getOutboundTotal();
 }
 
+/* Bytes as tenths of a KiB, rounded. */
+inline unsigned kbTenths(uint32_t bytes)
+{
+	return (unsigned)(((uint64_t)bytes * 10 + 512) / 1024);
+}
+
 /* "> fw 1.18.2 | up 1d02h | battery 4231mV | flash 96/2048K | heap 12.3/44.0K (peak 20.1K) | contacts 351/350" */
 inline void formatInfo(char *out, size_t cap, const Info &i)
 {
@@ -61,9 +67,11 @@ inline void formatInfo(char *out, size_t cap, const Info &i)
 				      (unsigned)i.flash_total_kb);
 	}
 	if (n < cap && i.heap_total != 0) {
-		n += (size_t)snprintf(out + n, cap - n, " | heap %.1f/%.1fK (peak %.1fK)",
-				      (double)i.heap_used / 1024.0, (double)i.heap_total / 1024.0,
-				      (double)i.heap_peak / 1024.0);
+		const unsigned used = kbTenths(i.heap_used), total = kbTenths(i.heap_total),
+			       peak = kbTenths(i.heap_peak);
+
+		n += (size_t)snprintf(out + n, cap - n, " | heap %u.%u/%u.%uK (peak %u.%uK)", used / 10,
+				      used % 10, total / 10, total % 10, peak / 10, peak % 10);
 	}
 	if (n < cap && i.max_contacts != 0) {
 		snprintf(out + n, cap - n, " | contacts %u/%u", (unsigned)i.contacts,
