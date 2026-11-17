@@ -407,22 +407,21 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int
 	}
 }
 
-size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
-			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
-			  uint32_t reply_id, uint32_t request_id, bool want_response, bool want_ack,
-			  uint32_t packet_id)
+size_t Bridge::buildFrame(const TxSpec &t, uint8_t *out, size_t cap)
 {
 	if (_self == 0 || cap < kHeaderLen) {
 		return 0;
 	}
+	const Channel *ch = t.ch;
+	const uint8_t *pki_key = t.pki_key;
 	Data d = {};
 
-	d.portnum = port;
-	d.payload = payload;
-	d.payload_len = payload_len;
-	d.reply_id = reply_id;
-	d.request_id = request_id;
-	d.want_response = want_response;
+	d.portnum = t.port;
+	d.payload = t.payload;
+	d.payload_len = t.payload_len;
+	d.reply_id = t.reply_id;
+	d.request_id = t.request_id;
+	d.want_response = t.want_response;
 
 	size_t room = (cap < kMaxTxFrame ? cap : kMaxTxFrame) - kHeaderLen;
 
@@ -436,10 +435,10 @@ size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to
 	}
 	Header h;
 
-	h.to = to;
+	h.to = t.to;
 	h.from = _self;
-	h.id = packet_id ? packet_id : nextId();
-	h.flags = (uint8_t)(_hops | (_hops << 5) | (want_ack ? 0x08 : 0));
+	h.id = t.packet_id ? t.packet_id : nextId();
+	h.flags = (uint8_t)(_hops | (_hops << 5) | (t.want_ack ? 0x08 : 0));
 	h.channel = pki_key ? 0 : ch->hash;
 	h.next_hop = 0;
 	h.relay = relayByte(_self);
@@ -465,8 +464,15 @@ size_t Bridge::buildText(uint8_t channel_id, uint32_t to, const char *text, size
 	if (!ch || len == 0) {
 		return 0;
 	}
-	return buildFrame(ch, nullptr, to, PORT_TEXT, (const uint8_t *)text, len, out, cap,
-			  reply_id);
+	TxSpec t;
+
+	t.ch = ch;
+	t.to = to;
+	t.port = PORT_TEXT;
+	t.payload = (const uint8_t *)text;
+	t.payload_len = len;
+	t.reply_id = reply_id;
+	return buildFrame(t, out, cap);
 }
 
 size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)
@@ -485,7 +491,15 @@ size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_respon
 	}
 	size_t n = encodeUser(_user, pb, sizeof(pb));
 
-	return n ? buildFrame(ch, nullptr, to, PORT_NODEINFO, pb, n, out, cap, 0, 0, want_response) : 0;
+	TxSpec t;
+
+	t.ch = ch;
+	t.to = to;
+	t.port = PORT_NODEINFO;
+	t.payload = pb;
+	t.payload_len = n;
+	t.want_response = want_response;
+	return n ? buildFrame(t, out, cap) : 0;
 }
 
 size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const char *text,
@@ -497,8 +511,17 @@ size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const ch
 	if (!_pki || len == 0 || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
 		return 0;
 	}
-	size_t n = buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap,
-			      reply_id, 0, false, want_ack, packet_id);
+	TxSpec t;
+
+	t.pki_key = key;
+	t.to = to;
+	t.port = PORT_TEXT;
+	t.payload = (const uint8_t *)text;
+	t.payload_len = len;
+	t.reply_id = reply_id;
+	t.packet_id = packet_id;
+	t.want_ack = want_ack;
+	size_t n = buildFrame(t, out, cap);
 
 	crypto_wipe(key, sizeof(key));
 	return n;
@@ -514,8 +537,15 @@ size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub
 	if (!_pki || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
 		return 0;
 	}
-	size_t n = buildFrame(nullptr, key, to, PORT_ROUTING, kRoutingAck, sizeof(kRoutingAck), out,
-			      cap, 0, request_id);
+	TxSpec t;
+
+	t.pki_key = key;
+	t.to = to;
+	t.port = PORT_ROUTING;
+	t.payload = kRoutingAck;
+	t.payload_len = sizeof(kRoutingAck);
+	t.request_id = request_id;
+	size_t n = buildFrame(t, out, cap);
 
 	crypto_wipe(key, sizeof(key));
 	return n;
@@ -531,7 +561,13 @@ size_t Bridge::buildPosition(uint8_t channel_id, const Position &pos, uint8_t *o
 	}
 	size_t n = encodePosition(pos, pb, sizeof(pb));
 
-	return n ? buildFrame(ch, nullptr, kBroadcast, PORT_POSITION, pb, n, out, cap) : 0;
+	TxSpec t;
+
+	t.ch = ch;
+	t.port = PORT_POSITION;
+	t.payload = pb;
+	t.payload_len = n;
+	return n ? buildFrame(t, out, cap) : 0;
 }
 
 size_t Bridge::buildTelemetry(uint8_t channel_id, const DeviceMetrics &m, uint8_t *out, size_t cap)
@@ -544,7 +580,13 @@ size_t Bridge::buildTelemetry(uint8_t channel_id, const DeviceMetrics &m, uint8_
 	}
 	size_t n = encodeTelemetry(m, pb, sizeof(pb));
 
-	return n ? buildFrame(ch, nullptr, kBroadcast, PORT_TELEMETRY, pb, n, out, cap) : 0;
+	TxSpec t;
+
+	t.ch = ch;
+	t.port = PORT_TELEMETRY;
+	t.payload = pb;
+	t.payload_len = n;
+	return n ? buildFrame(t, out, cap) : 0;
 }
 
 } /* namespace mt */
