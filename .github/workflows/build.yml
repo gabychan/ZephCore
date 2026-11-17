@@ -11,7 +11,8 @@ on:
 #
 # Queue rather than cancel: `create-release` deletes the existing release before
 # creating the replacement, so cancelling a run mid-flight can leave the repo
-# with no release at all for that version.
+# with no release at all for that version. A run that is still waiting is
+# replaced by a newer push (GitHub keeps one pending run per group).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -170,7 +171,7 @@ jobs:
     - name: compile-only roles
       run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/kiss_modem.conf"
 
-    # The Meshtastic bridge (boards/common/zephtacore.conf) is in no manifest: companion and repeater.
+    # The Meshtastic bridge (boards/common/zephtacore.conf) has a release variant on t1000_e and wio_tracker_l1; rak4631 covers the rest.
     - name: compile-only zephtacore companion
       run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/zephtacore.conf"
 
