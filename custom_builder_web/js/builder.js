@@ -9,7 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Radio Elements
   const sfSlider = document.getElementById("loraSf");
-  const sfValDisplay = document.getElementById("sfVal");
   const bwSelect = document.getElementById("loraBw");
   const crSelect = document.getElementById("loraCr");
   const freqInput = document.getElementById("loraFreq");
@@ -41,21 +40,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnDownloadPrefs = document.getElementById("btnDownloadPrefs");
 
   // Dev Cloud & West Elements
-  const ghRepoInput = document.getElementById("ghRepoInput");
-  const ghBranchInput = document.getElementById("ghBranchInput");
-  const ghTokenInput = document.getElementById("ghTokenInput");
-  const btnDispatchAction = document.getElementById("btnDispatchAction");
-  const dispatchStatusBox = document.getElementById("dispatchStatusBox");
   const westCommandPre = document.getElementById("westCommand");
   const btnCopyWest = document.getElementById("btnCopyWest");
   const btnDownloadConf = document.getElementById("btnDownloadConf");
-
-  // Airtime Gauge Elements
-  const gaugeFill = document.getElementById("gaugeFill");
-  const airtimeMsVal = document.getElementById("airtimeMsVal");
-  const bitrateVal = document.getElementById("bitrateVal");
-  const sensitivityVal = document.getElementById("sensitivityVal");
-  const airtimeStatus = document.getElementById("airtimeStatus");
 
   let selectedBoard = window.ZEPHTACORE_BOARDS[0];
   let selectedRole = window.ZEPHTACORE_ROLES[0];
@@ -155,52 +142,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Calculate Airtime
-  function updateAirtime() {
-    if (!sfSlider || !bwSelect || !crSelect || !window.LoRaCalc) return;
-    const sf = parseInt(sfSlider.value, 10);
-    const bw = parseFloat(bwSelect.value);
-    const cr = parseInt(crSelect.value, 10);
-
-    if (sfValDisplay) sfValDisplay.textContent = `SF${sf}`;
-
-    const res = window.LoRaCalc.calculateAirtime({
-      sf: sf,
-      bw: bw,
-      cr: cr,
-      payloadBytes: 45,
-      preamble: 16
-    });
-
-    if (airtimeMsVal) airtimeMsVal.textContent = `${res.airtimeMs} ms`;
-    if (bitrateVal) bitrateVal.textContent = `${res.bitRateBps} bps`;
-    if (sensitivityVal) sensitivityVal.textContent = `${res.sensitivityDbm} dBm`;
-
-    const pct = Math.min(Math.max((res.airtimeMs / 1800) * 100, 5), 100);
-    if (gaugeFill) {
-      gaugeFill.style.width = `${pct}%`;
-      if (res.airtimeMs < 250) {
-        gaugeFill.style.background = "var(--brand-emerald)";
-        if (airtimeStatus) {
-          airtimeStatus.textContent = "⚡ Excelente (Ultra rápido)";
-          airtimeStatus.style.color = "var(--brand-emerald)";
-        }
-      } else if (res.airtimeMs < 750) {
-        gaugeFill.style.background = "var(--brand-cyan)";
-        if (airtimeStatus) {
-          airtimeStatus.textContent = "✓ Óptimo para Mesh Dual";
-          airtimeStatus.style.color = "var(--brand-cyan)";
-        }
-      } else {
-        gaugeFill.style.background = "var(--brand-amber)";
-        if (airtimeStatus) {
-          airtimeStatus.textContent = "⚠️ Lento (Mayor ocupación de canal)";
-          airtimeStatus.style.color = "var(--brand-amber)";
-        }
-      }
-    }
-  }
-
   // Build the complete configuration bundle
   function getCurrentConfig() {
     return {
@@ -248,7 +189,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateOutputs() {
-    updateAirtime();
     saveCurrentConfig();
 
     const roleName = selectedRole.id;
