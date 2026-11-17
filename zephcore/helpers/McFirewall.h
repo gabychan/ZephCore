@@ -248,12 +248,13 @@ struct CmdResult {
 /* "get|set z.mc.fw.<key>" for MeshCore, "z.mt.fw.<key>" for Meshtastic. */
 inline bool isCommand(const char *command)
 {
-	return (strncmp(command, "get z.m", 7) == 0 || strncmp(command, "set z.m", 7) == 0) &&
-	       (command[7] == 'c' || command[7] == 't') && strncmp(command + 8, ".fw.", 4) == 0;
+	const zcmd::Parsed p = zcmd::parse(command);
+
+	return p.ok && p.proto != 0 && strncmp(p.key, "fw.", 3) == 0;
 }
 
 /* True for the Meshtastic one. */
-inline bool isMeshtastic(const char *command) { return command[7] == 't'; }
+inline bool isMeshtastic(const char *command) { return zcmd::parse(command).proto == 't'; }
 
 inline bool parseLimit(const char *v, uint8_t &out)
 {
@@ -332,17 +333,10 @@ inline CmdResult handleCommand(Prefs &p, const Firewall &f, const Rules &rules, 
 	if (!isCommand(command)) {
 		return {false, false};
 	}
-	const bool get = command[0] == 'g';
-	const char *key = command + 12;
+	const zcmd::Parsed parsed = zcmd::parse(command);
+	const bool get = parsed.get;
 	char name[8];
-	size_t n = 0;
-
-	while (key[n] && key[n] != ' ' && n < sizeof(name) - 1) {
-		name[n] = key[n];
-		n++;
-	}
-	name[n] = '\0';
-	const char *val = key[n] == ' ' ? key + n + 1 : "";
+	const char *val = zcmd::splitValue(parsed.key + 3, name, sizeof(name));
 	uint8_t *limit = strcmp(name, "gap") == 0 ? &p.advert_gap_min : strcmp(name, "rate") == 0 ? &p.hop_rate : nullptr;
 	uint8_t v;
 

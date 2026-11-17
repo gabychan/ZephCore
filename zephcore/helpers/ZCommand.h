@@ -21,6 +21,47 @@ inline bool parseOnOff(const char *v, uint8_t &b)
 	return false;
 }
 
+/* "<get|set> z.<key> [value]" taken apart: the key after "z." and, when it starts with "mc." or
+ * "mt.", which protocol and the key after that. */
+struct Parsed {
+	bool ok = false;      /* the line starts with "get z." or "set z." */
+	bool get = false;
+	char proto = 0;       /* 'c' MeshCore, 't' Meshtastic, 0 for a key of neither */
+	const char *key = ""; /* what follows, up to the end of the line */
+};
+
+inline Parsed parse(const char *command)
+{
+	Parsed p;
+
+	if (strncmp(command, "get z.", 6) == 0) {
+		p.get = true;
+	} else if (strncmp(command, "set z.", 6) != 0) {
+		return p;
+	}
+	p.ok = true;
+	p.key = command + 6;
+	if (p.key[0] == 'm' && (p.key[1] == 'c' || p.key[1] == 't') && p.key[2] == '.') {
+		p.proto = p.key[1];
+		p.key += 3;
+	}
+	return p;
+}
+
+/* "<name> <value>": name takes the first word of key (at most cap - 1 bytes), the value is what follows
+ * its space, "" when there is none. */
+inline const char *splitValue(const char *key, char *name, size_t cap)
+{
+	size_t n = 0;
+
+	while (key[n] && key[n] != ' ' && n < cap - 1) {
+		name[n] = key[n];
+		n++;
+	}
+	name[n] = '\0';
+	return key[n] == ' ' ? key + n + 1 : "";
+}
+
 struct Help {
 	const char *key;   /* after "z." */
 	const char *text;
@@ -84,11 +125,12 @@ inline bool helpListed(const Help &h, bool meshtastic)
  * "help" is a valid value for it. */
 inline bool helpReply(const char *command, bool meshtastic, char *reply, size_t cap)
 {
-	const bool get = strncmp(command, "get z.", 6) == 0;
+	const Parsed parsed = parse(command);
 
-	if (!get && strncmp(command, "set z.", 6) != 0) {
+	if (!parsed.ok) {
 		return false;
 	}
+	const bool get = parsed.get;
 	const char *key = command + 6;
 	size_t n = strlen(key);
 

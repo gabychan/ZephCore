@@ -1356,6 +1356,11 @@
       "id": "UNIT-UIDASH-008",
       "name": "the frequency is in MHz rounded to the kHz, a round up that reaches the next MHz carries",
       "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-007",
+      "name": "A z. line is taken apart once: get or set, the protocol, the key and its value; anything else is not one",
+      "source": "tests/unit/zcommand_tests.cpp"
     }
   ]
 }

@@ -375,12 +375,9 @@ struct CmdResult {
 /* "get|set z.mc.ping.<key>", "get|set z.mt.ping.<key>" and "get|set z.ping.<key>". */
 inline bool isCommand(const char *command)
 {
-	if (strncmp(command, "get z.", 6) != 0 && strncmp(command, "set z.", 6) != 0) {
-		return false;
-	}
-	const char *rest = command + 6;
+	const zcmd::Parsed p = zcmd::parse(command);
 
-	return strncmp(rest, "ping.", 5) == 0 || strncmp(rest, "mc.ping.", 8) == 0 || strncmp(rest, "mt.ping.", 8) == 0;
+	return p.ok && strncmp(p.key, "ping.", 5) == 0;
 }
 
 inline bool boolOf(const char *v, uint8_t &b)
@@ -398,28 +395,12 @@ inline CmdResult handleCommand(Prefs &p, const Stats &st, const char *command, c
 	if (!isCommand(command)) {
 		return {false, false};
 	}
-	const bool get = command[0] == 'g';
-	const char *rest = command + 6;
-	bool shared = false;
-	Protocol w = PROTO_MC;
-	const char *key;
-
-	if (strncmp(rest, "ping.", 5) == 0) {
-		shared = true;
-		key = rest + 5;
-	} else {
-		w = rest[1] == 'c' ? PROTO_MC : PROTO_MT;
-		key = rest + 8;
-	}
+	const zcmd::Parsed parsed = zcmd::parse(command);
+	const bool get = parsed.get;
+	const bool shared = parsed.proto == 0;
+	const Protocol w = parsed.proto == 't' ? PROTO_MT : PROTO_MC;
 	char name[16];
-	size_t n = 0;
-
-	while (key[n] && key[n] != ' ' && n < sizeof(name) - 1) {
-		name[n] = key[n];
-		n++;
-	}
-	name[n] = '\0';
-	const char *val = key[n] == ' ' ? key + n + 1 : "";
+	const char *val = zcmd::splitValue(parsed.key + 5, name, sizeof(name));
 	uint8_t b;
 	bool changed = false;
 

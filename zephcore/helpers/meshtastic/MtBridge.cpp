@@ -471,15 +471,7 @@ size_t Bridge::buildText(uint8_t channel_id, uint32_t to, const char *text, size
 
 size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)
 {
-	const Channel *ch = find(channel_id);
-	uint8_t pb[104];
-
-	if (!ch) {
-		return 0;
-	}
-	size_t n = encodeUser(_user, pb, sizeof(pb));
-
-	return n ? buildFrame(ch, nullptr, kBroadcast, PORT_NODEINFO, pb, n, out, cap) : 0;
+	return buildNodeInfoTo(channel_id, kBroadcast, false, out, cap);
 }
 
 size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_response, uint8_t *out,

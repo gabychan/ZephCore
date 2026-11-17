@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ZCommand.h"
+
 namespace rxstats {
 
 static constexpr size_t kBuckets = 8;     /* hops 0 to 6, and 7 or more */
@@ -137,23 +139,21 @@ public:
 /* "get|set z.mc.hopstats", "z.mt.hopstats", "z.mc.relays", "z.mt.relays". */
 inline bool isCommand(const char *command)
 {
-	if (strncmp(command, "get z.m", 7) != 0 && strncmp(command, "set z.m", 7) != 0) {
-		return false;
-	}
-	const char *rest = command + 7;
+	const zcmd::Parsed p = zcmd::parse(command);
 
-	return (rest[0] == 'c' || rest[0] == 't') && rest[1] == '.' &&
-	       (strcmp(rest + 2, "hopstats") == 0 || strcmp(rest + 2, "relays") == 0);
+	return p.ok && p.proto != 0 && (strcmp(p.key, "hopstats") == 0 || strcmp(p.key, "relays") == 0);
 }
 
 /* True for the Meshtastic one. */
-inline bool isMeshtastic(const char *command) { return command[7] == 't'; }
+inline bool isMeshtastic(const char *command) { return zcmd::parse(command).proto == 't'; }
 
 inline void handleCommand(const Observer &o, const char *command, char *reply, size_t cap)
 {
-	if (command[0] != 'g') {
+	const zcmd::Parsed p = zcmd::parse(command);
+
+	if (!p.get) {
 		snprintf(reply, cap, "Error: read only");
-	} else if (command[9] == 'h') {
+	} else if (p.key[0] == 'h') {
 		o.formatHops(reply, cap);
 	} else {
 		o.formatRelays(reply, cap);
