@@ -864,17 +864,7 @@ bool RoomServerMesh::setRxBoostedGain(bool enable) {
 
 // ZEPHCORE: ours. The counters of "get z.stats".
 void RoomServerMesh::fillZStats(zinfo::Stats& s) {
-  auto& radio_driver = getRadioDriver(_radio);
-  s.recv = radio_driver.getPacketsRecv();
-  s.sent = radio_driver.getPacketsSent();
-  s.errors = radio_driver.getPacketsRecvErrors();
-  s.flood_tx = getNumSentFlood();
-  s.direct_tx = getNumSentDirect();
-  s.flood_rx = getNumRecvFlood();
-  s.direct_rx = getNumRecvDirect();
-  s.tx_air_s = getTotalAirTime() / 1000;
-  s.rx_air_s = getReceiveAirTime() / 1000;
-  s.queue = _mgr->getOutboundTotal();
+  zinfo::fillStats(s, getRadioDriver(_radio), *this, *_mgr);
 }
 
 // ZEPHCORE: ours. Through RepeaterDataStore.

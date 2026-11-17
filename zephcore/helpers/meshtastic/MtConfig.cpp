@@ -330,25 +330,41 @@ AddResult addChannel(RepeaterPrefs &p, const char *name, const uint8_t *psk, siz
 	return ADD_OK;
 }
 
+/* "<name> [default|<base64 key>]" of a channel command; psk and len are the default key when none is given.
+ * False, with the error in reply, when it is not that. */
+static bool parseNameAndKey(const char *args, const char *command, char name[kChannelNameMax + 2],
+			    uint8_t psk[kPskMax], int &len, bool &has_key, char *reply, size_t cap)
+{
+	char key[40] = "";
+	const int n = sscanf(args, "%12s %39s", name, key);
+
+	psk[0] = 1;
+	len = 1;
+	has_key = n == 2;
+	if (n < 1 || !validName(name)) {
+		snprintf(reply, cap, "Error: %s <name up to %u chars> [default|<base64 key>]", command,
+			 (unsigned)kChannelNameMax);
+		return false;
+	}
+	if (has_key && strcmp(key, "default") != 0) {
+		len = base64Decode(key, psk, kPskMax);
+		if (len != 1 && len != 16) {
+			snprintf(reply, cap, "Error: key is 1 or 16 bytes in base64");
+			return false;
+		}
+	}
+	return true;
+}
+
 static void channelAdd(RepeaterPrefs &p, const char *args, char *reply, size_t cap, CmdResult &r)
 {
 	char name[kChannelNameMax + 2];
-	char key[40] = "";
-	uint8_t psk[kPskMax] = {1};
-	int len = 1;
-	int n = sscanf(args, "%12s %39s", name, key);
+	uint8_t psk[kPskMax];
+	int len;
+	bool has_key;
 
-	if (n < 1 || !validName(name)) {
-		snprintf(reply, cap, "Error: set z.mt.channel.add <name up to %u chars> [default|<base64 key>]",
-			 (unsigned)kChannelNameMax);
+	if (!parseNameAndKey(args, "set z.mt.channel.add", name, psk, len, has_key, reply, cap)) {
 		return;
-	}
-	if (n == 2 && strcmp(key, "default") != 0) {
-		len = base64Decode(key, psk, sizeof(psk));
-		if (len != 1 && len != 16) {
-			snprintf(reply, cap, "Error: key is 1 or 16 bytes in base64");
-			return;
-		}
 	}
 	switch (addChannel(p, name, psk, (size_t)len)) {
 	case ADD_OK:
@@ -413,29 +429,17 @@ static void channelList(const RepeaterPrefs &p, char *reply, size_t cap)
 static void setChannel(RepeaterPrefs &p, const char *args, char *reply, size_t cap, bool &changed)
 {
 	char name[kChannelNameMax + 2];
-	char key[40] = "";
+	uint8_t psk[kPskMax];
+	int len;
+	bool has_key;
 
-	int n = sscanf(args, "%12s %39s", name, key);
-
-	if (n < 1 || !validName(name)) {
-		snprintf(reply, cap, "Error: set z.mt.channel <name up to %u chars> [default|<base64 key>]",
-			 (unsigned)kChannelNameMax);
+	if (!parseNameAndKey(args, "set z.mt.channel", name, psk, len, has_key, reply, cap)) {
 		return;
-	}
-	uint8_t psk[kPskMax] = {1};
-	int len = 1;
-
-	if (n == 2 && strcmp(key, "default") != 0) {
-		len = base64Decode(key, psk, sizeof(psk));
-		if (len != 1 && len != 16) {
-			snprintf(reply, cap, "Error: key is 1 or 16 bytes in base64");
-			return;
-		}
 	}
 	/* One name alone keeps the key. */
 	changed = strcmp(p.channel, name) != 0;
 	strcpy(p.channel, name);
-	if (n == 2) {
+	if (has_key) {
 		changed = changed || p.psk_len != len || memcmp(p.psk, psk, (size_t)len) != 0;
 		p.psk_len = (uint8_t)len;
 		memset(p.psk, 0, sizeof(p.psk));
@@ -444,67 +448,41 @@ static void setChannel(RepeaterPrefs &p, const char *args, char *reply, size_t c
 	snprintf(reply, cap, "OK");
 }
 
-CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap,
-			bool standalone)
+static void getSetting(const RepeaterPrefs &p, const char *name, char *reply, size_t cap)
 {
-	const bool get = strncmp(command, "get z.mt.", 9) == 0;
-	const bool set = strncmp(command, "set z.mt.", 9) == 0;
-
-	if (!get && !set) {
-		return {};
+	if (strcmp(name, "enable") == 0) {
+		snprintf(reply, cap, "> %s", nameOf(kBools, p.enable));
+	} else if (strcmp(name, "role") == 0) {
+		snprintf(reply, cap, "> %s", nameOf(kRoles, p.role));
+	} else if (strcmp(name, "hops") == 0) {
+		snprintf(reply, cap, "> %u", p.hops);
+	} else if (strcmp(name, "relay") == 0) {
+		snprintf(reply, cap, "> %s", nameOf(kRelays, p.relay));
+	} else if (strcmp(name, "relay.opaque") == 0) {
+		snprintf(reply, cap, "> %s", nameOf(kBools, p.relay_opaque));
+	} else if (strcmp(name, "zerohop") == 0) {
+		zeroHopShow(p, reply, cap);
+	} else if (strcmp(name, "nodeinfo") == 0) {
+		snprintf(reply, cap, "> %u", (unsigned)p.nodeinfo_s);
+	} else if (strcmp(name, "telemetry") == 0) {
+		snprintf(reply, cap, "> %u", (unsigned)p.telemetry_s);
+	} else if (strcmp(name, "channel") == 0) {
+		snprintf(reply, cap, "> %s (%s key)", p.channel,
+			 p.psk_len == 1 && p.psk[0] == 1 ? "default" : "custom");
+	} else if (strcmp(name, "channels") == 0) {
+		channelList(p, reply, cap);
+	} else {
+		snprintf(reply, cap, "Error: unknown z.mt setting");
 	}
-	const char *key = command + 9;
-	char name[24];
-	size_t n = 0;
+}
 
-	while (key[n] && key[n] != ' ' && n < sizeof(name) - 1) {
-		name[n] = key[n];
-		n++;
-	}
-	name[n] = '\0';
-	const char *val = key[n] == ' ' ? key + n + 1 : "";
+/* res.changed says whether a setting moved. */
+static void setSetting(RepeaterPrefs &p, const char *name, const char *val, char *reply, size_t cap,
+		       bool standalone, CmdResult &res)
+{
 	uint32_t u;
 	uint8_t b;
 	bool changed = false;
-	CmdResult res = {};
-
-	res.handled = true;
-	if (!standalone && (strcmp(name, "channel") == 0 || strcmp(name, "telemetry") == 0)) {
-		snprintf(reply, cap, "Error: not available here, use z.mt.channel.add and z.mt.channel.remove");
-		return res;
-	}
-	if (standalone && (strncmp(name, "channel.", 8) == 0 || strcmp(name, "channels") == 0)) {
-		snprintf(reply, cap, "Error: not available here, the node has one channel: z.mt.channel");
-		return res;
-	}
-
-	if (get) {
-		if (strcmp(name, "enable") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kBools, p.enable));
-		} else if (strcmp(name, "role") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kRoles, p.role));
-		} else if (strcmp(name, "hops") == 0) {
-			snprintf(reply, cap, "> %u", p.hops);
-		} else if (strcmp(name, "relay") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kRelays, p.relay));
-		} else if (strcmp(name, "relay.opaque") == 0) {
-			snprintf(reply, cap, "> %s", nameOf(kBools, p.relay_opaque));
-		} else if (strcmp(name, "zerohop") == 0) {
-			zeroHopShow(p, reply, cap);
-		} else if (strcmp(name, "nodeinfo") == 0) {
-			snprintf(reply, cap, "> %u", (unsigned)p.nodeinfo_s);
-		} else if (strcmp(name, "telemetry") == 0) {
-			snprintf(reply, cap, "> %u", (unsigned)p.telemetry_s);
-		} else if (strcmp(name, "channel") == 0) {
-			snprintf(reply, cap, "> %s (%s key)", p.channel,
-				 p.psk_len == 1 && p.psk[0] == 1 ? "default" : "custom");
-		} else if (strcmp(name, "channels") == 0) {
-			channelList(p, reply, cap);
-		} else {
-			snprintf(reply, cap, "Error: unknown z.mt setting");
-		}
-		return res;
-	}
 
 	if (strcmp(name, "enable") == 0) {
 		if (zcmd::parseOnOff(val, b)) { changed = p.enable != b; p.enable = b; snprintf(reply, cap, "OK"); }
@@ -557,6 +535,34 @@ CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size
 		snprintf(reply, cap, "Error: unknown z.mt setting");
 	}
 	res.changed = changed;
+}
+
+CmdResult handleCommand(RepeaterPrefs &p, const char *command, char *reply, size_t cap,
+			bool standalone)
+{
+	const zcmd::Parsed line = zcmd::parse(command);
+
+	if (!line.ok || line.proto != 't') {
+		return {};
+	}
+	char name[24];
+	const char *val = zcmd::splitValue(line.key, name, sizeof(name));
+	CmdResult res = {};
+
+	res.handled = true;
+	if (!standalone && (strcmp(name, "channel") == 0 || strcmp(name, "telemetry") == 0)) {
+		snprintf(reply, cap, "Error: not available here, use z.mt.channel.add and z.mt.channel.remove");
+		return res;
+	}
+	if (standalone && (strncmp(name, "channel.", 8) == 0 || strcmp(name, "channels") == 0)) {
+		snprintf(reply, cap, "Error: not available here, the node has one channel: z.mt.channel");
+		return res;
+	}
+	if (line.get) {
+		getSetting(p, name, reply, cap);
+	} else {
+		setSetting(p, name, val, reply, cap, standalone, res);
+	}
 	return res;
 }
 

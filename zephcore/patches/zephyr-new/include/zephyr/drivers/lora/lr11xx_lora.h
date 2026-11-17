@@ -32,9 +32,10 @@ bool lr11xx_is_receiving(const struct device *dev);
 /* RX boosted gain: more sensitivity for ~2 mA more current. */
 void lr11xx_set_rx_boost(const struct device *dev, bool enable);
 
-/* 8-bit LoRa sync word for the next RX or TX start (0 restores the
- * public/private word of the modem config). */
-void lr11xx_set_sync_word(const struct device *dev, uint8_t word);
+/* 8-bit LoRa sync words of the next RX starts and of the next TX starts (0
+ * restores the public/private word of the modem config). A receiver already
+ * running keeps its word. */
+void lr11xx_set_sync_words(const struct device *dev, uint8_t rx, uint8_t tx);
 
 /* Preamble in symbols of the next TX starts (0 restores the configured one). */
 void lr11xx_set_tx_preamble_len(const struct device *dev, uint16_t len);

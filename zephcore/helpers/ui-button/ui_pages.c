@@ -160,6 +160,7 @@ static uint32_t activity_last_sample_ms;
  * Navigation walks this array instead of the raw enum. */
 
 #ifdef ZEPHCORE_REPEATER
+#define UI_DASH_PANEL 0
 static const enum ui_page active_pages[] = {
 	UI_PAGE_STATUS,
 	UI_PAGE_RADIO,
@@ -1775,12 +1776,14 @@ static void render_status(void)
 /* ========== Page render dispatch ========== */
 
 
+#if UI_DASH_PANEL
 /* ========== Dashboard (200x200 panels) ========== */
 
 #define DASH_W        200
 #define DASH_COL_W    98
 #define DASH_GAP      2      /* between the columns: a 1 px rule */
 #define DASH_BAR_H    11
+#define DASH_FOOT_CHARS 15   /* what a column holds at 6 px a character, with its margin */
 
 static void dash_text(int x, int y, const char *s)
 {
@@ -1908,17 +1911,15 @@ static void render_dashboard(void)
 	mc_display_hline(0, 72, DASH_W);
 	mc_display_hline(0, 117, DASH_W);
 
-	uint32_t mhz = state.lora_freq_hz / 1000000;
-	uint32_t khz = (state.lora_freq_hz % 1000000 + 500) / 1000;
+	char mhz[12];
 	uint16_t bw_int = state.lora_bw_khz_x10 / 10;
 	uint16_t bw_frac = state.lora_bw_khz_x10 % 10;
 
+	ui_dash_freq(mhz, sizeof(mhz), state.lora_freq_hz);
 	if (bw_frac) {
-		snprintf(a, sizeof(a), "%u.%03uMHz SF%u BW%u.%u CR%u", (unsigned)mhz, (unsigned)khz,
-			 state.lora_sf, bw_int, bw_frac, state.lora_cr);
+		snprintf(a, sizeof(a), "%sMHz SF%u BW%u.%u CR%u", mhz, state.lora_sf, bw_int, bw_frac, state.lora_cr);
 	} else {
-		snprintf(a, sizeof(a), "%u.%03uMHz SF%u BW%u CR%u", (unsigned)mhz, (unsigned)khz,
-			 state.lora_sf, bw_int, state.lora_cr);
+		snprintf(a, sizeof(a), "%sMHz SF%u BW%u CR%u", mhz, state.lora_sf, bw_int, state.lora_cr);
 	}
 	dash_text(2, 122, a);
 	ui_dash_uptime(b, sizeof(b), d->uptime_s);
@@ -1931,8 +1932,12 @@ static void render_dashboard(void)
 	} else {
 		snprintf(a, sizeof(a), "n/a");
 	}
-	dash_gauge(148, "HEAP", d->heap_used, d->heap_total, a);
-	snprintf(a, sizeof(a), "%u/%uK", (unsigned)d->flash_used_kb, (unsigned)d->flash_total_kb);
+	dash_gauge(148, "KHEAP", d->heap_used, d->heap_total, a);
+	if (d->flash_total_kb != 0) {
+		snprintf(a, sizeof(a), "%u/%uK", (unsigned)d->flash_used_kb, (unsigned)d->flash_total_kb);
+	} else {
+		snprintf(a, sizeof(a), "n/a");
+	}
 	dash_gauge(160, "FLASH", d->flash_used_kb, d->flash_total_kb, a);
 
 	char tx[12], rx[12];
@@ -1950,10 +1955,13 @@ static void render_dashboard(void)
 	ui_dash_count(f[2], sizeof(f[2]), d->mc_direct_tx);
 	ui_dash_count(f[3], sizeof(f[3]), d->mc_direct_rx);
 	snprintf(a, sizeof(a), "F%s/%s D%s/%s", f[0], f[1], f[2], f[3]);
+	a[DASH_FOOT_CHARS] = '\0';
 	dash_text(4, 189, a);
-	dash_text(DASH_COL_W + DASH_GAP + 5, 189, d->mt_on ? d->mt_cfg : "off");
+	snprintf(b, sizeof(b), "%.*s", DASH_FOOT_CHARS - 1, d->mt_on ? d->mt_cfg : "off");
+	dash_text(DASH_COL_W + DASH_GAP + 5, 189, b);
 	mc_display_invert_rect(0, 186, DASH_W, 14);
 }
+#endif /* UI_DASH_PANEL */
 
 typedef void (*page_render_fn)(void);
 
@@ -1975,7 +1983,9 @@ static const page_render_fn renderers[] = {
 	[UI_PAGE_DFU]       = render_dfu,
 	[UI_PAGE_SHUTDOWN]  = render_shutdown,
 	[UI_PAGE_STATUS]    = render_status,
+#if UI_DASH_PANEL
 	[UI_PAGE_DASHBOARD] = render_dashboard,
+#endif
 };
 
 /* ========== Public API ========== */
@@ -2107,11 +2117,7 @@ enum ui_page ui_pages_home(void)
 
 bool ui_pages_has_dashboard(void)
 {
-#if !defined(ZEPHCORE_REPEATER) && UI_DASH_PANEL
-	return true;
-#else
-	return false;
-#endif
+	return UI_DASH_PANEL;
 }
 
 void ui_pages_set_node_name(const char *name)

@@ -115,3 +115,16 @@ TEST(mesh_extend_pending, "UNIT-FOREIGN-004", "A dupe of a MeshCore flood we hol
     for (int i = 0; i < 100; i++) { f.mesh.extendPendingRetransmit(hash); CHECK(f.pool.getOutboundSchedule(0) >= last); last = f.pool.getOutboundSchedule(0); }
     CHECK(f.mesh.getContentionTracker().getReactiveHeadroom(hash, 100) == 0);   // the cap is spent
 }
+
+TEST(foreign_relay_hold, "UNIT-FOREIGN-005", "A repeat waiting longer than the observation window still hears the copy of another node and gives way; once its own wait is over it is no longer tracked") {
+    Fixture f;
+    const auto a = frame(1);
+    CHECK(f.mesh.relayForeign(a.data(), a.size(), 20000));          // SF12, a strong signal: a wait of 20 s
+    const uint32_t slot = f.pool.getOutboundSchedule(0);
+    f.clock.now += 15000;                                           // past the 10 s window, before our slot
+    f.mesh.foreignDupeHeard(a.data(), a.size());
+    CHECK(f.pool.getOutboundSchedule(0) > slot);
+    mesh::ContentionTracker t;
+    t.trackRetransmit(5, 1000, true, 500);
+    CHECK(t.recordDupeIfTracked(5, 1000 + 10400) && !t.recordDupeIfTracked(5, 1000 + 10501));
+}

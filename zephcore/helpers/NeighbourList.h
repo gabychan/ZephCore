@@ -12,6 +12,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ZCommand.h"
+#include "ui/ui_dash_fmt.h"
+
 namespace neighbours {
 
 static constexpr size_t kTableSize = 16;
@@ -87,15 +90,7 @@ struct Row {
 /* A name cut to kNameMax bytes without splitting a UTF-8 character. */
 inline void setRowName(Row &r, const char *name)
 {
-	size_t n = strlen(name);
-
-	if (n > kNameMax) {
-		n = kNameMax;
-		while (n > 0 && ((uint8_t)name[n] & 0xC0) == 0x80) {
-			n--;
-		}
-	}
-	snprintf(r.name, sizeof(r.name), "%.*s", (int)n, name);
+	snprintf(r.name, sizeof(r.name), "%.*s", (int)zcmd::utf8Cut(name, kNameMax), name);
 }
 
 /* Where the nodes come from; i runs over size() slots, a free one has no key. */
@@ -113,27 +108,22 @@ inline void nodeLabel(char *out, size_t cap, uint32_t node)
 	snprintf(out, cap, "!%08x", (unsigned)node);
 }
 
-/* 45s, 4m, 3h, 2d. */
-inline void formatAge(char *out, size_t cap, uint32_t s)
-{
-	if (s < 60) {
-		snprintf(out, cap, "%us", (unsigned)s);
-	} else if (s < 3600) {
-		snprintf(out, cap, "%um", (unsigned)(s / 60));
-	} else if (s < 86400) {
-		snprintf(out, cap, "%uh", (unsigned)(s / 3600));
-	} else {
-		snprintf(out, cap, "%ud", (unsigned)(s / 86400));
-	}
-}
-
 /* 10.3 from 41 (a quarter of a dB each), rounded to a tenth. */
 inline void formatSnr(char *out, size_t cap, int8_t snr_x4)
 {
-	int t = snr_x4 * 5;
+	const int t = zcmd::snrTenths(snr_x4);
 
-	t = (t + (t >= 0 ? 1 : -1)) / 2;
 	snprintf(out, cap, "%s%d.%d", t < 0 ? "-" : "", (t < 0 ? -t : t) / 10, (t < 0 ? -t : t) % 10);
+}
+
+/* The name the node announced, else "!a1b2c3d4". */
+inline void nameOrNode(const Entry &e, Row &r)
+{
+	if (e.name[0]) {
+		snprintf(r.name, sizeof(r.name), "%s", e.name);
+	} else {
+		nodeLabel(r.name, sizeof(r.name), e.id);
+	}
 }
 
 /* A Table as a List; label() puts the node's name in the row. */
@@ -238,7 +228,7 @@ inline void format(char *out, size_t cap, const char *title, const List &list, s
 
 		list.row(order[k], r);
 		formatSnr(snr, sizeof(snr), r.snr_x4);
-		formatAge(age, sizeof(age), r.age_s);
+		ui_dash_age(age, sizeof(age), r.age_s);
 		int l = snprintf(line, sizeof(line), "\n%s (%s, %s)", r.name, snr, age);
 
 		if (l < 0 || (size_t)n + (size_t)l >= cap) {

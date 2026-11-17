@@ -1,6 +1,7 @@
 // helpers/ZInfo.h: the one-line replies of "get z.info" and "get z.stats".
 #include "test.h"
 #include "ZInfo.h"
+#include "ui_dash_fmt.h"
 
 #include <string>
 
@@ -43,20 +44,21 @@ TEST(zinfo_missing, "UNIT-ZINFO-002", "a field the role or build does not have i
 
 TEST(zinfo_uptime, "UNIT-ZINFO-003", "uptime is days and hours, hours and minutes, or minutes") {
     char out[16];
-    zinfo::formatUptime(out, sizeof(out), 59);
+    ui_dash_uptime(out, sizeof(out), 59);
     CHECK(std::string(out) == "0m");
-    zinfo::formatUptime(out, sizeof(out), 3 * 3600 + 5 * 60);
+    ui_dash_uptime(out, sizeof(out), 3 * 3600 + 5 * 60);
     CHECK(std::string(out) == "3h05m");
-    zinfo::formatUptime(out, sizeof(out), 86400);
+    ui_dash_uptime(out, sizeof(out), 86400);
     CHECK(std::string(out) == "1d00h");
 }
 
 TEST(zinfo_cap, "UNIT-ZINFO-004", "a small reply buffer is cut, never overrun, and stays terminated") {
-    char out[20];
+    char out[32];                                          // the reply gets the first 20; the rest is a guard
     std::fill(out, out + sizeof(out), 'x');
-    zinfo::formatInfo(out, sizeof(out), full());
-    CHECK(out[sizeof(out) - 1] == '\0' || std::string(out).size() < sizeof(out));
-    CHECK(std::string(out).size() < sizeof(out));
+    zinfo::formatInfo(out, 20, full());
+    CHECK(std::string(out, 20).find('\0') != std::string::npos);   // terminated inside its 20 bytes
+    CHECK(std::string(out).size() == 19);                          // cut to fit: the long reply does not fit in 19
+    for (size_t i = 20; i < sizeof(out); i++) CHECK(out[i] == 'x');  // nothing written past it
 }
 
 TEST(zinfo_stats, "UNIT-ZINFO-005", "z.stats gives the MeshCore counters, then the Meshtastic ones when there are any") {
@@ -69,4 +71,23 @@ TEST(zinfo_stats, "UNIT-ZINFO-005", "z.stats gives the MeshCore counters, then t
     CHECK(std::string(out) == "> mc: rx 1234, tx 56, err 3, flood 40/16, direct 20/9, air 12/340s, queue 0 | mt: heard=5 relayed=0");
     zinfo::formatStats(out, sizeof(out), s, nullptr);
     CHECK(std::string(out) == "> mc: rx 1234, tx 56, err 3, flood 40/16, direct 20/9, air 12/340s, queue 0");
+}
+
+namespace {
+struct FakeRadio { uint32_t getPacketsRecv() { return 11; } uint32_t getPacketsSent() { return 12; } uint32_t getPacketsRecvErrors() { return 13; } };
+struct FakeMesh {
+    uint32_t getNumSentFlood() const { return 21; } uint32_t getNumSentDirect() const { return 22; }
+    uint32_t getNumRecvFlood() const { return 23; } uint32_t getNumRecvDirect() const { return 24; }
+    uint32_t getTotalAirTime() const { return 5999; } uint32_t getReceiveAirTime() const { return 61000; }
+};
+struct FakeMgr { int getOutboundTotal() { return 3; } };
+}
+
+TEST(zinfo_fill, "UNIT-ZINFO-006", "The counters of z.stats come from the radio, the mesh and the packet manager, air time in whole seconds") {
+    zinfo::Stats s = {};
+    FakeRadio r; FakeMesh m; FakeMgr g;
+    zinfo::fillStats(s, r, m, g);
+    CHECK(s.recv == 11 && s.sent == 12 && s.errors == 13);
+    CHECK(s.flood_tx == 21 && s.direct_tx == 22 && s.flood_rx == 23 && s.direct_rx == 24);
+    CHECK(s.tx_air_s == 5 && s.rx_air_s == 61 && s.queue == 3);
 }

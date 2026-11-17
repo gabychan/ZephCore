@@ -51,17 +51,20 @@ bool sx126x_is_receiving(const struct device *dev);
 void sx126x_set_rx_boost(const struct device *dev, bool enable);
 
 /**
- * @brief Write the LoRa sync word register (0x0740/0x0741) directly.
+ * @brief LoRa sync word register values (0x0740/0x0741) for RX and TX.
  *
- * lora_config() only reaches the two values public_network selects. This
- * takes the raw register value, so a build can receive two sync words at
- * once (0x14B4) and pick one per transmitted frame.
+ * lora_config() only reaches the two values public_network selects. These
+ * are raw register values, so a build can receive two sync words at once
+ * (0x14B4) and pick one per transmitted frame. Nothing is written here: the
+ * next RX entry from rest programs rx_reg, and each transmit programs tx_reg
+ * once LBT has passed. A receiver already running keeps its word.
  *
  * @param dev LoRa device
- * @param reg 16-bit register value (not the 8-bit sync word)
- * @return 0 on success, a negative errno from the SPI transfer otherwise
+ * @param rx_reg 16-bit register value (not the 8-bit sync word), 0 for the
+ *        configured one
+ * @param tx_reg Same, for transmissions
  */
-int sx126x_set_sync_word_reg(const struct device *dev, uint16_t reg);
+void sx126x_set_sync_words(const struct device *dev, uint16_t rx_reg, uint16_t tx_reg);
 
 /**
  * @brief Preamble length of the next transmissions.

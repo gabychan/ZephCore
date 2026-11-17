@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "RateLimiter.h"
 #include "ZCommand.h"
 
 namespace ping {
@@ -65,11 +66,14 @@ inline const Proto &protoOf(const Prefs &p, Protocol w) { return w == PROTO_MC ?
 inline Counters &countersOf(Stats &s, Protocol w) { return w == PROTO_MC ? s.mc : s.mt; }
 inline const Counters &countersOf(const Stats &s, Protocol w) { return w == PROTO_MC ? s.mc : s.mt; }
 
+/* A trigger that is one of the first words of an answer would make two bots answer each other. */
+inline bool isAnswerWord(const char *s);
+
 inline bool validTrigger(const char *s)
 {
 	size_t n = strlen(s);
 
-	if (n == 0 || n > kTriggerMax) {
+	if (n == 0 || n > kTriggerMax || isAnswerWord(s)) {
 		return false;
 	}
 	for (size_t i = 0; i < n; i++) {
@@ -157,17 +161,40 @@ inline const char *messageOf(const char *line, char *sender, size_t cap)
 	return sep + 2;
 }
 
+/* Equal ignoring case and the spaces around either text. */
 inline bool sameText(const char *a, const char *b)
 {
-	for (; *a && *b; a++, b++) {
-		char x = (*a >= 'A' && *a <= 'Z') ? (char)(*a + 32) : *a;
-		char y = (*b >= 'A' && *b <= 'Z') ? (char)(*b + 32) : *b;
+	while (*a == ' ') {
+		a++;
+	}
+	while (*b == ' ') {
+		b++;
+	}
+	size_t la = strlen(a), lb = strlen(b);
+
+	while (la > 0 && a[la - 1] == ' ') {
+		la--;
+	}
+	while (lb > 0 && b[lb - 1] == ' ') {
+		lb--;
+	}
+	if (la != lb) {
+		return false;
+	}
+	for (size_t i = 0; i < la; i++) {
+		char x = (a[i] >= 'A' && a[i] <= 'Z') ? (char)(a[i] + 32) : a[i];
+		char y = (b[i] >= 'A' && b[i] <= 'Z') ? (char)(b[i] + 32) : b[i];
 
 		if (x != y) {
 			return false;
 		}
 	}
-	return *a == '\0' && *b == '\0';
+	return true;
+}
+
+inline bool isAnswerWord(const char *s)
+{
+	return sameText(s, "direct") || sameText(s, "relayed");
 }
 
 /* Appends to out, never past cap - 1. */
@@ -195,15 +222,7 @@ inline void hopLabel(const Route &r, uint8_t i, Protocol w, NameFn names, void *
 	int found = names ? names(ctx, w, h, r.size, name, sizeof(name)) : 0;
 
 	if (found && name[0]) {
-		size_t n = strlen(name);
-
-		if (n > kNameMax) {
-			n = kNameMax;
-			while (n > 0 && ((uint8_t)name[n] & 0xC0) == 0x80) {
-				n--;
-			}
-		}
-		snprintf(out, cap, "%.*s%s", (int)n, name, found == 2 ? "?" : "");
+		snprintf(out, cap, "%.*s%s", (int)zcmd::utf8Cut(name, kNameMax), name, found == 2 ? "?" : "");
 		return;
 	}
 	size_t o = 0;
@@ -221,13 +240,49 @@ inline void bump(uint16_t &c)
 	}
 }
 
-/* An answer reply() counted was not sent: the counters go back, and one the limit turned away is counted ignored. */
-inline void unsent(Counters &c, const Counters &before, bool limited)
+/* An answer reply() counted was not sent. */
+inline void unsent(Counters &c)
 {
-	c = before;
-	if (limited) {
-		bump(c.ignored);
+	if (c.answered > 0) {
+		c.answered--;
 	}
+}
+
+inline bool isDirect(const Heard &h)
+{
+	return h.hops == 0 && !h.relayed;
+}
+
+/* True when the line asks this protocol's ping and nothing turns it away; sender gets the name of whoever
+ * sent it. A ping the hop filters or the answer limit refuse is counted ignored. */
+inline bool asked(const Prefs &p, Counters &c, Protocol w, const char *line, const Heard &h, char *sender,
+		  size_t sender_cap, RateLimiter *limit, uint32_t now_s)
+{
+	const Proto &x = protoOf(p, w);
+
+	if (!x.enable || !validTrigger(x.trigger)) {
+		return false;
+	}
+	const char *msg = line;
+
+	sender[0] = '\0';
+	if (!h.plain) {
+		msg = messageOf(line, sender, sender_cap);
+	}
+	if (!sameText(msg, x.trigger)) {
+		return false;
+	}
+	const bool direct = isDirect(h);
+
+	if ((direct && p.ignore_direct) || (!direct && p.ignore_remote)) {
+		bump(c.ignored);
+		return false;
+	}
+	if (limit && !limit->allow(now_s)) {
+		bump(c.ignored);
+		return false;
+	}
+	return true;
 }
 
 /* The answer to a line heard on the bot's channel for protocol w, or 0 when it is not a ping this node answers.
@@ -237,33 +292,19 @@ inline void unsent(Counters &c, const Counters &before, bool limited)
  *   <arrow>3f9a(-88/+3.3)
  *   @[Ana] direct (-88/+3.3)
  * Meshtastic, which carries only the last relay:
- *   @[Ana] 2 hops, last Montjuic, SNR 7.5 dB */
+ *   @[Ana] 2 hops, last Montjuic, SNR 7.5 dB
+ * limit, when given, is asked once per answer, with now_s: a ping it turns away is counted ignored. */
 inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, const Heard &h, NameFn names,
-		    void *ctx, char *out, size_t cap)
+		    void *ctx, char *out, size_t cap, RateLimiter *limit = nullptr, uint32_t now_s = 0)
 {
-	const Proto &x = protoOf(p, w);
-
-	if (!x.enable || !validTrigger(x.trigger) || cap == 0) {
-		return 0;
-	}
 	char sender[32];
-	const char *msg = line;
 
-	sender[0] = '\0';
-	if (!h.plain) {
-		msg = messageOf(line, sender, sizeof(sender));
-	}
-	if (!sameText(msg, x.trigger)) {
+	if (cap == 0 || !asked(p, c, w, line, h, sender, sizeof(sender), limit, now_s)) {
 		return 0;
 	}
-	const bool direct = h.hops == 0 && !h.relayed;
-
-	if ((direct && p.ignore_direct) || (!direct && p.ignore_remote)) {
-		bump(c.ignored);
-		return 0;
-	}
+	const bool direct = isDirect(h);
 	const bool mc = w == PROTO_MC;
-	const int snr10 = h.snr_x4 * 10 / 4;  /* tenths of a dB, truncated toward zero */
+	const int snr10 = zcmd::snrTenths(h.snr_x4);
 	const int snr_abs = snr10 < 0 ? -snr10 : snr10;
 	char tail[40];
 	size_t t = 0;
@@ -344,12 +385,9 @@ struct CmdResult {
 /* "get|set z.mc.ping.<key>", "get|set z.mt.ping.<key>" and "get|set z.ping.<key>". */
 inline bool isCommand(const char *command)
 {
-	if (strncmp(command, "get z.", 6) != 0 && strncmp(command, "set z.", 6) != 0) {
-		return false;
-	}
-	const char *rest = command + 6;
+	const zcmd::Parsed p = zcmd::parse(command);
 
-	return strncmp(rest, "ping.", 5) == 0 || strncmp(rest, "mc.ping.", 8) == 0 || strncmp(rest, "mt.ping.", 8) == 0;
+	return p.ok && strncmp(p.key, "ping.", 5) == 0;
 }
 
 inline bool boolOf(const char *v, uint8_t &b)
@@ -367,28 +405,12 @@ inline CmdResult handleCommand(Prefs &p, const Stats &st, const char *command, c
 	if (!isCommand(command)) {
 		return {false, false};
 	}
-	const bool get = command[0] == 'g';
-	const char *rest = command + 6;
-	bool shared = false;
-	Protocol w = PROTO_MC;
-	const char *key;
-
-	if (strncmp(rest, "ping.", 5) == 0) {
-		shared = true;
-		key = rest + 5;
-	} else {
-		w = rest[1] == 'c' ? PROTO_MC : PROTO_MT;
-		key = rest + 8;
-	}
+	const zcmd::Parsed parsed = zcmd::parse(command);
+	const bool get = parsed.get;
+	const bool shared = parsed.proto == 0;
+	const Protocol w = parsed.proto == 't' ? PROTO_MT : PROTO_MC;
 	char name[16];
-	size_t n = 0;
-
-	while (key[n] && key[n] != ' ' && n < sizeof(name) - 1) {
-		name[n] = key[n];
-		n++;
-	}
-	name[n] = '\0';
-	const char *val = key[n] == ' ' ? key + n + 1 : "";
+	const char *val = zcmd::splitValue(parsed.key + 5, name, sizeof(name));
 	uint8_t b;
 	bool changed = false;
 

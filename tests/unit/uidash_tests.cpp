@@ -31,11 +31,25 @@ neighbours::Row row(const char *name, int8_t snr_x4, uint32_t age_s)
 }
 }
 
-TEST(uidash_count, "UNIT-UIDASH-001", "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M") {
+TEST(uidash_count, "UNIT-UIDASH-001", "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M, 4.2G") {
     CHECK(count(0) == "0" && count(999) == "999");
     CHECK(count(1000) == "1.0k" && count(1234) == "1.2k" && count(9999) == "9.9k");
     CHECK(count(12345) == "12k" && count(345000) == "345k");
-    CHECK(count(1000000) == "1M" && count(4294967295u) == "4294M");
+    CHECK(count(1000000) == "1M" && count(999999999) == "999M");
+    CHECK(count(1000000000) == "1.0G" && count(4294967295u) == "4.2G");
+    for (uint32_t n : {0u, 9u, 99u, 999u, 1000u, 9999u, 10000u, 99999u, 999999u, 1000000u, 999999999u, 4294967295u}) CHECK(count(n).size() <= 4);
+}
+
+TEST(uidash_freq, "UNIT-UIDASH-008", "the frequency is in MHz rounded to the kHz, a round up that reaches the next MHz carries") {
+    char b[12];
+    ui_dash_freq(b, sizeof(b), 868125000u);
+    CHECK(std::string(b) == "868.125");
+    ui_dash_freq(b, sizeof(b), 910525000u);
+    CHECK(std::string(b) == "910.525");
+    ui_dash_freq(b, sizeof(b), 868999600u);
+    CHECK(std::string(b) == "869.000");
+    ui_dash_freq(b, sizeof(b), 433050000u);
+    CHECK(std::string(b) == "433.050");
 }
 
 TEST(uidash_age, "UNIT-UIDASH-002", "an age is in seconds, minutes, hours or days") {

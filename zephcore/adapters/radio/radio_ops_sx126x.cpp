@@ -29,16 +29,21 @@ static void sx126x_post_begin(const struct device *dev)
  * the datasheet, so recalibrate stays NULL. */
 /* Sync byte 0xXY is stored as 0xX4Y4: MeshCore 0x12, Meshtastic 0x2B. The
  * hybrid takes the first nibble of one and the second of the other. */
-static int sx126x_set_sync_word_kind(const struct device *dev, SyncKind kind)
+static uint16_t sx126x_sync_reg(SyncKind kind)
 {
 	switch (kind) {
 	case SyncKind::Meshtastic:
-		return sx126x_set_sync_word_reg(dev, 0x24B4);
+		return 0x24B4;
 	case SyncKind::HybridRx:
-		return sx126x_set_sync_word_reg(dev, 0x14B4);
+		return 0x14B4;
 	default:
-		return sx126x_set_sync_word_reg(dev, 0x1424);
+		return 0x1424;
 	}
+}
+
+static void sx126x_set_sync_word_kinds(const struct device *dev, SyncKind rx, SyncKind tx)
+{
+	sx126x_set_sync_words(dev, sx126x_sync_reg(rx), sx126x_sync_reg(tx));
 }
 
 const LoRaRadioOps kLoRaRadioOps = {
@@ -69,7 +74,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.side_detectors = nullptr,
 	.reset_stats = nullptr,
 	.format_freq_error = nullptr,
-	.set_sync_word = sx126x_set_sync_word_kind,
+	.set_sync_words = sx126x_set_sync_word_kinds,
 	.set_tx_preamble_len = sx126x_set_tx_preamble_len,
 };
 

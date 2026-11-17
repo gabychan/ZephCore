@@ -60,7 +60,7 @@ TEST(ping_direct, "UNIT-PING-001", "A direct ping is answered with the SNR alone
     CHECK(mc(p, "/ping", 0, 30, -92) == "direct (-92)");
     p.snr = 1;
     p.rssi = 0;
-    CHECK(mc(p, "Ana: /ping", 0, -1, -92) == "@[Ana] direct (-0.2)");
+    CHECK(mc(p, "Ana: /ping", 0, -1, -92) == "@[Ana] direct (-0.3)");
     p.snr = 0;
     CHECK(mc(p, "Ana: /ping", 0, 30, -92) == "@[Ana] direct");
 }
@@ -261,16 +261,46 @@ TEST(ping_on_off_digits, "UNIT-PING-014", "1 and 0 mean on and off in every on/o
     CHECK(cmd(p, "set z.mt.ping.enable 10").rfind("Error", 0) == 0);
 }
 
-TEST(ping_unsent, "UNIT-PING-015", "An answer that was not sent leaves the counters as they were; one the limit turned away is counted ignored, saturating") {
+TEST(ping_unsent, "UNIT-PING-015", "An answer that was not sent is taken back from the count; one the limit turns away is counted ignored, saturating, and never built") {
     ping::Counters c = {3, 7};
-    const ping::Counters before = c;
-    c.answered++;
-    ping::unsent(c, before, false);
-    CHECK(c.answered == 3 && c.ignored == 7);
-    c.answered++;
-    ping::unsent(c, before, true);
-    CHECK(c.answered == 3 && c.ignored == 8);
-    ping::Counters full = {0, 0xFFFF};
-    ping::unsent(full, full, true);
-    CHECK(full.ignored == 0xFFFF);
+    ping::unsent(c);
+    CHECK(c.answered == 2 && c.ignored == 7);
+    ping::Counters none = {0, 0};
+    ping::unsent(none);
+    CHECK(none.answered == 0);
+    ping::Prefs p;
+    ping::setDefaults(p);
+    ping::setTrigger(p.mc, "/ping");
+    p.mc.enable = 1;
+    RateLimiter limit(2, 60);
+    ping::Counters k = {0, 0xFFFE};
+    char out[96];
+    const ping::Heard h = {1, 4, -90, {nullptr, 1, 0}};
+    CHECK(ping::reply(p, k, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, out, sizeof(out), &limit, 1000) > 0);
+    CHECK(ping::reply(p, k, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, out, sizeof(out), &limit, 1001) > 0);
+    CHECK(ping::reply(p, k, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, out, sizeof(out), &limit, 1002) == 0);
+    CHECK(k.answered == 2 && k.ignored == 0xFFFF);
+    CHECK(ping::reply(p, k, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, out, sizeof(out), &limit, 1003) == 0 && k.ignored == 0xFFFF);
+    CHECK(ping::reply(p, k, ping::PROTO_MC, "Ana: /ping", h, nullptr, nullptr, out, sizeof(out), &limit, 1061) > 0);
+}
+
+TEST(ping_trigger_text, "UNIT-PING-016", "The command matches with spaces around it, and a command that is the first word of an answer is refused") {
+    ping::Prefs p;
+    ping::setDefaults(p);
+    ping::setTrigger(p.mc, "/ping");
+    p.mc.enable = 1;
+    ping::Counters c = {};
+    char out[96];
+    const ping::Heard h = {0, 4, -90, {nullptr, 1, 0}};
+    CHECK(ping::reply(p, c, ping::PROTO_MC, "Ana:  /ping  ", h, nullptr, nullptr, out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, c, ping::PROTO_MC, "Ana: /PING ", h, nullptr, nullptr, out, sizeof(out)) > 0);
+    CHECK(ping::reply(p, c, ping::PROTO_MC, "Ana: /ping now", h, nullptr, nullptr, out, sizeof(out)) == 0);
+    CHECK(ping::sameText("  hola ", "HOLA") && !ping::sameText("hola", "hol") && !ping::sameText("hola", "holaa") && ping::sameText("", "  "));
+    CHECK(!ping::validTrigger("direct") && !ping::validTrigger("Relayed") && ping::validTrigger("directo"));
+    ping::Prefs q;
+    ping::setDefaults(q);
+    ping::setTrigger(q.mt, "direct");
+    q.mt.enable = 1;
+    ping::sanitize(q);
+    CHECK(q.mt.enable == 0 && q.mt.trigger[0] == '\0');
 }

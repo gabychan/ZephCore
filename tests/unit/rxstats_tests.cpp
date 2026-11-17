@@ -54,6 +54,23 @@ TEST(rx_relays_full, "UNIT-RX-003", "A full table drops the relay that carried l
     CHECK(r.find(" 10:16") != std::string::npos);
 }
 
+TEST(rx_relays_stale, "UNIT-RX-007", "A full table drops a relay not heard for over an hour before the one with fewest frames") {
+    rxstats::Observer o;
+    for (uint8_t i = 1; i <= 16; i++) {
+        const uint8_t id[1] = {i};
+        for (uint8_t n = 0; n < i; n++) o.heard(1, id, 1, 100);
+    }
+    const uint8_t quiet[1] = {0x10};
+    o.heard(1, quiet, 1, 100 + rxstats::kStaleS + 1);   // the others are now stale, 0x10 is fresh
+    const uint8_t fresh[1] = {0xee};
+    o.heard(1, fresh, 1, 100 + rxstats::kStaleS + 2);
+    const std::string r = relays(o);
+    CHECK(r.find(" ee:1") != std::string::npos);
+    CHECK(r.find(" 10:17") != std::string::npos);       // the fresh one stays though it was busy
+    CHECK(r.find(" 01:1") == std::string::npos);        // one of the stale ones went
+    CHECK(r.find(" 0f:15") != std::string::npos);       // the fresh 0x10 was not taken for having few frames
+}
+
 TEST(rx_relays_fit, "UNIT-RX-004", "A line that does not fit the reply is left out whole") {
     rxstats::Observer o;
     o.heard(1, b, 2);

@@ -112,11 +112,7 @@ void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t chan
 	uint8_t frame[mt::kMaxTxFrame];
 
 	if (_nodeinfo.due(now_ms)) {
-		if (p.enable && p.nodeinfo_s) {
-			_nodeinfo.arm(now_ms, p.nodeinfo_s * 1000u);
-		} else {
-			_nodeinfo.stop();
-		}
+		_nodeinfo.rearm(now_ms, p.enable, p.nodeinfo_s);
 		size_t n = _bridge.buildNodeInfo(channel, frame, sizeof(frame));
 
 		if (n > 0) {
@@ -129,11 +125,7 @@ void MtRelayPort::tick(uint32_t now_ms, const mt::RepeaterPrefs &p, uint8_t chan
 		}
 	}
 	if (_telemetry.due(now_ms)) {
-		if (p.enable && p.telemetry_s) {
-			_telemetry.arm(now_ms, p.telemetry_s * 1000u);
-		} else {
-			_telemetry.stop();
-		}
+		_telemetry.rearm(now_ms, p.enable, p.telemetry_s);
 		mt::DeviceMetrics m = {};
 		size_t n;
 
@@ -186,7 +178,7 @@ uint32_t MtRelayPort::slotMs() const
 void MtRelayPort::queue(const uint8_t *relay, size_t len, const int8_t snr_x4,
 			const Policy &policy)
 {
-	if (len > mt::kMaxTxFrame) {
+	if (len > MAX_PACKET_PAYLOAD && mesh::ForeignTail::SLOTS == 0) {
 		LOG_WRN("mt: relay too long (len=%u)", (unsigned)len);
 		_stats.too_long++;
 		return;
@@ -208,7 +200,7 @@ void MtRelayPort::echoHeard(const uint8_t raw[], int len)
 {
 	mt::Header h;
 
-	if (!mt::parseHeader(raw, (size_t)len, h) || (h.hopStart() > 0 && h.hopStart() == h.hopLimit())) {
+	if (!mt::parseHeader(raw, (size_t)len, h) || h.fromOrigin()) {
 		return;
 	}
 	_mesh.foreignDupeHeard(raw, len);
@@ -223,8 +215,7 @@ void MtRelayPort::noteDirect(const uint8_t raw[], int len, int8_t snr_x4)
 {
 	mt::Header h;
 
-	if (mt::parseHeader(raw, (size_t)len, h) && h.from != _bridge.self() && h.hopStart() > 0 &&
-	    h.hopStart() == h.hopLimit()) {
+	if (mt::parseHeader(raw, (size_t)len, h) && h.from != _bridge.self() && h.fromOrigin()) {
 		_neighbours.note(h.from, snr_x4, (uint32_t)(k_uptime_get() / 1000));
 	}
 }

@@ -111,8 +111,10 @@ struct ui_state {
 
 	/* Sensors page */
 
-	/* Dashboard page */
+	/* Dashboard page: only a build with Meshtastic and a screen role has it */
+#if defined(CONFIG_ZEPHTACORE_MESHTASTIC) && !defined(ZEPHCORE_REPEATER)
 	struct ui_dash dash;
+#endif
 
 	/* Current page */
 	enum ui_page current_page;

@@ -132,21 +132,16 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 	}
 	memcpy(line, text, len);
 	line[len] = '\0';
-	const ping::Counters before = _ping_stats.mt;
 	size_t n = ping::reply(_prefs.ping, _ping_stats.mt, ping::PROTO_MT, line, heard, nullptr, nullptr,
-			       out, sizeof(out));
+			       out, sizeof(out), &_ping_limit_mt, getRTCClock()->getCurrentTime());
 	uint8_t frame[mt::kMaxTxFrame];
 
 	if (n == 0) {
 		return;
 	}
-	if (!_ping_limit_mt.allow(getRTCClock()->getCurrentTime())) {
-		ping::unsent(_ping_stats.mt, before, true);
-		return;
-	}
 	n = _mt.buildText(kBotChannel, mt::kBroadcast, out, n, frame, sizeof(frame), id);
 	if (n == 0 || !_mtport.send(frame, n)) {
-		ping::unsent(_ping_stats.mt, before, false);
+		ping::unsent(_ping_stats.mt);
 	}
 }
 
@@ -158,8 +153,8 @@ bool RepeaterMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float 
 	mt::Header h;
 
 	if (r != mt::RX_NOT_MESHTASTIC && r != mt::RX_IGNORED && mt::parseHeader(raw, (size_t)len, h)) {
-		_rx_mt.heard(h.hopStart() ? (h.hopStart() >= h.hopLimit() ? h.hopStart() - h.hopLimit() : 0) : rxstats::kUnknownHops,
-			     &h.relay, h.relay ? 1 : 0);
+		_rx_mt.heard(h.hopStart() ? h.hopsAway() : rxstats::kUnknownHops,
+			     &h.relay, h.relay ? 1 : 0, (uint32_t)(k_uptime_get() / 1000));
 	}
 	return r != mt::RX_NOT_MESHTASTIC;
 }
@@ -178,11 +173,7 @@ public:
 protected:
 	void label(const neighbours::Entry &e, neighbours::Row &r) const override
 	{
-		if (e.name[0]) {
-			snprintf(r.name, sizeof(r.name), "%s", e.name);
-		} else {
-			neighbours::nodeLabel(r.name, sizeof(r.name), e.id);
-		}
+		neighbours::nameOrNode(e, r);
 	}
 };
 } /* namespace */

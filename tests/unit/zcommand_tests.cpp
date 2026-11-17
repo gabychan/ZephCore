@@ -64,3 +64,22 @@ TEST(zcmd_help_free_text, "UNIT-ZCMD-006", "set <key> help on a key that takes a
     CHECK(!zcmd::helpReply("get z.nothing.here help", true, out, sizeof(out)) && strcmp(out, "sentinel") == 0);
     CHECK(!zcmd::helpReply("set z.mc.ping.trigger help", true, out, sizeof(out)) && strcmp(out, "sentinel") == 0);
 }
+
+TEST(zcmd_parse, "UNIT-ZCMD-007", "A z. line is taken apart once: get or set, the protocol, the key and its value; anything else is not one") {
+    auto p = zcmd::parse("get z.mc.fw.rate");
+    CHECK(p.ok && p.get && p.proto == 'c' && std::string(p.key) == "fw.rate");
+    p = zcmd::parse("set z.mt.ping.enable on /ping");
+    CHECK(p.ok && !p.get && p.proto == 't' && std::string(p.key) == "ping.enable on /ping");
+    p = zcmd::parse("set z.ping.snr off");
+    CHECK(p.ok && p.proto == 0 && std::string(p.key) == "ping.snr off");
+    p = zcmd::parse("get z.info");
+    CHECK(p.ok && p.get && p.proto == 0 && std::string(p.key) == "info");
+    p = zcmd::parse("get z.mx.fw.rate");
+    CHECK(p.ok && p.proto == 0 && std::string(p.key) == "mx.fw.rate");
+    for (const char *line : {"get zz.mc.fw.rate", "get z", "set x.mc", "", "gets z.mc.fw.rate", "get  z.mc.fw.rate"}) CHECK(!zcmd::parse(line).ok);
+    char name[8];
+    CHECK(std::string(zcmd::splitValue("rate 12", name, sizeof(name))) == "12" && std::string(name) == "rate");
+    CHECK(std::string(zcmd::splitValue("rate", name, sizeof(name))) == "" && std::string(name) == "rate");
+    CHECK(std::string(zcmd::splitValue("a b c", name, sizeof(name))) == "b c" && std::string(name) == "a");
+    CHECK(std::string(zcmd::splitValue("toolongname 5", name, sizeof(name))) == "" && std::string(name) == "toolong");
+}

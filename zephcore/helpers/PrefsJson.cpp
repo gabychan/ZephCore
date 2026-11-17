@@ -119,6 +119,9 @@ protected:
 	void structure() override
 	{
 		for (int i = 0; i < mt::kTableMax; i++) {
+			if (_context->op() == WRITE && _p->mt.channels[i].name[0] == '\0') {
+				continue;  /* an empty slot is the default: not written */
+			}
 			char key[3] = {'c', (char)('0' + i), '\0'};
 			MtChannelJson e(&_p->mt.channels[i]);
 

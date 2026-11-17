@@ -1044,7 +1044,7 @@
     },
     {
       "id": "UNIT-UIDASH-001",
-      "name": "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M",
+      "name": "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M, 4.2G",
       "source": "tests/unit/uidash_tests.cpp"
     },
     {
@@ -1309,7 +1309,7 @@
     },
     {
       "id": "UNIT-PING-015",
-      "name": "An answer that was not sent leaves the counters as they were; one the limit turned away is counted ignored, saturating",
+      "name": "An answer that was not sent is taken back from the count; one the limit turns away is counted ignored, saturating, and never built",
       "source": "tests/unit/ping_tests.cpp"
     },
     {
@@ -1326,6 +1326,61 @@
       "id": "UNIT-FOREIGN-004",
       "name": "A dupe of a MeshCore flood we hold pushes it back by 0.2 x its airtime from its own slot, never earlier, within the cap; a flood not tracked stays",
       "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-026",
+      "name": "A foreign frame up to 255 bytes goes out whole, its tail slot comes back, and when the slots are used the frame is refused",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-066",
+      "name": "The decoders read nothing outside their buffer on truncated, flipped or random input, and a sealed payload shorter than its overhead opens to nothing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-067",
+      "name": "Random Meshtastic-sized frames are taken for MeshCore ones rarely, and the shape of each MeshCore payload type is held",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-005",
+      "name": "A repeat waiting longer than the observation window still hears the copy of another node and gives way; once its own wait is over it is no longer tracked",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-016",
+      "name": "The command matches with spaces around it, and a command that is the first word of an answer is refused",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-008",
+      "name": "the frequency is in MHz rounded to the kHz, a round up that reaches the next MHz carries",
+      "source": "tests/unit/uidash_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-007",
+      "name": "A z. line is taken apart once: get or set, the protocol, the key and its value; anything else is not one",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZINFO-006",
+      "name": "The counters of z.stats come from the radio, the mesh and the packet manager, air time in whole seconds",
+      "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-007",
+      "name": "A full table drops a relay not heard for over an hour before the one with fewest frames",
+      "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-068",
+      "name": "hopsAway counts the hops spent and is 0 without hop_start; fromOrigin needs hop_start and none spent",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-020",
+      "name": "A row takes the name the node announced, else its number in hex",
+      "source": "tests/unit/neighbour_tests.cpp"
     }
   ]
 }

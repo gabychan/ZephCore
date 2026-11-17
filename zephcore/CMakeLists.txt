@@ -521,6 +521,15 @@ if(CONFIG_ARCH_POSIX)
   target_sources(app PRIVATE adapters/transport/linux_native_setup.c)
 endif()
 
+# What both Meshtastic roles share; each adds its own file.
+set(ZEPHTACORE_MT_SOURCES
+  app/MtRelayPort.cpp
+  helpers/meshtastic/MtWire.cpp
+  helpers/meshtastic/MtBridge.cpp
+  helpers/meshtastic/MtPki.cpp
+  helpers/meshtastic/MtConfig.cpp
+)
+
 # ========== Radio Driver Selection ==========
 if(CONFIG_ZEPHCORE_RADIO_LR1110)
   message(STATUS "ZephCore Radio: LR1110 (Zephyr LoRa driver)")
@@ -559,14 +568,7 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
     )
     if(CONFIG_ZEPHTACORE_MESHTASTIC)
       message(STATUS "Zephtacore: Meshtastic repeater")
-      target_sources(app PRIVATE
-        app/RepeaterMeshtastic.cpp
-        app/MtRelayPort.cpp
-        helpers/meshtastic/MtWire.cpp
-        helpers/meshtastic/MtBridge.cpp
-        helpers/meshtastic/MtPki.cpp
-        helpers/meshtastic/MtConfig.cpp
-      )
+      target_sources(app PRIVATE app/RepeaterMeshtastic.cpp ${ZEPHTACORE_MT_SOURCES})
     endif()
   else()
     message(STATUS "ZephCore Role: ROOM SERVER")
@@ -681,14 +683,7 @@ else()
   )
   if(CONFIG_ZEPHTACORE_MESHTASTIC)
     message(STATUS "Zephtacore: Meshtastic bridge")
-    target_sources(app PRIVATE
-      app/CompanionMeshtastic.cpp
-      app/MtRelayPort.cpp
-      helpers/meshtastic/MtWire.cpp
-      helpers/meshtastic/MtBridge.cpp
-      helpers/meshtastic/MtPki.cpp
-      helpers/meshtastic/MtConfig.cpp
-    )
+    target_sources(app PRIVATE app/CompanionMeshtastic.cpp ${ZEPHTACORE_MT_SOURCES})
   endif()
   # Companion transports: main_companion.cpp registers every one the build
   # has in upstream's MultiSerialInterface — BLE NUS when there is a

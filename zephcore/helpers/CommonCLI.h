@@ -13,6 +13,7 @@
 #include <helpers/RegionMap.h>
 #include <helpers/SensorManager.h>
 #include <helpers/ZInfo.h>
+#include <helpers/RxStats.h>
 #include "NodePrefs.h"
 
 class MeshTimeSync;
@@ -164,6 +165,7 @@ class CommonCLI {
 	void scheduleReboot(uint8_t type);
 	bool handleRadioCmd(uint32_t sender_timestamp, const char* command, char* reply);
 	bool handleMtCmd(uint32_t sender_timestamp, const char* command, char* reply);
+	bool handleZCmd(uint32_t sender_timestamp, const char* command, char* reply);
 	void replyZInfo(size_t cap, char* reply);
 	void replyZStats(size_t cap, char* reply);
 	void handleGetCmd(uint32_t sender_timestamp, const char* command, char* reply);

@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "ui/ui_dash_fmt.h"
+
 namespace zinfo {
 
 struct Info {
@@ -29,18 +31,27 @@ struct Stats {
 	uint32_t queue;
 };
 
-/* "1d02h", "3h05m" or "12m". */
-inline int formatUptime(char *out, size_t cap, uint32_t s)
+/* The counters of "get z.stats", from the radio driver, the mesh (anything with the Dispatcher's counters)
+ * and the packet manager of whichever role calls. */
+template <class RadioT, class MeshT, class ManagerT>
+inline void fillStats(Stats &s, RadioT &radio, const MeshT &mesh, ManagerT &mgr)
 {
-	const uint32_t m = s / 60, h = m / 60, d = h / 24;
+	s.recv = radio.getPacketsRecv();
+	s.sent = radio.getPacketsSent();
+	s.errors = radio.getPacketsRecvErrors();
+	s.flood_tx = mesh.getNumSentFlood();
+	s.direct_tx = mesh.getNumSentDirect();
+	s.flood_rx = mesh.getNumRecvFlood();
+	s.direct_rx = mesh.getNumRecvDirect();
+	s.tx_air_s = mesh.getTotalAirTime() / 1000;
+	s.rx_air_s = mesh.getReceiveAirTime() / 1000;
+	s.queue = mgr.getOutboundTotal();
+}
 
-	if (d > 0) {
-		return snprintf(out, cap, "%ud%02uh", (unsigned)d, (unsigned)(h % 24));
-	}
-	if (h > 0) {
-		return snprintf(out, cap, "%uh%02um", (unsigned)h, (unsigned)(m % 60));
-	}
-	return snprintf(out, cap, "%um", (unsigned)m);
+/* Bytes as tenths of a KiB, rounded. */
+inline unsigned kbTenths(uint32_t bytes)
+{
+	return (unsigned)(((uint64_t)bytes * 10 + 512) / 1024);
 }
 
 /* "> fw 1.18.2 | up 1d02h | battery 4231mV | flash 96/2048K | heap 12.3/44.0K (peak 20.1K) | contacts 351/350" */
@@ -49,16 +60,18 @@ inline void formatInfo(char *out, size_t cap, const Info &i)
 	char up[16];
 	size_t n;
 
-	formatUptime(up, sizeof(up), i.uptime_s);
+	ui_dash_uptime(up, sizeof(up), i.uptime_s);
 	n = (size_t)snprintf(out, cap, "> fw %s | up %s | battery %umV", i.fw, up, (unsigned)i.batt_mv);
 	if (n < cap && i.flash_total_kb != 0) {
 		n += (size_t)snprintf(out + n, cap - n, " | flash %u/%uK", (unsigned)i.flash_used_kb,
 				      (unsigned)i.flash_total_kb);
 	}
 	if (n < cap && i.heap_total != 0) {
-		n += (size_t)snprintf(out + n, cap - n, " | heap %.1f/%.1fK (peak %.1fK)",
-				      (double)i.heap_used / 1024.0, (double)i.heap_total / 1024.0,
-				      (double)i.heap_peak / 1024.0);
+		const unsigned used = kbTenths(i.heap_used), total = kbTenths(i.heap_total),
+			       peak = kbTenths(i.heap_peak);
+
+		n += (size_t)snprintf(out + n, cap - n, " | heap %u.%u/%u.%uK (peak %u.%uK)", used / 10,
+				      used % 10, total / 10, total % 10, peak / 10, peak % 10);
 	}
 	if (n < cap && i.max_contacts != 0) {
 		snprintf(out + n, cap - n, " | contacts %u/%u", (unsigned)i.contacts,

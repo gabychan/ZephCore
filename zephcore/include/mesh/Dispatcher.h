@@ -6,6 +6,7 @@
 #include <mesh/Utils.h>
 #include <mesh/Maintenance.h>  // ZEPHCORE: deadline-driven maintenance
 #include <mesh/TxStall.h>  // ZEPHCORE: per-cause TX stalls
+#include <mesh/ForeignTail.h>  // ZEPHCORE: tail of a foreign frame longer than a Packet
 #include <string.h>
 
 namespace mesh {
@@ -227,6 +228,7 @@ class Dispatcher {
   void* _tx_queued_user_data;
   wake_callback_t _wake_cb;
   void* _wake_user_data;
+  ForeignTail _foreign_tail;  // ZEPHCORE: bytes of a foreign frame past MAX_PACKET_PAYLOAD
 
   void processRecvPacket(Packet* pkt);
   void updateTxBudget();
@@ -283,10 +285,13 @@ public:
   Packet* obtainNewPacket();
   void releasePacket(Packet* packet);
   void sendPacket(Packet* packet, uint8_t priority, uint32_t delay_millis=0);
-  // ZEPHCORE: queues a complete on-air frame of another protocol (len <= MAX_PACKET_PAYLOAD).
+  // ZEPHCORE: queues a complete on-air frame of another protocol (len <= MAX_TRANS_UNIT; past
+  // MAX_PACKET_PAYLOAD it needs a free ForeignTail slot).
   bool sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis=0);
   // ZEPHCORE: foreign frames waiting in the outbound queue.
   int getForeignQueued() const;
+  // ZEPHCORE: bytes the packet puts on the air as a payload: the foreign frame in full, the payload otherwise.
+  static int payloadOnAir(const Packet* pkt) { return pkt->payload_len + (pkt->isForeign() ? pkt->transport_codes[0] : 0); }
 
   uint32_t getTotalAirTime() const { return total_air_time; }
   uint32_t getReceiveAirTime() const {return rx_air_time; }

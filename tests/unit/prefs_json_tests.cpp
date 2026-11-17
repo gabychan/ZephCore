@@ -295,6 +295,8 @@ TEST(pjson_mt_channels, "UNIT-PJSON-012", "A companion's Meshtastic channels sur
     CHECK(std::string(q.mt.channels[0].name) == "SFNarrow" && q.mt.channels[0].psk_len == 1 && q.mt.channels[0].psk[0] == 1);
     CHECK(std::string(q.mt.channels[1].name) == "Mine" && q.mt.channels[1].psk_len == 16 && q.mt.channels[1].psk[15] == 0x4F);
     CHECK(q.mt.channels[2].name[0] == '\0');
+    CHECK(s.data.find("c0:") != std::string::npos && s.data.find("c1:") != std::string::npos);
+    CHECK(s.data.find("c2:") == std::string::npos && s.data.find("c7:") == std::string::npos);   // the empty slots are not written
 
     MemStream old("{name:\"C\",lat:0,lon:0,mt:{en:1}}");
     NodePrefs d = defaults();

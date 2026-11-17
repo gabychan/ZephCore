@@ -81,7 +81,7 @@ default channels and node name in order.
 - A direct message to a Meshtastic node that the app retries keeps the packet id of the first try, so the node's ACK still
   answers it. A PKI message that arrives before we know the sender's key is delivered when it is sent again, and a key that no
   longer opens a frame makes us ask for the node's NodeInfo.
-- `get z.mt.stats` counts `long` apart: Meshtastic frames over 184 bytes, which are heard and delivered but not repeated.
+- Meshtastic frames up to 255 bytes are repeated: the bytes past the 184th of a queued frame wait in a tail slot (`CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS`, 4 slots of 71 bytes by default). `get z.mt.stats` counts `long` the frames a build without slots cannot repeat, apart from `shed`.
 - A Meshtastic node heard for the first time is added as a contact only as your auto-add settings
   allow; with manual adding it shows up as a discovered contact instead.
 - Renaming the node changes the name in its Meshtastic NodeInfo too, without a restart.
@@ -95,7 +95,10 @@ default channels and node name in order.
   best SNR first, as `name (SNR, age)`, 4 to a page (`get z.mt.neighbors 2`), or the latest heard first with `recent` (`get z.mt.neighbors recent`). MeshCore lists repeaters heard with no hops, Meshtastic nodes heard with no relay
   in between. Kept in RAM, so a reboot empties them.
 - New `get z.info` (version, uptime, battery, flash, heap and contacts in use) and `get z.stats` (MeshCore and Meshtastic counters), each in
-  one line that fits a radio reply.
+  one line that fits a radio reply. The heap figures come from the kernel's heap counters, which every build now enables
+  (`CONFIG_SYS_HEAP_RUNTIME_STATS`).
+- With the Meshtastic bridge a new device starts at coding rate 4/6, the SFNarrow preset (4/5 without it). A device that
+  already has settings keeps them.
 - New dashboard page on 200x200 e-paper companions (ThinkNode M1): MeshCore and Meshtastic side by side, with packet counts, nearest
   neighbours and their signal, radio setup, heap, flash and time on air. It is the first page, and redraws when opened, on a button press
   and once an hour.
@@ -109,3 +112,7 @@ default channels and node name in order.
 
 - SX126x: changing the sync word between MeshCore and Meshtastic no longer waits for the radio's
   sleep phase when RX duty cycle is on.
+- LR1110 and LR2021 boards (the T1000-E among them) with Zephtacore: nearby MeshCore nodes are heard again.
+  The hybrid receive word was `0x1B`, which made the LR1110 drop every strong MeshCore frame, so close nodes only
+  arrived repeated and never showed as neighbours. It is now `0x22`, which favours MeshCore: on these chips only weak
+  Meshtastic frames are received.

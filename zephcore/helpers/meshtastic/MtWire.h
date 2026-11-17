@@ -44,6 +44,10 @@ struct Header {
 	uint8_t hopLimit() const { return flags & 0x07; }
 	uint8_t hopStart() const { return (uint8_t)(flags >> 5); }
 	bool wantAck() const { return (flags & 0x08) != 0; }
+	/* Hops crossed so far; 0 when the sender set no hop_start. */
+	uint8_t hopsAway() const { return hopStart() > hopLimit() ? (uint8_t)(hopStart() - hopLimit()) : 0; }
+	/* Heard straight from the node that made it: hop_start set and none spent. */
+	bool fromOrigin() const { return hopStart() > 0 && hopStart() == hopLimit(); }
 };
 
 /* False when len < kHeaderLen. */

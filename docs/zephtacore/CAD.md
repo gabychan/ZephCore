@@ -120,7 +120,9 @@ nuevo cubre. Los nodos cliente esperan además `2 × 8` slots fijos para dejar p
 - **Ventana adaptativa**: el nodo cuenta cuántos duplicados oye de los paquetes que repite y mantiene una media móvil.
   Con pocos vecinos la ventana se estrecha (menos latencia); con muchos se ensancha sola. Topes: 6 airtimes y 2 s.
 - **Espera extra por duplicado**: si mientras un paquete está en cola oye a otro nodo repetirlo, retrasa el suyo
-  `backoff_multiplier × airtime` cada vez, hasta un tope de `min(2 s, 12 airtimes)`. **No cancela.**
+  `backoff_multiplier × airtime` cada vez, hasta un tope de `min(2 s, 12 airtimes)`. **No cancela.** Los duplicados se
+  vigilan 10 s desde que el paquete entra en cola y, en un frame Meshtastic, durante toda su espera además: con SF12 y
+  una señal fuerte la ventana en slots llega a unos 23 s, más que los 10 s.
 
 ### Por qué no cancelar al oír el eco
 

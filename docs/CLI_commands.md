@@ -257,7 +257,7 @@ The repeater and the companion repeat Meshtastic floods on the radio they share 
 | `set z.mt.zerohop.add <node>` / `set z.mt.zerohop.remove <node>` / `set z.mt.zerohop.clear` | Nodes whose repeats keep their hops whatever role they announce, up to 8, by node number (`!a1b2c3d4` or `a1b2c3d4`). For a fixed neighbour whose NodeInfo this node cannot read (it holds no key for its channel) or that announces `client`. Only the last byte of the number travels in a frame, so any node that shares it is treated the same. |
 | `get z.mt.nodeinfo` / `set z.mt.nodeinfo <seconds>` | Seconds between our NodeInfo broadcasts, `0` never, otherwise 600 to 604800 (default 43200). The first goes out 30 s after boot or after a change. Our position, the one set by `set lat` / `set lon`, follows each NodeInfo while `advert.loc` is not `none` and the position is not 0,0. |
 | `get z.mt.telemetry` / `set z.mt.telemetry <seconds>` | Device metrics (battery level and voltage, channel utilisation, TX air utilisation, uptime) on the primary channel. `0` never, otherwise 60 to 86400 (default 0). Without a battery reading the level is 101, which Meshtastic shows as powered. Utilisations are the share of the time since the previous telemetry that the radio spent receiving and sending (the first one counts from boot), not Meshtastic's sliding windows. The first goes out 60 s after boot or after a change. |
-| `get z.mt.stats` | `heard` Meshtastic frames, `relayed` repeats queued, `opaque` frames of unknown channels, `dropped` frames discarded because no Meshtastic channel opened them and they are not shaped like MeshCore, `shed` repeats not queued because 8 were waiting already or the packet pool had no room (Meshtastic repeats go after every MeshCore packet, so its traffic cannot take the pool from MeshCore), `long` frames not repeated because they are longer than 184 bytes, the most a queued packet holds (a Meshtastic frame can be 255), `kept` repeats sent with their `hop_limit` unchanged (`z.mt.zerohop`). |
+| `get z.mt.stats` | `heard` Meshtastic frames, `relayed` repeats queued, `opaque` frames of unknown channels, `dropped` frames discarded because no Meshtastic channel opened them and they are not shaped like MeshCore, `shed` repeats not queued because 8 were waiting already, the packet pool had no room or a frame over 184 bytes found no free tail slot (Meshtastic repeats go after every MeshCore packet, so its traffic cannot take the pool from MeshCore), `long` frames not repeated because they are longer than 184 bytes and the build has no tail slot for them (`CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS` is 0), `kept` repeats sent with their `hop_limit` unchanged (`z.mt.zerohop`). |
 
 ### Neighbours
 
@@ -286,7 +286,7 @@ Drop rules and two limits on what the repeater accepts, MeshCore as `z.mc.fw.*` 
 
 ### Meshtastic (`z.mt.fw.*`, `CONFIG_ZEPHTACORE_MESHTASTIC`)
 
-The same four commands, `get|set z.mt.fw.drop`, `.gap`, `.rate` and `get z.mt.fw.stats`, with their own settings and counters (`prefs.json` `zc{}`, keys `mfw_*`). They apply to a frame that is **new**: a copy of one already heard is a duplicate and is not screened, so a repeat of ours is still cancelled when a neighbour echoes it; a copy of a frame already dropped is dropped again without being counted. Differences:
+The same four commands, `get|set z.mt.fw.drop`, `.gap`, `.rate` and `get z.mt.fw.stats`, with their own settings and counters (`prefs.json` `zc{}`, keys `mfw_*`). They apply to a frame that is **new**: a copy of one already heard is a duplicate and is not screened, so a copy heard from a neighbour still pushes our repeat back; a copy of a frame already dropped is dropped again without being counted. Differences:
 
 - `drop` rules are ports: `text`, `position`, `nodeinfo`, `telemetry`, `traceroute`, `other` (any port not named, admin and store-and-forward among them). Routing (ACK and NAK) is never dropped. A frame of a channel this node holds no key for has no readable port, so no rule reaches it.
 - `gap` is minutes between two NodeInfo of one node that are kept, by node number. A NodeInfo on a channel carries no signature, so anyone with the channel key can send one; the gap opens only for a frame that passed every other check.
@@ -299,7 +299,7 @@ What the repeater heard since boot, per protocol, in RAM (`clear stats` empties 
 | Command | Description |
 |---------|-------------|
 | `get z.mc.hopstats` / `get z.mt.hopstats` | Frames heard by hops crossed: `> 0:12 1:5 7+:1 ?:2`, only the buckets with frames, `7+` seven or more, `?` Meshtastic frames whose sender set no `hop_start`. MeshCore counts flood frames (the hashes in the path), every copy heard; Meshtastic counts `hop_start - hop_limit` of the frames its channels or the opaque path took. `> none` when empty. |
-| `get z.mc.relays` / `get z.mt.relays` | Who delivered the frames, most first: `> 3f:120 a1b2:40`. MeshCore: the last hash of the path of a flood frame (1 to 3 bytes, per `path.hash.mode`); a frame with no hops has none. Meshtastic: the relay byte of the header, which is the last byte of a node number (`z.mt.neighbors` shows the node). 16 relays are kept; a full table drops the one with fewest frames. |
+| `get z.mc.relays` / `get z.mt.relays` | Who delivered the frames, most first: `> 3f:120 a1b2:40`. MeshCore: the last hash of the path of a flood frame (1 to 3 bytes, per `path.hash.mode`); a frame with no hops has none. Meshtastic: the relay byte of the header, which is the last byte of a node number (`z.mt.neighbors` shows the node). 16 relays are kept; a full table drops the one not heard for over an hour, else the one with fewest frames. |
 
 ## Ping bot (*ZephCore only*)
 
@@ -318,10 +318,10 @@ MeshCore flood packets carry the hash of every repeater they crossed, first repe
 
 | Command | Description |
 |---------|-------------|
-| `set z.mc.ping.enable on <command>` / `set z.mt.ping.enable on <command>` (`1` for `on`) | Answer `<command>` on that protocol and turn its bot on. `<command>` is 1 to 15 characters, no spaces (for example `/ping`). Without it, `on` works only when a command is already set. |
+| `set z.mc.ping.enable on <command>` / `set z.mt.ping.enable on <command>` (`1` for `on`) | Answer `<command>` on that protocol and turn its bot on. `<command>` is 1 to 15 characters, no spaces (for example `/ping`), and not `direct` or `relayed`, the first word of an answer. Without it, `on` works only when a command is already set. |
 | `get z.mc.ping.enable` / `set z.mc.ping.enable off` (or `0`; same for `z.mt.ping.enable`) | Whether the bot answers (default off). Off keeps the command. |
-| `get z.mc.ping.trigger` / `set z.mc.ping.trigger <command>` (same for `z.mt.ping.trigger`) | The command, changed without touching on or off. The whole message must equal it, without regard to case. Empty until set. |
-| `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters turned away since boot. |
+| `get z.mc.ping.trigger` / `set z.mc.ping.trigger <command>` (same for `z.mt.ping.trigger`) | The command, changed without touching on or off. The whole message must equal it, without regard to case and to the spaces around it. Empty until set. |
+| `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters or the answer limit turned away since boot. |
 | `get z.ping.snr` / `set z.ping.snr on\|off\|1\|0` | Show the SNR (default on). Shared by both protocols. |
 | `get z.ping.rssi` / `set z.ping.rssi on\|off\|1\|0` | Show the RSSI (default off). Shared. |
 | `get z.ping.ignore.direct` / `set z.ping.ignore.direct on\|off\|1\|0` | Do not answer a ping heard with 0 hops (default off). Shared. |

@@ -208,14 +208,23 @@ private:
 	/* Floods repeat once: next_hop 0, hops left, not for us alone. */
 	bool fillRelay(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,
 		       size_t *relay_len) const;
-	/* ch carries the frame on a channel; pki_key (32 bytes) instead seals it for
-	 * one node and sets channel 0. */
-	size_t buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
-			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
-			  uint32_t reply_id = 0, uint32_t request_id = 0, bool want_response = false,
-			  bool want_ack = false, uint32_t packet_id = 0);
-	void deliverData(const Header &h, const Data &d, uint8_t channel_id, int8_t snr_x4,
-			 Sink &sink);
+	/* What a frame carries and how it goes out. ch carries it on a channel; pki_key (32
+	 * bytes) instead seals it for one node and sets channel 0. packet_id 0 takes a new id. */
+	struct TxSpec {
+		const Channel *ch = nullptr;
+		const uint8_t *pki_key = nullptr;
+		uint32_t to = kBroadcast;
+		uint32_t port = 0;
+		const uint8_t *payload = nullptr;
+		size_t payload_len = 0;
+		uint32_t reply_id = 0;
+		uint32_t request_id = 0;
+		uint32_t packet_id = 0;
+		bool want_response = false;
+		bool want_ack = false;
+	};
+	size_t buildFrame(const TxSpec &t, uint8_t *out, size_t cap);
+	void deliverData(const Header &h, const Data &d, uint8_t channel_id, Sink &sink);
 	bool openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,
 		     Data &d);
 	void deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink);

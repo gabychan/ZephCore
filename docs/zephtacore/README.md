@@ -34,8 +34,11 @@ Repeating is the `z.mt.relay` setting (see `docs/CLI_commands.md`), not a build 
 is the default of `z.mt.hops`, the hop limit of the frames we originate; Meshtastic's own default is 3.
 
 SX127x boards build, but cannot pick the sync word per frame, so Meshtastic is neither heard nor sent there.
-On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x1B`
-(high nibble of one, low nibble of the other, as in meshtacore). The driver applies it at the next RX or TX start.
+On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x22`
+(Meshtastic's high nibble, MeshCore's low one). On a T1000-E (LR1110) a strong frame whose low nibble differs from
+the receive word ends in a header error, while weak ones pass: with meshtacore's `0x1B` every nearby MeshCore node was
+lost (0 of 24 adverts at -29 dBm) and only farther ones, repeated, were heard. `0x22` keeps MeshCore at every level and
+hears only weak Meshtastic. Measured on the LR1110 only; the LR2021 takes the same word unmeasured. The driver applies it at the next RX or TX start.
 The LR2021 side detectors (other SFs) use the same word as the main detector.
 
 ## Defaults
@@ -78,7 +81,7 @@ only when a firmware raises the revision. Existing channels and radio settings a
 - Channels use the AES-128 channel cipher only: no AEAD channels, no AES-256 channel keys. Direct messages use PKI.
 - A PKI message from a node whose key we do not hold is not opened (it is lost; our NodeInfo request gets the key for the next one). No `PKI_UNKNOWN_PUBKEY` reply, no ACK proof, no admin messages. An ACK is trusted by packet id and sender, without Meshtastic's ACK proof.
 - PKI is used for text only (not NodeInfo, Position or routing, as in Meshtastic), except our ACKs, which are PKI too.
-- A frame we send or repeat is at most 184 bytes (MeshCore's payload limit), about 164 characters of text.
+- A frame we send is at most 184 bytes (MeshCore's payload limit), about 164 characters of text. A frame we repeat can be up to 255: the bytes past the 184th wait in one of `CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS` slots of 71 bytes (4 by default).
 - Our position is not broadcast.
 - Text sent from the device UI (joystick) still goes out as MeshCore; only app messages are bridged.
 - A repeated frame waits as a Meshtastic client does: 16 slots left to routers, then a random slot in a window of
@@ -114,11 +117,16 @@ app message to a Meshtastic contact -> mt::Bridge::buildDirectText (PKI) -> same
 | Ping bot: trigger, route, answer, `z.*ping.*` commands | `zephcore/helpers/PingBot.h` (companion: `CompanionMesh::pingReply`; repeater: `RepeaterMesh::onGroupDataRecv`, `mtPing`) |
 | Node key file | `ZephyrDataStore::getMtKey/putMtKey/removeMtKey` (`zephcore/adapters/datastore`) |
 | RX hook and foreign TX frames | `Dispatcher::onRecvForeign`, `Dispatcher::sendForeign`, `Packet::isForeign` |
-| Sync word per frame | `LoRaRadio::applySyncWord`, `sx126x_set_sync_word_reg` in `patches/zephyr/0003-lora-sx126x-native.patch` |
+| Sync word per frame | `LoRaRadio::applySyncWords`, `sx126x_set_sync_words` in `patches/zephyr/0003-lora-sx126x-native.patch`, `lr11xx_set_sync_words`, `lr20xx_set_sync_words` |
 
 SX126x sync word registers: Meshtastic `0x2B` is `0x24B4`, MeshCore `0x12` is `0x1424`, hybrid receive `0x14B4`
 (first nibble from one, second from the other). The value is taken from Meshtacore, which measured it on a
 ThinkNode M1; it is a bench value, not a datasheet guarantee.
+
+The driver keeps one sync word for RX and one for TX and programs each when it enters that direction: the
+receive word on every RX start from rest, the transmit word once LBT has passed. Setting them touches no
+hardware, so a duty-cycled receiver is never woken out of its cycle, and RX never runs on the word of the frame
+last sent.
 
 A Meshtastic node's contact key is the Ed25519 public key of a keypair seeded from `SHA256("zt-mtnode" || node)`.
 The node number is kept in the contact's `sync_since` field, and a contact counts as Meshtastic only if the key
@@ -172,7 +180,7 @@ Not run on air.
 
 | Check | Result |
 | --- | --- |
-| Host tests (`python3 tests/run.py run --profile quick`) | 275 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX, PKI frames, foreign repeats in `Mesh` |
+| Host tests (`python3 tests/run.py run --profile quick`) | 286 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX, PKI frames, foreign repeats in `Mesh` |
 | Field numbers and nonce layout | Read against `mesh.proto` and `CryptoEngine.cpp` of the Meshtastic firmware |
 | Firmware build `wio_tracker_l1` (SX1262) | OK. Flash +4.6 KB (476724 vs 472084 B), RAM +1.3 KB (227168 vs 225824 B) |
 | Firmware builds `rak4631` (SX1262), companion and repeater with Meshtastic, and `wio_tracker_l1` companion | OK. Companion flash 449444 B and RAM 220264 B on `rak4631`; repeater flash 304360 B and RAM 86948 B; `wio_tracker_l1` companion flash 508264 B and RAM 230056 B. Run in CI as compile-only steps |

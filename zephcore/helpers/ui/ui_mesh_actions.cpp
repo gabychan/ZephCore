@@ -449,8 +449,18 @@ extern "C" void mesh_housekeeping_ui_refresh(void)
 		d.air_rx_s = s_mesh->getReceiveAirTime() / 1000;
 		d.heap_used = heap.used;
 		d.heap_total = heap.total;
-		d.flash_used_kb = s_data_store->getStorageUsedKb();
-		d.flash_total_kb = s_data_store->getStorageTotalKb();
+		/* The filesystem is asked once a minute, not on every refresh. */
+		static uint32_t flash_used_kb, flash_total_kb;
+		static int64_t flash_at_ms;
+		const int64_t now_ms = k_uptime_get();
+
+		if (flash_at_ms == 0 || now_ms - flash_at_ms >= 60000) {
+			flash_used_kb = s_data_store->getStorageUsedKb();
+			flash_total_kb = s_data_store->getStorageTotalKb();
+			flash_at_ms = now_ms ? now_ms : 1;
+		}
+		d.flash_used_kb = flash_used_kb;
+		d.flash_total_kb = flash_total_kb;
 		d.uptime_s = (uint32_t)(k_uptime_get() / 1000);
 		s_mesh->fillDashboardSides(d);
 		ui_set_dashboard(&d);

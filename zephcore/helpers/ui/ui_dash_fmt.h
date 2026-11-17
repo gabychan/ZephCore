@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-/* 999, 1.2k, 12k, 345k, 1M: at most 4 characters. */
+/* 999, 1.2k, 12k, 345k, 1M, 999M, 4.2G: at most 4 characters. */
 static inline void ui_dash_count(char *out, size_t cap, uint32_t n)
 {
 	if (n < 1000) {
@@ -20,9 +20,19 @@ static inline void ui_dash_count(char *out, size_t cap, uint32_t n)
 		snprintf(out, cap, "%u.%uk", (unsigned)(n / 1000), (unsigned)((n % 1000) / 100));
 	} else if (n < 1000000) {
 		snprintf(out, cap, "%uk", (unsigned)(n / 1000));
-	} else {
+	} else if (n < 1000000000) {
 		snprintf(out, cap, "%uM", (unsigned)(n / 1000000));
+	} else {
+		snprintf(out, cap, "%u.%uG", (unsigned)(n / 1000000000), (unsigned)((n % 1000000000) / 100000000));
 	}
+}
+
+/* "868.125": the frequency in MHz, rounded to the kHz. */
+static inline void ui_dash_freq(char *out, size_t cap, uint32_t hz)
+{
+	const uint32_t khz = (uint32_t)(((uint64_t)hz + 500) / 1000);
+
+	snprintf(out, cap, "%u.%03u", (unsigned)(khz / 1000), (unsigned)(khz % 1000));
 }
 
 /* 45s, 4m, 3h, 2d. */

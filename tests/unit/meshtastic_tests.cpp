@@ -907,7 +907,7 @@ TEST(mt_relay_table, "UNIT-MT-054", "Repeat decision for every port in essential
     CHECK(a.setChannel(1, "private", psk, 16));
     uint8_t frame[kMaxFrame], relay[kMaxFrame];
     size_t n = a.buildText(1, kBroadcast, "secreto", 7, frame, sizeof(frame));
-    while (looksLikeMeshCore(frame, n, 0)) { frame[0] ^= 0x40; }
+    CHECK(!looksLikeMeshCore(frame, n, 0));
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);
     Capture cap;
     size_t relay_len = 0;
@@ -929,8 +929,7 @@ TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is
     CHECK(a.setChannel(1, "private", psk, 16));
     uint8_t frame[kMaxFrame], relay[kMaxFrame];
     size_t n = a.buildText(1, kBroadcast, "secreto", 7, frame, sizeof(frame));
-    // Force a payload that cannot pass for MeshCore: 16-byte blocks never end at 7.
-    while (looksLikeMeshCore(frame, n, 0)) { frame[0] ^= 0x40; }
+    CHECK(!looksLikeMeshCore(frame, n, 0));     // a broadcast starts 0xFF: protocol version 3, never MeshCore
 
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);  // holds LongFast only
     Capture cap;
@@ -1159,6 +1158,12 @@ TEST(mt_config_roles, "UNIT-MT-039", "A companion has no channel or telemetry se
     CHECK(t.armed() && !t.due(0xFFFFFF00u) && !t.due(0x000000FFu) && t.due(0x00000100u) && t.due(0x5000u));
     t.stop();
     CHECK(!t.due(0x5000u));
+    t.rearm(1000, true, 60);
+    CHECK(t.armed() && t.at() == 61000u);
+    t.rearm(2000, false, 60);                      // off
+    CHECK(!t.armed());
+    t.rearm(3000, true, 0);                        // on, but no period set
+    CHECK(!t.armed());
 }
 
 TEST(mt_discriminate_shapes, "UNIT-MT-040", "Every MeshCore payload type, route and path width passes the shape test; Meshtastic broadcast and version 2/3 first bytes never do") {
@@ -1786,4 +1791,99 @@ TEST(mt_default_channels, "UNIT-MT-065", "The default channel list gives name an
     const char *mixed = "Good:3,bad";
     CHECK(nextDefaultChannel(mixed, name, sizeof(name), psk) && psk == 3);
     CHECK(!nextDefaultChannel(mixed, name, sizeof(name), psk));
+}
+
+namespace {
+// Deterministic xorshift so a failure repeats.
+struct Xs {
+    uint32_t s;
+    uint32_t next() { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return s; }
+    void fill(uint8_t* p, size_t n) { for (size_t i = 0; i < n; i++) p[i] = (uint8_t)next(); }
+};
+}  // namespace
+
+TEST(mt_decode_fuzz, "UNIT-MT-066", "The decoders read nothing outside their buffer on truncated, flipped or random input, and a sealed payload shorter than its overhead opens to nothing") {
+    Xs rng{0x1badf00du};
+    Data d0 = {};
+    d0.portnum = 1; d0.dest = 0x11223344u; d0.source = 0x55667788u; d0.request_id = 9; d0.reply_id = 7; d0.emoji = 1;
+    const uint8_t text[] = "hola mundo";
+    d0.payload = text; d0.payload_len = sizeof(text) - 1;
+    uint8_t good[128];
+    const size_t n = encodeData(d0, good, sizeof(good));
+    CHECK(n > 0);
+    User u0 = {};
+    std::strcpy(u0.id, "!aabbccdd"); std::strcpy(u0.long_name, "A long name"); std::strcpy(u0.short_name, "ABCD");
+    u0.hw_model = 43; u0.role = 3; u0.has_public_key = true; std::memset(u0.public_key, 0x5a, 32);
+    uint8_t user[128];
+    const size_t un = encodeUser(u0, user, sizeof(user));
+    CHECK(un > 0);
+
+    auto exercise = [&](const uint8_t* buf, size_t len) {
+        std::vector<uint8_t> exact(buf, buf + len);   // heap block of exactly len bytes: ASan sees any read past it
+        const uint8_t* b = exact.data();
+        Data d = {};
+        if (decodeData(b, len, d)) {
+            CHECK(d.portnum >= 1 && d.portnum <= 511);
+            CHECK(d.payload_len == 0 || (d.payload >= b && d.payload + d.payload_len <= b + len));
+        }
+        uint32_t reason = 0; decodeRouting(b, len, reason);
+        Position p = {}; decodePosition(b, len, p);
+        User u = {};
+        if (decodeUser(b, len, u)) {
+            CHECK(std::memchr(u.id, 0, sizeof(u.id)) && std::memchr(u.long_name, 0, sizeof(u.long_name)) &&
+                  std::memchr(u.short_name, 0, sizeof(u.short_name)));
+        }
+        Header h; parseHeader(b, len, h);
+        looksLikeMeshCore(b, len, 0x1234);
+    };
+    for (size_t len = 0; len <= n; len++) exercise(good, len);
+    for (size_t len = 0; len <= un; len++) exercise(user, len);
+    for (size_t i = 0; i < n; i++) for (int bit = 0; bit < 8; bit++) { uint8_t m[128]; std::memcpy(m, good, n); m[i] ^= (uint8_t)(1 << bit); exercise(m, n); }
+    for (size_t i = 0; i < un; i++) for (int bit = 0; bit < 8; bit++) { uint8_t m[128]; std::memcpy(m, user, un); m[i] ^= (uint8_t)(1 << bit); exercise(m, un); }
+    for (int round = 0; round < 3000; round++) {
+        uint8_t r[300];
+        const size_t len = rng.next() % 300;
+        rng.fill(r, len);
+        exercise(r, len);
+    }
+    uint8_t key[32] = {1}, in[16] = {}, out[32];
+    for (size_t len = 0; len <= kPkiOverhead; len++) CHECK(pkiOpen(kPki, key, 1, 2, in, len, out, sizeof(out)) <= 0);
+}
+
+TEST(mt_looks_like_meshcore_bound, "UNIT-MT-067", "Random Meshtastic-sized frames are taken for MeshCore ones rarely, and the shape of each MeshCore payload type is held") {
+    Xs rng{0x600dcafeu};
+    int uniform = 0, shaped = 0, broadcast = 0;
+    const int rounds = 20000;
+    for (int i = 0; i < rounds; i++) {
+        uint8_t r[255];
+        const size_t len = 16 + rng.next() % 200;
+        rng.fill(r, len);
+        uniform += looksLikeMeshCore(r, len, 0);
+        r[0] = r[1] = r[2] = r[3] = 0xFF;                      // a Meshtastic broadcast
+        broadcast += looksLikeMeshCore(r, len, 0);
+        rng.fill(r, 4); r[3] = 0;                               // a unicast to a node number with a zero top byte
+        shaped += looksLikeMeshCore(r, len, 0);
+    }
+    CHECK(broadcast == 0);                                      // 0xFF is protocol version 3: never MeshCore
+    CHECK(uniform * 100 < rounds * 8);                          // measured 5.8 % on bytes that are not Meshtastic at all
+    CHECK(shaped * 100 < rounds * 8);
+    uint8_t advert[1 + 1 + 32 + 4 + 64];                      // flood ADVERT, no path
+    std::memset(advert, 0, sizeof(advert));
+    advert[0] = (PAYLOAD_TYPE_ADVERT << PH_TYPE_SHIFT) | ROUTE_TYPE_FLOOD;
+    CHECK(looksLikeMeshCore(advert, sizeof(advert), 0));
+    CHECK(!looksLikeMeshCore(advert, sizeof(advert) - 1, 0));  // one byte short of an advert
+    uint8_t ack[1 + 1 + 4] = {(uint8_t)((PAYLOAD_TYPE_ACK << PH_TYPE_SHIFT) | ROUTE_TYPE_FLOOD), 0, 1, 2, 3, 4};
+    CHECK(looksLikeMeshCore(ack, sizeof(ack), 0) && !looksLikeMeshCore(ack, sizeof(ack) - 1, 0));
+}
+
+TEST(mt_header_hops, "UNIT-MT-068", "hopsAway counts the hops spent and is 0 without hop_start; fromOrigin needs hop_start and none spent") {
+    Header h = {};
+    h.flags = 0;
+    CHECK(h.hopsAway() == 0 && !h.fromOrigin());          // the sender set no hop_start
+    h.flags = (uint8_t)(3 | (3 << 5));
+    CHECK(h.hopsAway() == 0 && h.fromOrigin());
+    h.flags = (uint8_t)(1 | (3 << 5));
+    CHECK(h.hopsAway() == 2 && !h.fromOrigin());
+    h.flags = (uint8_t)(4 | (3 << 5));                    // more left than it started with: a broken header
+    CHECK(h.hopsAway() == 0 && !h.fromOrigin());
 }

@@ -131,7 +131,7 @@ void Dispatcher::loop() {
       // ZEPHCORE: charge the COMPUTED airtime, not the wall-clock send time,
       // which includes blocking LBT and event latency (up to 8x in the field).
       // A foreign frame is its payload alone, with Meshtastic's preamble.
-      uint32_t t = outbound->isForeign() ? _radio->getEstForeignAirtimeFor(outbound->payload_len)
+      uint32_t t = outbound->isForeign() ? _radio->getEstForeignAirtimeFor(payloadOnAir(outbound))
                                          : _radio->getEstAirtimeFor(outbound->getRawLength());
       MESH_DEBUG_PRINTLN("TX complete: air=%ums wall=%ums", t, (uint32_t)_ms->getMillis() - outbound_start);
       total_air_time += t;
@@ -145,7 +145,7 @@ void Dispatcher::loop() {
       }
 
       _radio->onSendFinished();
-      logTx(outbound, 2 + outbound->getPathByteLen() + outbound->payload_len);
+      logTx(outbound, 2 + outbound->getPathByteLen() + payloadOnAir(outbound));
       if (outbound->isForeign()) {
         // ZEPHCORE: not a MeshCore packet; neither counter is its.
       } else if (outbound->isRouteFlood()) {
@@ -451,12 +451,16 @@ void Dispatcher::checkSend() {
     len += Packet::writePath(&raw[len], outbound->path, outbound->path_len);
     if (outbound->isForeign()) len = 0;  // ZEPHCORE: a foreign frame is its payload alone
 
-    if (len + outbound->payload_len > MAX_TRANS_UNIT) {
-      MESH_DEBUG_PRINTLN("%s Dispatcher::checkSend(): FATAL: Invalid packet queued... too long, len=%d", getLogDateTime(), len + outbound->payload_len);
-      _mgr->free(outbound);
+    if (len + payloadOnAir(outbound) > MAX_TRANS_UNIT) {
+      MESH_DEBUG_PRINTLN("%s Dispatcher::checkSend(): FATAL: Invalid packet queued... too long, len=%d", getLogDateTime(), len + payloadOnAir(outbound));
+      releasePacket(outbound);  // ZEPHCORE: frees a foreign tail too
       outbound = NULL;
     } else {
       memcpy(&raw[len], outbound->payload, outbound->payload_len); len += outbound->payload_len;
+      if (outbound->isForeign() && outbound->transport_codes[0] > 0) {  // ZEPHCORE: the tail of a long foreign frame
+        memcpy(&raw[len], _foreign_tail.data(outbound->transport_codes[1]), outbound->transport_codes[0]);
+        len += outbound->transport_codes[0];
+      }
 
       uint32_t max_airtime = _radio->getEstAirtimeFor(len)*3/2;
       if (max_airtime < 300) max_airtime = 300;  // ZEPHCORE: IRQ/work-queue latency must not clip short packets
@@ -497,6 +501,10 @@ Packet* Dispatcher::obtainNewPacket() {
 }
 
 void Dispatcher::releasePacket(Packet* packet) {
+  if (packet->isForeign() && packet->transport_codes[0] > 0) {  // ZEPHCORE: the tail slot goes back with it
+    _foreign_tail.give(packet->transport_codes[1]);
+    packet->transport_codes[0] = 0;
+  }
   _mgr->free(packet);
 }
 
@@ -515,13 +523,22 @@ void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_mil
 // ZEPHCORE: a foreign frame rides the normal queue, so it gets LBT, the duty-cycle
 // budget and the TX thread like any packet; only the radio sync word differs.
 bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis) {
-  if (len <= 0 || len > MAX_PACKET_PAYLOAD || !_radio->supportsForeign()) return false;
+  if (len <= 0 || len > ForeignTail::MAX_FRAME || !_radio->supportsForeign()) return false;
+  int head = len < MAX_PACKET_PAYLOAD ? len : MAX_PACKET_PAYLOAD;
+  int tail = len - head;
+  int slot = tail > 0 ? _foreign_tail.take(frame + head, tail) : 0;
+  if (slot < 0) return false;
   Packet* pkt = obtainNewPacket();
-  if (pkt == NULL) return false;
+  if (pkt == NULL) {
+    if (tail > 0) _foreign_tail.give(slot);
+    return false;
+  }
   pkt->header = Packet::FOREIGN_HEADER;
   pkt->path_len = 0;
-  pkt->payload_len = (uint16_t)len;
-  memcpy(pkt->payload, frame, len);
+  pkt->payload_len = (uint16_t)head;
+  pkt->transport_codes[0] = (uint16_t)tail;   // a foreign packet has no transport codes: they hold the tail
+  pkt->transport_codes[1] = (uint16_t)slot;
+  memcpy(pkt->payload, frame, head);
   sendPacket(pkt, priority, delay_millis);
   return true;
 }

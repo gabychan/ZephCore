@@ -586,15 +586,9 @@ void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
   const ping::Heard heard = {hops, packet->_snr, (int16_t)_radio->getLastRSSI(),
                              {packet->path, packet->getPathHashSize(), hops}};
 
-  const ping::Counters before = _ping_stats.mc;
-
   /* No names: a repeater keeps only the keys of its neighbours, so the route is in hex. */
   if (ping::reply(_prefs.ping, _ping_stats.mc, ping::PROTO_MC, (const char*)&data[5], heard, nullptr, nullptr,
-                  out, sizeof(out)) == 0) {
-    return;
-  }
-  if (!_ping_limit_mc.allow(getRTCClock()->getCurrentTime())) {
-    ping::unsent(_ping_stats.mc, before, true);
+                  out, sizeof(out), &_ping_limit_mc, getRTCClock()->getCurrentTime()) == 0) {
     return;
   }
   uint8_t temp[5 + sizeof(_prefs.node_name) + 2 + sizeof(out)];
@@ -608,7 +602,7 @@ void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
   if (pkt) {
     sendFloodReply(pkt, SERVER_RESPONSE_DELAY, packet->getPathHashSize());
   } else {
-    ping::unsent(_ping_stats.mc, before, false);
+    ping::unsent(_ping_stats.mc);
   }
 }
 
@@ -766,7 +760,8 @@ mesh::DispatcherAction RepeaterMesh::onRecvPacket(mesh::Packet* pkt) {
     const uint8_t hops = pkt->getPathHashCount();
     const uint8_t size = pkt->getPathHashSize();
 
-    _rx_mc.heard(hops, hops ? &pkt->path[(hops - 1) * size] : nullptr, hops ? size : 0);
+    _rx_mc.heard(hops, hops ? &pkt->path[(hops - 1) * size] : nullptr, hops ? size : 0,
+                  (uint32_t)(k_uptime_get() / 1000));
   }
   recv_pkt_unscoped_flood = mesh::isUnscopedFlood(pkt);
   if (recv_pkt_unscoped_flood) {
@@ -1435,17 +1430,7 @@ void RepeaterMesh::formatPacketStatsReply(char* reply) {
 
 // ZEPHCORE: ours. The counters of "get z.stats".
 void RepeaterMesh::fillZStats(zinfo::Stats& s) {
-  auto& radio_driver = getRadioDriver(_radio);
-  s.recv = radio_driver.getPacketsRecv();
-  s.sent = radio_driver.getPacketsSent();
-  s.errors = radio_driver.getPacketsRecvErrors();
-  s.flood_tx = getNumSentFlood();
-  s.direct_tx = getNumSentDirect();
-  s.flood_rx = getNumRecvFlood();
-  s.direct_rx = getNumRecvDirect();
-  s.tx_air_s = getTotalAirTime() / 1000;
-  s.rx_air_s = getReceiveAirTime() / 1000;
-  s.queue = _mgr->getOutboundTotal();
+  zinfo::fillStats(s, getRadioDriver(_radio), *this, *_mgr);
 }
 
 // ZEPHCORE: ours. Through RepeaterDataStore.
