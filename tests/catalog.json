@@ -1309,7 +1309,7 @@
     },
     {
       "id": "UNIT-PING-015",
-      "name": "An answer that was not sent leaves the counters as they were; one the limit turned away is counted ignored, saturating",
+      "name": "An answer that was not sent is taken back from the count; one the limit turns away is counted ignored, saturating, and never built",
       "source": "tests/unit/ping_tests.cpp"
     },
     {
@@ -1346,6 +1346,11 @@
       "id": "UNIT-FOREIGN-005",
       "name": "A repeat waiting longer than the observation window still hears the copy of another node and gives way; once its own wait is over it is no longer tracked",
       "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-016",
+      "name": "The command matches with spaces around it, and a command that is the first word of an answer is refused",
+      "source": "tests/unit/ping_tests.cpp"
     }
   ]
 }

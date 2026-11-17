@@ -132,21 +132,16 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 	}
 	memcpy(line, text, len);
 	line[len] = '\0';
-	const ping::Counters before = _ping_stats.mt;
 	size_t n = ping::reply(_prefs.ping, _ping_stats.mt, ping::PROTO_MT, line, heard, nullptr, nullptr,
-			       out, sizeof(out));
+			       out, sizeof(out), &_ping_limit_mt, getRTCClock()->getCurrentTime());
 	uint8_t frame[mt::kMaxTxFrame];
 
 	if (n == 0) {
 		return;
 	}
-	if (!_ping_limit_mt.allow(getRTCClock()->getCurrentTime())) {
-		ping::unsent(_ping_stats.mt, before, true);
-		return;
-	}
 	n = _mt.buildText(kBotChannel, mt::kBroadcast, out, n, frame, sizeof(frame), id);
 	if (n == 0 || !_mtport.send(frame, n)) {
-		ping::unsent(_ping_stats.mt, before, false);
+		ping::unsent(_ping_stats.mt);
 	}
 }
 
