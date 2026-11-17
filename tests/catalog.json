@@ -1306,6 +1306,11 @@
       "id": "UNIT-NEIGH-012",
       "name": "The command takes neighbors or vecinos, a plain page number and recent or recientes in any order; anything else is page 0",
       "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-015",
+      "name": "An answer that was not sent leaves the counters as they were; one the limit turned away is counted ignored, saturating",
+      "source": "tests/unit/ping_tests.cpp"
     }
   ]
 }

@@ -1224,8 +1224,7 @@ void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDeta
 		return;
 	}
 	if (!_ping_limit[w].allow(getRTCClock()->getCurrentTime())) {
-		counters = before;
-		counters.ignored++;
+		ping::unsent(counters, before, true);
 		return;
 	}
 	const uint32_t ts = getRTCClock()->getCurrentTimeUnique();
@@ -1242,7 +1241,7 @@ void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDeta
 		sent = sendGroupMessage(ts, ch.channel, prefs.node_name, out, n);
 	}
 	if (!sent) {
-		counters = before;
+		ping::unsent(counters, before, false);
 		return;
 	}
 	char shown[sizeof(prefs.node_name) + sizeof(out) + 2];

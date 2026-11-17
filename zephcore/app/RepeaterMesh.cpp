@@ -594,8 +594,7 @@ void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
     return;
   }
   if (!_ping_limit_mc.allow(getRTCClock()->getCurrentTime())) {
-    _ping_stats.mc = before;
-    _ping_stats.mc.ignored++;
+    ping::unsent(_ping_stats.mc, before, true);
     return;
   }
   uint8_t temp[5 + sizeof(_prefs.node_name) + 2 + sizeof(out)];
@@ -609,7 +608,7 @@ void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
   if (pkt) {
     sendFloodReply(pkt, SERVER_RESPONSE_DELAY, packet->getPathHashSize());
   } else {
-    _ping_stats.mc = before;
+    ping::unsent(_ping_stats.mc, before, false);
   }
 }
 
