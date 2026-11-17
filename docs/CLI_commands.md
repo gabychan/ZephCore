@@ -286,7 +286,7 @@ Drop rules and two limits on what the repeater accepts, MeshCore as `z.mc.fw.*` 
 
 ### Meshtastic (`z.mt.fw.*`, `CONFIG_ZEPHTACORE_MESHTASTIC`)
 
-The same four commands, `get|set z.mt.fw.drop`, `.gap`, `.rate` and `get z.mt.fw.stats`, with their own settings and counters (`prefs.json` `zc{}`, keys `mfw_*`). They apply to a frame that is **new**: a copy of one already heard is a duplicate and is not screened, so a repeat of ours is still cancelled when a neighbour echoes it; a copy of a frame already dropped is dropped again without being counted. Differences:
+The same four commands, `get|set z.mt.fw.drop`, `.gap`, `.rate` and `get z.mt.fw.stats`, with their own settings and counters (`prefs.json` `zc{}`, keys `mfw_*`). They apply to a frame that is **new**: a copy of one already heard is a duplicate and is not screened, so a copy heard from a neighbour still pushes our repeat back; a copy of a frame already dropped is dropped again without being counted. Differences:
 
 - `drop` rules are ports: `text`, `position`, `nodeinfo`, `telemetry`, `traceroute`, `other` (any port not named, admin and store-and-forward among them). Routing (ACK and NAK) is never dropped. A frame of a channel this node holds no key for has no readable port, so no rule reaches it.
 - `gap` is minutes between two NodeInfo of one node that are kept, by node number. A NodeInfo on a channel carries no signature, so anyone with the channel key can send one; the gap opens only for a frame that passed every other check.
@@ -321,7 +321,7 @@ MeshCore flood packets carry the hash of every repeater they crossed, first repe
 | `set z.mc.ping.enable on <command>` / `set z.mt.ping.enable on <command>` (`1` for `on`) | Answer `<command>` on that protocol and turn its bot on. `<command>` is 1 to 15 characters, no spaces (for example `/ping`), and not `direct` or `relayed`, the first word of an answer. Without it, `on` works only when a command is already set. |
 | `get z.mc.ping.enable` / `set z.mc.ping.enable off` (or `0`; same for `z.mt.ping.enable`) | Whether the bot answers (default off). Off keeps the command. |
 | `get z.mc.ping.trigger` / `set z.mc.ping.trigger <command>` (same for `z.mt.ping.trigger`) | The command, changed without touching on or off. The whole message must equal it, without regard to case and to the spaces around it. Empty until set. |
-| `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters turned away since boot. |
+| `get z.mc.ping.status` / `get z.mt.ping.status` | `> on /ping \| answered 12, ignored 3`: state, command, pings answered and pings the hop filters or the answer limit turned away since boot. |
 | `get z.ping.snr` / `set z.ping.snr on\|off\|1\|0` | Show the SNR (default on). Shared by both protocols. |
 | `get z.ping.rssi` / `set z.ping.rssi on\|off\|1\|0` | Show the RSSI (default off). Shared. |
 | `get z.ping.ignore.direct` / `set z.ping.ignore.direct on\|off\|1\|0` | Do not answer a ping heard with 0 hops (default off). Shared. |
