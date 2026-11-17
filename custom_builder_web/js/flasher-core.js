@@ -21,6 +21,7 @@ function initFlasherCore() {
   const previewMcuTag = document.getElementById("previewMcuTag");
   const previewRadioTag = document.getElementById("previewRadioTag");
   const previewFlashTag = document.getElementById("previewFlashTag");
+  const previewBuildTag = document.getElementById("previewBuildTag");
 
   // Pending config banner
   const pendingConfigBanner = document.getElementById("pendingConfigBanner");
@@ -114,9 +115,13 @@ function initFlasherCore() {
   }
 
   if (boardSelect) {
-    boardSelect.addEventListener("change", syncBoardPreview);
+    boardSelect.addEventListener("change", () => {
+      syncBoardPreview();
+      refreshBuildAvailability();
+    });
     syncBoardPreview();
   }
+  if (roleSelect) roleSelect.addEventListener("change", refreshBuildAvailability);
 
   // Tabs Switcher
   flasherTabs.forEach((tab) => {
@@ -259,21 +264,51 @@ function initFlasherCore() {
     "https://cdn.jsdelivr.net/gh/xejarque/ZephCore@firmware-dist/catalog.json",
     "https://cdn.jsdelivr.net/gh/liquidraver/ZephCore@firmware-dist/catalog.json"
   ];
+  // Files of the catalogs that load, fetched once per page.
+  let catalogFilesPromise = null;
+  function loadCatalogFiles() {
+    if (!catalogFilesPromise) {
+      catalogFilesPromise = Promise.all(
+        CATALOG_URLS.map(async (catUrl) => {
+          try {
+            const resp = await fetch(`${catUrl}?_t=${Date.now()}`);
+            return resp.ok ? catalogFiles(await resp.json()) : null;
+          } catch (err) {
+            console.warn("Catalog fetch error:", catUrl, err);
+            return null;
+          }
+        })
+      ).then((lists) => (lists.some(Boolean) ? lists.flat().filter(Boolean) : null));
+    }
+    return catalogFilesPromise;
+  }
+
   async function resolveFirmwareUrl(board, role) {
     if (!PUBLISHED_ROLES.includes(role)) {
       throw new Error(`El rol "${role}" no se publica como binario: compílalo con west desde el Builder.`);
     }
-    for (const catUrl of CATALOG_URLS) {
-      try {
-        const resp = await fetch(`${catUrl}?_t=${Date.now()}`);
-        if (!resp.ok) continue;
-        const file = findCatalogFile(catalogFiles(await resp.json()), board, role);
-        if (file) return file.url;
-      } catch (err) {
-        console.warn("Catalog fetch error:", catUrl, err);
-      }
-    }
-    return null;
+    const files = await loadCatalogFiles();
+    const file = files && findCatalogFile(files, board, role);
+    return file ? file.url : null;
+  }
+
+  // Tells whether the catalog has a Zephtacore build for the selected board and role.
+  async function refreshBuildAvailability() {
+    if (!previewBuildTag) return;
+    const board = selectedBoard();
+    const role = selectedRole();
+    if (!board) return;
+
+    previewBuildTag.textContent = "Consultando catálogo...";
+    const files = await loadCatalogFiles();
+    if (board !== selectedBoard() || role !== selectedRole()) return;
+
+    const available = !!files && PUBLISHED_ROLES.includes(role) && !!findCatalogFile(files, board, role);
+    previewBuildTag.textContent = !files
+      ? "Catálogo no disponible"
+      : available ? "Build Zephtacore publicado" : "Sin build Zephtacore: compílalo con west";
+    previewBuildTag.style.color = available ? "var(--brand-emerald)" : "var(--text-muted)";
+    if (btnUnifiedFlash) btnUnifiedFlash.disabled = !available;
   }
 
   function setProgress(percent, text) {
@@ -363,6 +398,8 @@ function initFlasherCore() {
       setProgress(0, `Esta web no graba archivos locales. Copia "${activeFile.name}" al disco UF2 de la placa o grábalo con esptool (ESP32, en 0x0), y después usa "Enviar ajustes por USB".`);
     });
   }
+
+  refreshBuildAvailability();
 }
 
 if (document.readyState === "loading") {
