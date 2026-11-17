@@ -119,6 +119,9 @@ static void power_regulators_off(void)
 #endif
 }
 
+/* Time the comparator must be armed before System OFF for its wake to work. */
+#define ZC_WAKE_SETTLE_MS 2500
+
 void zephcore_arm_battery_wake(void)
 {
 #if DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
@@ -130,6 +133,10 @@ void zephcore_arm_battery_wake(void)
 	if (device_is_ready(lpcomp) &&
 	    comparator_set_trigger(lpcomp, COMPARATOR_TRIGGER_RISING_EDGE) == 0) {
 		LOG_INF("Battery wake armed");
+		/* Bench-measured on the ProMicro: powering off within milliseconds
+		 * of arming never woke the node, while 2.5 s armed beforehand
+		 * always did. Let the comparator settle before System OFF. */
+		k_msleep(ZC_WAKE_SETTLE_MS);
 	} else {
 		LOG_ERR("Battery wake not armed");
 	}
