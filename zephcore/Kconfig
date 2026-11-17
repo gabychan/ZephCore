@@ -1410,7 +1410,7 @@ config ZEPHTACORE_MESHTASTIC
 
 config ZEPHTACORE_DEFAULT_CHANNELS
 	string "Meshtastic channels a companion adds by default"
-	depends on ZEPHTACORE_MESHTASTIC && ZEPHCORE_ROLE_COMPANION
+	depends on ZEPHTACORE_MESHTASTIC
 	default "SFNarrow:1,Test:2,Bots:2"
 	help
 	  Comma separated "name:psk_index": Meshtastic's default key has

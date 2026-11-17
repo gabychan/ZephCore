@@ -40,5 +40,10 @@ companion announced `client` too although it repeats nothing by default.
 - A repeat is never cancelled because another node sent the frame first, in any role. The copy only pushes our repeat back
   (`backoff.multiplier` x airtime, capped as for MeshCore floods), as MeshCore does, so a lone repeater still carries the frame
   when the node that was heard fails to. Meshtastic's own cancel-on-echo rule is not followed; the cost is a repeat that may
-  be heard twice by a neighbour, which its duplicate table absorbs.
+  be heard twice by a neighbour, which its duplicate table absorbs. The copy is watched for the observation window of the
+  contention ring plus the wait the repeat was given, since a window of 256 slots at SF12 lasts about 23 s.
+- A Meshtastic frame can be 255 bytes and a `Packet` holds 184. The bytes past the 184th wait in a `ForeignTail` slot of 71 bytes
+  (`CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS`, 4 by default, about 290 bytes of RAM) while the packet is queued, held through the
+  `transport_codes` a foreign packet does not use, and given back in `Dispatcher::releasePacket`. With every slot in use a longer
+  frame is not repeated (`shed`); with none (`0`) it never is (`long`).
 - Left out: per-port switches (position, telemetry) as meshtacore has; a frame of a channel without a key shows no port.
