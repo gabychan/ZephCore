@@ -786,19 +786,6 @@ void ZephyrDataStore::saveChannels(DataStoreHost *host)
 
 /* ── Blobs ─────────────────────────────────────────────────────────── */
 
-uint8_t ZephyrDataStore::loadMtDefaultsRev()
-{
-	uint8_t rev = 0;
-	size_t n = 0;
-
-	return (zephcore_fs_read_file(mtRevFile(), &rev, 1, &n) && n == 1) ? rev : 0;
-}
-
-bool ZephyrDataStore::saveMtDefaultsRev(uint8_t rev)
-{
-	return zephcore_fs_atomic_replace(mtRevFile(), &rev, 1, "saveMtDefaultsRev");
-}
-
 uint8_t ZephyrDataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[])
 {
 	(void)key_len;

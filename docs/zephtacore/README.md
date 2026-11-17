@@ -42,8 +42,10 @@ The LR2021 side detectors (other SFs) use the same word as the main detector.
 
 With `CONFIG_ZEPHTACORE_MESHTASTIC` a fresh device starts on meshtacore's `custom_sfnarrow_default` preset:
 869.618 MHz, BW 62.5 kHz, SF 7, CR 4/6, 22 dBm (CR 4/5 without the feature; the rest is ZephCore's own default).
-On the first boot of a firmware with a new defaults revision (`CompanionMesh::MT_DEFAULTS_REV`, kept in the
-data store under `zt_ch_rev`) it adds the channels of meshtacore's community matrix that are missing, by name:
+On the first boot of a firmware with a new defaults revision (`CompanionMesh::MT_DEFAULTS_REV`, kept in `prefs.json` as
+`mt.dr`) it adds the channels that are missing, by name. The Meshtastic ones come from
+`CONFIG_ZEPHTACORE_DEFAULT_CHANNELS` (`name:psk_index`, comma separated; `boards/common/zephtacore.conf` sets the
+meshtacore community matrix, the Kconfig default is `SFNarrow`, `Test` and `Bots`):
 
 | Channel | Key |
 | --- | --- |

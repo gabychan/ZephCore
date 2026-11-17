@@ -1767,3 +1767,23 @@ TEST(mt_direct_retry_id, "UNIT-MT-064", "A direct text sent with the id of the f
     CHECK(t.b.handleFrame(again, n2, 0, t.cb, relay, &relay_len) == RX_DUPLICATE);
     CHECK(t.cb.directs.size() == 1);
 }
+
+TEST(mt_default_channels, "UNIT-MT-065", "The default channel list gives name and key index in order, and stops at an entry that is not one") {
+    char name[mt::kChannelNameMax + 1];
+    uint8_t psk = 0;
+    const char *list = "SFNarrow:1, Test:2,Bots:2,Catalunya:1";
+    CHECK(nextDefaultChannel(list, name, sizeof(name), psk) && std::string(name) == "SFNarrow" && psk == 1);
+    CHECK(nextDefaultChannel(list, name, sizeof(name), psk) && std::string(name) == "Test" && psk == 2);
+    CHECK(nextDefaultChannel(list, name, sizeof(name), psk) && std::string(name) == "Bots" && psk == 2);
+    CHECK(nextDefaultChannel(list, name, sizeof(name), psk) && std::string(name) == "Catalunya" && psk == 1);
+    CHECK(!nextDefaultChannel(list, name, sizeof(name), psk));
+    const char *empty = "";
+    CHECK(!nextDefaultChannel(empty, name, sizeof(name), psk));
+    for (const char *bad : {"NoKey", ":1", "Name:", "Name:0", "Name:12", "Name:x", "TooLongChannelName:1"}) {
+        const char *l = bad;
+        CHECK(!nextDefaultChannel(l, name, sizeof(name), psk));
+    }
+    const char *mixed = "Good:3,bad";
+    CHECK(nextDefaultChannel(mixed, name, sizeof(name), psk) && psk == 3);
+    CHECK(!nextDefaultChannel(mixed, name, sizeof(name), psk));
+}

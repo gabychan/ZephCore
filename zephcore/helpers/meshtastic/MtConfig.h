@@ -68,7 +68,34 @@ struct RepeaterPrefs {
 	ChannelEntry channels[kTableMax];  /* a companion's channels, see ADR 0015 */
 	uint8_t zerohop;
 	uint32_t zerohop_nodes[kZeroHopNodesMax];  /* listed by hand; 0: free entry */
+	uint8_t defaults_rev;  /* companion: the default channel list this node has been given */
 };
+
+/* The next "name:psk_index" of a comma separated list (CONFIG_ZEPHTACORE_DEFAULT_CHANNELS), or
+ * false at the end of it or at an entry that is not one. */
+inline bool nextDefaultChannel(const char *&list, char *name, size_t cap, uint8_t &psk_index)
+{
+	while (*list == ',' || *list == ' ') {
+		list++;
+	}
+	const char *colon = strchr(list, ':');
+	const char *end = strchr(list, ',');
+
+	if (*list == '\0' || !colon || (end && colon > end)) {
+		return false;
+	}
+	const size_t n = (size_t)(colon - list);
+
+	if (n == 0 || n >= cap || n > kChannelNameMax || colon[1] < '1' || colon[1] > '9' ||
+	    (colon[2] != ',' && colon[2] != '\0')) {
+		return false;
+	}
+	memcpy(name, list, n);
+	name[n] = '\0';
+	psk_index = (uint8_t)(colon[1] - '0');
+	list = colon + 2;
+	return true;
+}
 
 /* 0 (off) or at least min, at most max. */
 inline uint32_t clampInterval(uint32_t v, uint32_t min, uint32_t max)

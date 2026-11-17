@@ -82,23 +82,16 @@ static uint32_t mtRandom32()
 
 static const mt::PkiCrypto kMtPki = {MtRelayPort::aesBlock256, mtSha256, mtRandom32};
 
-/* Meshtastic's default key has PSK index 1; index n adds n-1 to its last byte. */
-struct MtDefaultChannel {
-	const char *name;
-	uint8_t psk_index;
-};
-
-static const MtDefaultChannel kMtDefaults[] = {
-	{MT_DEFAULT_CHANNEL, 1}, {"Test", 2}, {"Bots", 2}, {"Catalunya", 1}, {"Barcelona", 1},
-};
 static const char *const kMcHashtagDefaults[] = {"#test", "#bot"};
 
 void CompanionMesh::mtAddDefaultChannels()
 {
-	for (const auto &c : kMtDefaults) {
-		const uint8_t variant = c.psk_index;
+	const char *list = CONFIG_ZEPHTACORE_DEFAULT_CHANNELS;
+	char name[mt::kChannelNameMax + 1];
+	uint8_t variant;
 
-		mt::addChannel(prefs.mt, c.name, &variant, 1); /* one already there stays */
+	while (mt::nextDefaultChannel(list, name, sizeof(name), variant)) {
+		mt::addChannel(prefs.mt, name, &variant, 1); /* one already there stays */
 	}
 	mtReconcileChannels();
 	/* A MeshCore hashtag channel's secret is the first 16 bytes of SHA256 of its name. */

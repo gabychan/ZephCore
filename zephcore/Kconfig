@@ -1408,6 +1408,18 @@ config ZEPHTACORE_MESHTASTIC
 	  Needs a radio family that can write the sync word (SX126x, LR1110,
 	  LR2021): it is not offered with the SX127x driver.
 
+config ZEPHTACORE_DEFAULT_CHANNELS
+	string "Meshtastic channels a companion adds by default"
+	depends on ZEPHTACORE_MESHTASTIC && ZEPHCORE_ROLE_COMPANION
+	default "SFNarrow:1,Test:2,Bots:2"
+	help
+	  Comma separated "name:psk_index": Meshtastic's default key has
+	  index 1 and index n adds n-1 to its last byte. The first boot on
+	  a firmware with a new defaults revision (CompanionMesh::
+	  MT_DEFAULTS_REV) adds the ones the node does not have yet; later
+	  boots leave the list as the user has it. "Bots" is where the ping
+	  bot answers.
+
 config ZEPHTACORE_MT_HOP_LIMIT
 	int "hop_limit of the Meshtastic frames we send (0-7)"
 	depends on ZEPHTACORE_MESHTASTIC
