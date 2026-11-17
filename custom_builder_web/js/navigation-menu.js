@@ -95,10 +95,10 @@
         <!-- Section 4 -->
         <div class="nav-drawer-group">
           <div class="nav-drawer-group-title">Comunidad & Código</div>
-          <a href="https://github.com/liquidraver/ZephCore" target="_blank" rel="noopener" class="nav-drawer-link">
+          <a href="https://github.com/xejarque/ZephCore" target="_blank" rel="noopener" class="nav-drawer-link">
             <span class="nav-drawer-icon">🐙</span>
             <div>
-              <div class="nav-drawer-link-title">Repositorio GitHub ZephCore</div>
+              <div class="nav-drawer-link-title">Repositorio GitHub Zephtacore</div>
               <div class="nav-drawer-link-desc">Código fuente C++17, pull requests e incidencias.</div>
             </div>
           </a>

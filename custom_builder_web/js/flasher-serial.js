@@ -82,14 +82,25 @@ window.ZephtacoreSerial = (function () {
     }
   }
 
+  // The board was unplugged: drop the dead streams and show the port as closed.
+  function handleLost() {
+    reader = null;
+    writer = null;
+    port = null;
+    isConnected = false;
+    updateUIState(false);
+    logToTerminal("\n[!] Puerto serie desconectado (cable retirado o placa reiniciada).\n", "error");
+  }
+
   async function readLoop() {
     const textDecoder = new TextDecoderStream();
     readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-    reader = textDecoder.readable.getReader();
+    const streamReader = textDecoder.readable.getReader();
+    reader = streamReader;
 
     try {
       while (true) {
-        const { value, done } = await reader.read();
+        const { value, done } = await streamReader.read();
         if (done) break;
         if (value) {
           logToTerminal(value, "rx");
@@ -100,7 +111,7 @@ window.ZephtacoreSerial = (function () {
         logToTerminal(`[!] Error de lectura: ${err.message}\n`, "error");
       }
     } finally {
-      reader.releaseLock();
+      streamReader.releaseLock();
     }
   }
 
@@ -136,6 +147,12 @@ window.ZephtacoreSerial = (function () {
   }
 
   function setup() {
+    if ("serial" in navigator) {
+      navigator.serial.addEventListener("disconnect", (e) => {
+        if (e.target === port) handleLost();
+      });
+    }
+
     const btn = connectBtn();
     if (btn) {
       btn.addEventListener("click", () => {
