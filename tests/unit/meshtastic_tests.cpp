@@ -1574,3 +1574,37 @@ TEST(mt_fw_commands, "UNIT-FW-014", "z.mt.fw.* use the Meshtastic rule names and
     CHECK(run("get z.mt.fw.stats") == "> gap 0, rate 0, drop 0");
     CHECK(run("set z.mt.fw.drop none", &changed) == "OK" && p.drop == 0 && changed);
 }
+
+TEST(mt_pki_retry_after_key, "UNIT-MT-056", "A PKI direct text from a node with no key is not lost when its retry arrives with the key known") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    t.b.setRelay(true);
+    t.b.setRelayOpaque(true);
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "reintento", 9, frame, sizeof(frame));
+    Capture strangers;
+    CHECK(t.b.handleFrame(frame, n, 0, strangers, relay, &relay_len) == RX_OPAQUE && relay_len == 0);
+    CHECK(strangers.unknown_keys.size() == 1 && strangers.directs.empty());
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.cb.directs.size() == 1 && t.cb.directs[0].text == "reintento");
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_DUPLICATE && t.cb.directs.size() == 1);
+}
+
+namespace {
+struct DropEverything : Screen {
+    int asked = 0;
+    uint32_t last_port = 99;
+    bool drops(const Header &, uint32_t port) override { asked++; last_port = port; return true; }
+};
+}  // namespace
+
+TEST(mt_pki_screen, "UNIT-MT-057", "A PKI direct text goes through the firewall screen like a channel text") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    DropEverything screen;
+    t.b.setScreen(&screen);
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "filtrado", 8, frame, sizeof(frame));
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_DROPPED);
+    CHECK(screen.asked == 1 && screen.last_port == PORT_TEXT && t.cb.directs.empty());
+}

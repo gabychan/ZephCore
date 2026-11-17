@@ -1231,6 +1231,16 @@
       "id": "UNIT-NEIGH-011",
       "name": "The short name of a node heard before it is entered is kept for its entry",
       "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-056",
+      "name": "A PKI direct text from a node with no key is not lost when its retry arrives with the key known",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-057",
+      "name": "A PKI direct text goes through the firewall screen like a channel text",
+      "source": "tests/unit/meshtastic_tests.cpp"
     }
   ]
 }

@@ -240,14 +240,18 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 
 	/* Channel 0 to us alone is PKI; one that does not open may still be a
 	 * channel whose hash is 0. */
-	if (_pki && h.channel == 0 && h.to == _self && plen > kPkiOverhead &&
-	    openPki(h, raw, plen, sink, buf, d)) {
+	if (_pki && h.channel == 0 && h.to == _self && plen > kPkiOverhead) {
 		if (h.from == _self || findSeen(h.from, h.id)) {
 			return RX_DUPLICATE;
 		}
-		remember(h.from, h.id);
-		deliverPki(h, d, snr_x4, sink);
-		return RX_HANDLED;
+		if (openPki(h, raw, plen, sink, buf, d)) {
+			if (_screen && _screen->drops(h, d.portnum)) {
+				return RX_DROPPED;
+			}
+			remember(h.from, h.id);
+			deliverPki(h, d, snr_x4, sink);
+			return RX_HANDLED;
+		}
 	}
 
 	for (auto &c : _ch) {
@@ -280,6 +284,10 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		}
 		if (_screen && _screen->drops(h, 0)) {
 			return RX_DROPPED;
+		}
+		/* A frame to us alone is not repeated, and a retry of it may open once the key is known. */
+		if (h.to == _self) {
+			return RX_OPAQUE;
 		}
 		Seen *s = remember(h.from, h.id);
 
