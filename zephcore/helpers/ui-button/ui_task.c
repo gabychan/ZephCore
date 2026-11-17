@@ -996,7 +996,11 @@ void ui_set_radio_runtime(uint8_t sync_word,
 
 void ui_set_dashboard(const struct ui_dash *d)
 {
+#if defined(CONFIG_ZEPHTACORE_MESHTASTIC) && !defined(ZEPHCORE_REPEATER)
 	get_state()->dash = *d;
+#else
+	ARG_UNUSED(d);
+#endif
 }
 
 bool ui_has_dashboard(void)

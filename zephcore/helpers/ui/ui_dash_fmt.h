@@ -27,6 +27,14 @@ static inline void ui_dash_count(char *out, size_t cap, uint32_t n)
 	}
 }
 
+/* "868.125": the frequency in MHz, rounded to the kHz. */
+static inline void ui_dash_freq(char *out, size_t cap, uint32_t hz)
+{
+	const uint32_t khz = (uint32_t)(((uint64_t)hz + 500) / 1000);
+
+	snprintf(out, cap, "%u.%03u", (unsigned)(khz / 1000), (unsigned)(khz % 1000));
+}
+
 /* 45s, 4m, 3h, 2d. */
 static inline void ui_dash_age(char *out, size_t cap, uint32_t s)
 {

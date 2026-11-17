@@ -1351,6 +1351,11 @@
       "id": "UNIT-PING-016",
       "name": "The command matches with spaces around it, and a command that is the first word of an answer is refused",
       "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-UIDASH-008",
+      "name": "the frequency is in MHz rounded to the kHz, a round up that reaches the next MHz carries",
+      "source": "tests/unit/uidash_tests.cpp"
     }
   ]
 }
