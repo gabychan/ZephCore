@@ -216,3 +216,28 @@ TEST(pjson_tz_fraction, "UNIT-PJSON-009", "A quarter-hour timezone survives pref
     CHECK(companionPrefsFromJson(q, u));
     CHECK(q.tz_offset == 5.5f);
 }
+
+TEST(pjson_server_autoshutdown, "UNIT-PJSON-014", "A repeater's auto-shutdown threshold survives prefs.json; a file without it keeps the default") {
+    NodePrefs p = defaults();
+    p.auto_shutdown_mv = 3400;
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.auto_shutdown_mv == 3400);
+
+    // 0 (off) is a choice too, not a missing value.
+    p.auto_shutdown_mv = 0;
+    MemStream off;
+    CHECK(serverPrefsToJson(p, off));
+    NodePrefs r = defaults();
+    CHECK(serverPrefsFromJson(r, off));
+    CHECK(r.auto_shutdown_mv == 0);
+
+    // A file written before the keys existed leaves the default alone.
+    MemStream old_file("{name:\"R\"}");
+    NodePrefs d = defaults();
+    uint16_t def_mv = d.auto_shutdown_mv;
+    CHECK(serverPrefsFromJson(d, old_file));
+    CHECK(d.auto_shutdown_mv == def_mv);
+}
