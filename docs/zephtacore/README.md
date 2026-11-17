@@ -177,22 +177,22 @@ the repeater its channel, position and metrics (`MtRelayPort::Source`), the comp
 
 Size: the repeater grows by 12.7 KB of flash and 1.2 KB of RAM (`wio_tracker_l1`, 289832 vs 277168 B and 85148 vs 83932 B);
 the companion with the feature is 488772 B of flash and 228640 B of RAM (`wio_tracker_l1`, 87 % of RAM).
-Not run on air.
+What has run on hardware is in the table below.
 
 ## Verification
 
 | Check | Result |
 | --- | --- |
-| Host tests (`python3 tests/run.py run --profile quick`) | 286 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX, PKI frames, foreign repeats in `Mesh` |
+| Host tests (`python3 tests/run.py run --profile quick`) | 292 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX, PKI frames, foreign repeats in `Mesh` |
 | Field numbers and nonce layout | Read against `mesh.proto` and `CryptoEngine.cpp` of the Meshtastic firmware |
 | Firmware build `wio_tracker_l1` (SX1262) | OK. Flash +4.6 KB (476724 vs 472084 B), RAM +1.3 KB (227168 vs 225824 B) |
 | Firmware builds `rak4631` (SX1262), companion and repeater with Meshtastic, and `wio_tracker_l1` companion | OK. Companion flash 449444 B and RAM 220264 B on `rak4631`; repeater flash 304360 B and RAM 86948 B; `wio_tracker_l1` companion flash 508264 B and RAM 230056 B. Run in CI as compile-only steps |
-| Firmware build `t1000_e` (LR1110) | OK. Flash 377388 B |
+| Firmware build `t1000_e` (LR1110) | OK. Companion with Meshtastic: flash 413284 B, RAM 222376 B (85 %); without it: flash 385556 B, RAM 218024 B |
 | Firmware build `promicro_lr2021` (LR2021) | OK. Flash 383532 B |
 | Firmware build `wio_tracker_l1` repeater, feature off | OK |
 | SX126x patch | Applies to the pinned Zephyr (`0534e997e`) |
 | Receive limits and reception statistics (repeater) | Host tests (`UNIT-FW-*`, `UNIT-RX-*`) and builds of `wio_tracker_l1` as repeater with and without Meshtastic and as companion. Not run on hardware |
-| **On air** | **Not done**, on any radio family. No frame has been sent to or received from a Meshtastic node, and the hybrid sync word has not been measured for packet loss on this code |
+| **On air** | **Bench only.** ThinkNode M1 (SX1262, hybrid `0x14B4`) hears nearby MeshCore and Meshtastic frames. T1000-E (LR1110, hybrid `0x22`) hears nearby MeshCore again; whether `0x22` loses weak MeshCore frames is open. Not done: text and direct messages exchanged with a Meshtastic node and its app, frames over 184 bytes, echo backoff, any LR2021 board, and a loss measurement against a build without the feature |
 
 First on-air checks, in order: (1) a Meshtastic node on the same frequency, bandwidth, SF and CR sends text on
 `SFNarrow`: it must show in the app; (2) the app sends on `#mt-sfnarrow`: the Meshtastic node must show it;
