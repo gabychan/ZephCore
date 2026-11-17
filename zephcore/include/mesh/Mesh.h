@@ -202,8 +202,10 @@ public:
   // 0xFF would never be picked: the queue looks for a priority below 0xFF.
   static constexpr uint8_t FOREIGN_RELAY_PRIORITY = 0xFE;
   static constexpr int FOREIGN_RELAY_MAX = 8;
+  // True when this foreign frame already waits in the queue or is on the air.
+  bool foreignWaiting(const uint8_t* frame, size_t len) const;
   // Queues a foreign frame to repeat after delay_ms, tracked so its dupes are counted.
-  // False when it was not queued.
+  // True when it waits (queued now or already); false when it was not queued.
   bool relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms);
   // Index in the outbound queue of the foreign frame with this hash, or -1.
   int findForeignQueued(uint32_t hash32) const;

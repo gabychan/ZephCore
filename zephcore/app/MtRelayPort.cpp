@@ -183,6 +183,9 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, const int8_t snr_x4,
 		_stats.too_long++;
 		return;
 	}
+	if (_mesh.foreignWaiting(relay, len)) {
+		return;  /* already queued or on the air: not a new repeat */
+	}
 	const uint32_t slot = slotMs();
 	const uint32_t r = (uint32_t)_mesh.getRNG()->nextInt(0, (int)mt::relayWindow(snr_x4, policy.early));
 

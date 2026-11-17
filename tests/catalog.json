@@ -1353,6 +1353,11 @@
       "source": "tests/unit/foreign_relay_tests.cpp"
     },
     {
+      "id": "UNIT-FOREIGN-006",
+      "name": "A foreign repeat on the air still counts as waiting: hearing the frame again queues no second copy",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
       "id": "UNIT-PING-016",
       "name": "The command matches with spaces around it, and a command that is the first word of an answer is refused",
       "source": "tests/unit/ping_tests.cpp"

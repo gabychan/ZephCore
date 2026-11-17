@@ -308,6 +308,8 @@ public:
 
   // ZEPHCORE: error flags and event-loop callbacks.
   uint16_t getErrFlags() const { return _err_flags; }
+  // ZEPHCORE: the packet the radio is sending now, NULL when none.
+  const Packet* getOutboundInFlight() const { return outbound; }
   int formatTxStalls(char* buf, int cap) const {
     return mesh::formatTxStalls(buf, cap, stall_lbt, stall_rx, (uint32_t)_ms->getMillis());
   }

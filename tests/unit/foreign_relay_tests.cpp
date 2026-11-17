@@ -128,3 +128,19 @@ TEST(foreign_relay_hold, "UNIT-FOREIGN-005", "A repeat waiting longer than the o
     t.trackRetransmit(5, 1000, true, 500);
     CHECK(t.recordDupeIfTracked(5, 1000 + 10400) && !t.recordDupeIfTracked(5, 1000 + 10501));
 }
+
+TEST(foreign_relay_on_air, "UNIT-FOREIGN-006", "A foreign repeat on the air still counts as waiting: hearing the frame again queues no second copy") {
+    Fixture f;
+    while (f.pool.getOutboundTotal() > 0) f.pool.free(f.pool.removeOutboundByIdx(0));   // the pool is static
+    f.mesh.begin();
+    const auto a = frame(1);
+    CHECK(f.mesh.relayForeign(a.data(), a.size(), 0));
+    f.mesh.loop();
+    CHECK(f.radio.sent.size() == 1 && f.mesh.getForeignQueued() == 0);
+    CHECK(f.mesh.foreignWaiting(a.data(), a.size()));
+    CHECK(f.mesh.relayForeign(a.data(), a.size(), 0) && f.mesh.getForeignQueued() == 0);
+    f.radio.completion = true;
+    f.mesh.loop();
+    CHECK(!f.mesh.foreignWaiting(a.data(), a.size()));
+    while (f.pool.getOutboundTotal() > 0) f.pool.free(f.pool.removeOutboundByIdx(0));
+}

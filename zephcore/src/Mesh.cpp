@@ -73,9 +73,17 @@ int Mesh::findForeignQueued(uint32_t hash32) const {
 }
 
 // ZEPHCORE: see Mesh.h.
+bool Mesh::foreignWaiting(const uint8_t* frame, size_t len) const {
+  uint32_t hash = ContentionTracker::computeForeignHash32(frame, (int)len);
+  const Packet* on_air = getOutboundInFlight();
+  return findForeignQueued(hash) >= 0 ||
+         (on_air && on_air->isForeign() && ContentionTracker::computePacketHash32(on_air) == hash);
+}
+
+// ZEPHCORE: see Mesh.h.
 bool Mesh::relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms) {
   uint32_t hash = ContentionTracker::computeForeignHash32(frame, (int)len);
-  if (findForeignQueued(hash) >= 0) return true;  // already waiting
+  if (foreignWaiting(frame, len)) return true;
   if (getForeignQueued() >= FOREIGN_RELAY_MAX) return false;
   if (!sendForeign(frame, (int)len, FOREIGN_RELAY_PRIORITY, delay_ms)) return false;
   _contention.trackRetransmit(hash, (uint32_t)_ms->getMillis(), true, delay_ms);
