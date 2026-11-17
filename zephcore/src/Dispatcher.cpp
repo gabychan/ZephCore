@@ -516,8 +516,8 @@ void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_mil
     _mgr->free(packet);
   } else {
     _mgr->queueOutbound(packet, priority, futureMillis(delay_millis));
-    // ZEPHCORE: wake the loop even for delay 0 — companion sends enqueue from the
-    // system work queue, off the mesh thread, and need the drain signal.
+    // ZEPHCORE: wake the loop even for delay 0: its next wake was computed before this
+    // packet was queued, so it must look at the queue again.
     notifyTxQueued(delay_millis);
   }
 }
