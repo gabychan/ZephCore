@@ -34,9 +34,9 @@ default channels and node name in order.
 - A Meshtastic text now reaches the channel it was heard on, not the first channel with the same key.
 
 - The repeater starts with `z.mt.relay essential`: text, direct messages, their ACKs, NodeInfo and
-  traceroute are repeated, and nothing is dropped when another node repeats it first. `z.mt.relay all`
+  traceroute are repeated. `z.mt.relay all`
   still repeats the rest as before. `essential` also repeats position, so nodes show on the map, and the frames of
-  channels the node holds no key for (`z.mt.relay.opaque on`); both give way when another node repeats them first.
+  channels the node holds no key for (`z.mt.relay.opaque on`). A repeat is never cancelled when another node sends the frame first: it only waits longer.
   Before, `essential` repeated only the channels the node held a key for.
 - The companion repeats nothing unless asked (`set z.mt.relay essential` or `all`), and when asked it
   never drops a repeat because another node sent it first.

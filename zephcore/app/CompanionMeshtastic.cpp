@@ -497,7 +497,6 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 
 	MtRelayPort::Policy policy = MtRelayPort::policyFor(prefs.mt);
 
-	policy.yields = false; /* a companion never cancels a repeat on an echo */
 	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, policy);
 
 	if (r == mt::RX_NOT_MESHTASTIC) {

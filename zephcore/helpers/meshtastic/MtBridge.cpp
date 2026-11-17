@@ -231,7 +231,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 
 	*relay_len = 0;
 	if (relay_class) {
-		*relay_class = RelayClass::CancelOnEcho;
+		*relay_class = RelayClass::Other;
 	}
 	/* A header plus at least the two bytes of the shortest Data (portnum). */
 	if (_self == 0 || len < kHeaderLen + 2 || len > kMaxFrame || !parseHeader(raw, len, h) ||
@@ -277,13 +277,9 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		if (!_relay || !_relay_opaque || looksLikeMeshCore(raw, len, _self)) {
 			return RX_NOT_MESHTASTIC;
 		}
-		/* Channel 0 to one node is a PKI direct message or its ACK; what is in
-		 * the rest we cannot tell, so it is repeated and gives way to an echo. */
-		const RelayClass cls = h.channel == 0 && h.to != kBroadcast ? RelayClass::Always
-									    : RelayClass::Essential;
-
+		/* What is in a frame no channel of ours opens we cannot tell, so it is repeated. */
 		if (relay_class) {
-			*relay_class = cls;
+			*relay_class = RelayClass::Essential;
 		}
 		if (heardBefore(h, raw, len, relay_out, relay_len)) {
 			return RX_DUPLICATE;

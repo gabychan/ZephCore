@@ -77,15 +77,12 @@ private:
 	bool _on = false;
 };
 
-/* What a repeater does with a frame it heard repeated by another node while
- * its own copy waits: Always sends it anyway, Essential and CancelOnEcho drop
- * it. Essential is repeated in every relay mode but off, CancelOnEcho only in all. */
-enum class RelayClass : uint8_t { Always, Essential, CancelOnEcho };
+/* Which relay modes repeat a frame: Essential in essential and all, Other in all only. */
+enum class RelayClass : uint8_t { Essential, Other };
 
-/* Traffic a mesh cannot do without is never dropped on an echo: text and
- * direct messages, their ACKs, NodeInfo and traceroute. Position is repeated
- * too, so nodes show on the map, but gives way to an echo. portnum 0 is a
- * frame we could not open (another network's channel). */
+/* Traffic a mesh cannot do without is repeated in every mode but off: text and
+ * direct messages, their ACKs, NodeInfo, traceroute and position, so nodes show
+ * on the map. portnum 0 is a frame we could not open (another network's channel). */
 inline RelayClass relayClassOf(uint32_t portnum)
 {
 	switch (portnum) {
@@ -93,21 +90,17 @@ inline RelayClass relayClassOf(uint32_t portnum)
 	case PORT_ROUTING:
 	case PORT_NODEINFO:
 	case PORT_TRACEROUTE:
-		return RelayClass::Always;
 	case PORT_POSITION:
 		return RelayClass::Essential;
 	default:
-		return RelayClass::CancelOnEcho;
+		return RelayClass::Other;
 	}
 }
 
-/* Whether a repeat is queued: essential repeats everything but CancelOnEcho, all repeats it too. */
+/* Whether a repeat is queued: essential repeats everything but Other, all repeats it too. */
 inline bool repeatsInMode(bool relay_all, RelayClass cls)
 {
-	return relay_all || cls != RelayClass::CancelOnEcho;
+	return relay_all || cls != RelayClass::Other;
 }
-
-/* Whether the repeat is dropped when another node repeats the frame first. */
-inline bool yieldsOnEcho(RelayClass cls) { return cls != RelayClass::Always; }
 
 } /* namespace mt */

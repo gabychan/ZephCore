@@ -19,14 +19,13 @@ class MtRelayPort {
 public:
 	struct Policy {
 		bool enabled;    /* off: nothing is heard or repeated as Meshtastic */
-		bool relay_all;  /* false: all but mt::RelayClass::CancelOnEcho */
-		bool yields;     /* a repeat that may give way to an echo does */
+		bool relay_all;  /* false: all but mt::RelayClass::Other */
 		bool early;      /* router timing: before every client */
 		bool zerohop;    /* hops are kept for what a fixed neighbour repeated */
 		const uint32_t *zerohop_nodes;  /* mt::kZeroHopNodesMax nodes listed by hand */
 	};
 	struct Stats {
-		uint32_t heard, relayed, opaque, yielded, dropped, shed, kept;
+		uint32_t heard, relayed, opaque, dropped, shed, kept;
 	};
 	/* What a role adds to the NodeInfo: its position and its metrics, if it has them. */
 	struct Source {
@@ -80,22 +79,16 @@ public:
 	void formatStats(char *out, size_t cap) const;
 
 private:
-	static constexpr int kYieldKeep = 8;
-
 	mesh::Mesh &_mesh;
 	mt::Bridge &_bridge;
 	Stats _stats = {};
 	neighbours::Table _neighbours;
 	mt::ZeroHop _zerohop;
-	uint32_t _yield[kYieldKeep] = {};  /* hashes of queued repeats that give way to an echo */
-	uint8_t _yield_next = 0;
 	mt::Timer _nodeinfo, _telemetry;
 
 	uint32_t slotMs() const;
 	void noteDirect(const uint8_t raw[], int len, int8_t snr_x4);
 	void keepHop(const uint8_t raw[], int len, uint8_t *relay, const Policy &policy);
-	bool yields(uint32_t hash) const;
-	void echoHeard(const uint8_t raw[], int len, bool yields);
-	void queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::RelayClass cls,
-		   const Policy &policy);
+	void echoHeard(const uint8_t raw[], int len);
+	void queue(const uint8_t *relay, size_t len, int8_t snr_x4, const Policy &policy);
 };

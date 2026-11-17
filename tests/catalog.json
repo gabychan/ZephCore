@@ -744,12 +744,12 @@
     },
     {
       "id": "UNIT-MT-030",
-      "name": "Text, ACK, NodeInfo and traceroute survive an echo; position is repeated but yields; the rest only in all",
+      "name": "Text, ACK, NodeInfo, traceroute and position are essential; the rest is repeated only in all",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
       "id": "UNIT-MT-054",
-      "name": "Repeat and echo decision for every port in off, essential and all, held or opaque channel",
+      "name": "Repeat decision for every port in essential and all, held or opaque channel",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {

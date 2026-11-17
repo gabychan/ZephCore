@@ -39,7 +39,7 @@ static const Help kHelp[] = {
 	{"mt.channel.add", "set <name> [default|<base64 key>]: add a channel (companion)"},
 	{"mt.channel.remove", "set <name>: remove a channel (companion)"},
 	{"mt.channels", "get: the channels and their keys (companion)"},
-	{"mt.stats", "get: heard, relayed, opaque, yielded, dropped, shed, kept"},
+	{"mt.stats", "get: heard, relayed, opaque, dropped, shed, kept"},
 	{"mt.neighbors", "get [page] [recent]: Meshtastic nodes heard directly, best SNR first"},
 	{"mt.ping.enable", "get|set on [<command>]|off|1 [<command>]|0: bot on (needs a command) or off"},
 	{"mt.ping.trigger", "get|set <command>: text to answer, 1-15 characters, no spaces"},

@@ -855,24 +855,24 @@ TEST(contact_change, "UNIT-MT-029", "Only a new record or a changed name, type o
     CHECK(contactChangedSubstantively(nm, c));
 }
 
-TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive an echo; position is repeated but yields; the rest only in all") {
-    CHECK(relayClassOf(PORT_TEXT) == RelayClass::Always);
-    CHECK(relayClassOf(PORT_ROUTING) == RelayClass::Always);
-    CHECK(relayClassOf(PORT_NODEINFO) == RelayClass::Always);
-    CHECK(relayClassOf(PORT_TRACEROUTE) == RelayClass::Always);
+TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo, traceroute and position are essential; the rest is repeated only in all") {
+    CHECK(relayClassOf(PORT_TEXT) == RelayClass::Essential);
+    CHECK(relayClassOf(PORT_ROUTING) == RelayClass::Essential);
+    CHECK(relayClassOf(PORT_NODEINFO) == RelayClass::Essential);
+    CHECK(relayClassOf(PORT_TRACEROUTE) == RelayClass::Essential);
     CHECK(relayClassOf(PORT_POSITION) == RelayClass::Essential);
-    CHECK(relayClassOf(67) == RelayClass::CancelOnEcho);  // telemetry
-    CHECK(relayClassOf(0) == RelayClass::CancelOnEcho);
+    CHECK(relayClassOf(67) == RelayClass::Other);  // telemetry
+    CHECK(relayClassOf(0) == RelayClass::Other);
 
     Bridge a = makeNode(0xA1A1A1A1u, "alpha", 1), r = makeNode(0xD4D4D4D4u, "delta", 2);
     r.setRelay(true);
     uint8_t frame[kMaxFrame], relay[kMaxFrame];
     size_t relay_len = 0;
-    RelayClass cls = RelayClass::CancelOnEcho;
+    RelayClass cls = RelayClass::Other;
     Capture cap;
     size_t n = a.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame));
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_HANDLED);
-    CHECK(relay_len == n && cls == RelayClass::Always);
+    CHECK(relay_len == n && cls == RelayClass::Essential);
     Position pos = {};
     pos.has_lat = pos.has_lon = true;
     pos.lat_i = 414000000;
@@ -882,25 +882,22 @@ TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive 
     CHECK(relay_len == n && cls == RelayClass::Essential);
 }
 
-TEST(mt_relay_table, "UNIT-MT-054", "Repeat and echo decision for every port in off, essential and all, held or opaque channel") {
-    struct Row { uint32_t port; bool held; bool essential; bool all; bool yields; };
+TEST(mt_relay_table, "UNIT-MT-054", "Repeat decision for every port in essential and all, held or opaque channel") {
+    struct Row { uint32_t port; bool held; bool essential; bool all; };
     const Row rows[] = {
-        {PORT_TEXT, true, true, true, false},
-        {PORT_ROUTING, true, true, true, false},
-        {PORT_NODEINFO, true, true, true, false},
-        {PORT_TRACEROUTE, true, true, true, false},
-        {PORT_POSITION, true, true, true, true},
-        {67, true, false, true, true},  // telemetry
-        {0, false, true, true, true},   // opaque channel: port unknown
+        {PORT_TEXT, true, true, true},
+        {PORT_ROUTING, true, true, true},
+        {PORT_NODEINFO, true, true, true},
+        {PORT_TRACEROUTE, true, true, true},
+        {PORT_POSITION, true, true, true},
+        {67, true, false, true},  // telemetry
+        {0, false, true, true},   // opaque channel: port unknown
     };
     for (const Row &r : rows) {
         RelayClass cls = r.held ? relayClassOf(r.port) : RelayClass::Essential;
         CHECK(repeatsInMode(false, cls) == r.essential);
         CHECK(repeatsInMode(true, cls) == r.all);
-        CHECK(yieldsOnEcho(cls) == r.yields);
     }
-    // A direct message on channel 0 we cannot open is the PKI case: repeated in essential, never yields.
-    CHECK(repeatsInMode(false, RelayClass::Always) && !yieldsOnEcho(RelayClass::Always));
 
     // relay off and relay.opaque off decide in the bridge, before the class.
     Bridge a(refAes);
@@ -914,14 +911,14 @@ TEST(mt_relay_table, "UNIT-MT-054", "Repeat and echo decision for every port in 
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);
     Capture cap;
     size_t relay_len = 0;
-    RelayClass cls = RelayClass::Always;
+    RelayClass cls = RelayClass::Other;
     r.setRelay(false); r.setRelayOpaque(true);
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
     r.setRelay(true); r.setRelayOpaque(false);
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
     r.setRelayOpaque(true);
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_OPAQUE && relay_len == n);
-    CHECK(cls == RelayClass::Essential && repeatsInMode(false, cls) && yieldsOnEcho(cls));
+    CHECK(cls == RelayClass::Essential && repeatsInMode(false, cls));
 }
 
 TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore") {
@@ -938,7 +935,7 @@ TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);  // holds LongFast only
     Capture cap;
     size_t relay_len = 0;
-    RelayClass cls = RelayClass::Always;
+    RelayClass cls = RelayClass::Other;
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
     r.setRelay(true);
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
@@ -1044,8 +1041,6 @@ TEST(mt_config_sanitize, "UNIT-MT-035", "Out of range stored settings are put ba
     CHECK(p.nodeinfo_s == 600 && p.telemetry_s == 86400);
     CHECK(std::string(p.channel) == "SFNarrow");
     CHECK(roleSendsEarly(ROLE_ROUTER) && !roleSendsEarly(ROLE_ROUTER_LATE));
-    CHECK(!roleYieldsToEcho(ROLE_ROUTER) && !roleYieldsToEcho(ROLE_ROUTER_LATE));
-    CHECK(roleYieldsToEcho(ROLE_CLIENT) && roleYieldsToEcho(ROLE_REPEATER));
 }
 
 TEST(mt_router_delay, "UNIT-MT-036", "A router waits at most 2 x cw slots, before the first slot a client may use") {
@@ -1488,7 +1483,7 @@ TEST(mt_roles_by_firmware, "UNIT-MT-053", "A repeater may be client, client_base
     sanitize(p);
     CHECK(p.role == ROLE_CLIENT_BASE);                             // a stored role is kept
     CHECK(!roleRepeats(ROLE_CLIENT_MUTE) && roleRepeats(ROLE_CLIENT) && roleRepeats(ROLE_CLIENT_BASE));
-    CHECK(roleYieldsToEcho(ROLE_CLIENT_BASE) && !roleSendsEarly(ROLE_CLIENT_BASE));
+    CHECK(!roleSendsEarly(ROLE_CLIENT_BASE));
 }
 
 static Header fwHeader(uint32_t from, uint8_t relay) {

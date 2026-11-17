@@ -81,8 +81,8 @@ static constexpr uint32_t kFirstTelemetryMs = 60000;
 
 MtRelayPort::Policy MtRelayPort::policyFor(const mt::RepeaterPrefs &p)
 {
-	return {p.enable != 0, p.relay == mt::RELAY_ALL, mt::roleYieldsToEcho(p.role),
-		mt::roleSendsEarly(p.role), p.zerohop == mt::ZEROHOP_AUTO, p.zerohop_nodes};
+	return {p.enable != 0, p.relay == mt::RELAY_ALL, mt::roleSendsEarly(p.role),
+		p.zerohop == mt::ZEROHOP_AUTO, p.zerohop_nodes};
 }
 
 void MtRelayPort::apply(const mt::RepeaterPrefs &p)
@@ -158,10 +158,9 @@ bool MtRelayPort::nextAt(uint32_t &at_ms) const
 
 void MtRelayPort::formatStats(char *out, size_t cap) const
 {
-	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u shed=%u kept=%u",
+	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u dropped=%u shed=%u kept=%u",
 		 (unsigned)_stats.heard, (unsigned)_stats.relayed, (unsigned)_stats.opaque,
-		 (unsigned)_stats.yielded, (unsigned)_stats.dropped, (unsigned)_stats.shed,
-		 (unsigned)_stats.kept);
+		 (unsigned)_stats.dropped, (unsigned)_stats.shed, (unsigned)_stats.kept);
 }
 
 bool MtRelayPort::send(const uint8_t *frame, size_t len)
@@ -182,19 +181,8 @@ uint32_t MtRelayPort::slotMs() const
 	return mt::slotTimeMs(radio->getActiveSpreadingFactor(), radio->getActiveBandwidthKHzX10() / 10.0f);
 }
 
-bool MtRelayPort::yields(uint32_t hash) const
-{
-	for (uint32_t h : _yield) {
-		if (h == hash) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/* Queues the repeat of a heard frame with the delay of the role. A repeat that
- * may give way to an echo is remembered by hash. */
-void MtRelayPort::queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::RelayClass cls,
+/* Queues the repeat of a heard frame with the delay of the role. */
+void MtRelayPort::queue(const uint8_t *relay, size_t len, const int8_t snr_x4,
 			const Policy &policy)
 {
 	if (len > mt::kMaxTxFrame) {
@@ -211,30 +199,18 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::Rel
 		return;
 	}
 	_stats.relayed++;
-	if (policy.yields && mt::yieldsOnEcho(cls)) {
-		_yield[_yield_next] = mesh::ContentionTracker::computeForeignHash32(relay, (int)len);
-		_yield_next = (uint8_t)((_yield_next + 1) % kYieldKeep);
-	}
 }
 
-/* Heard again with nothing to repeat. From a repeater, while we hold the frame: a
- * frame that yields is dropped unless that repeater named us next hop, the others
- * move out of its way. The originator sending it again leaves our copy alone. */
-void MtRelayPort::echoHeard(const uint8_t raw[], int len, bool may_yield)
+/* Heard again with nothing to repeat. From a repeater, while we hold the frame: our copy
+ * moves out of its way. The originator sending it again leaves our copy alone. */
+void MtRelayPort::echoHeard(const uint8_t raw[], int len)
 {
 	mt::Header h;
-	uint32_t hash = mesh::ContentionTracker::computeForeignHash32(raw, len);
 
 	if (!mt::parseHeader(raw, (size_t)len, h) || (h.hopStart() > 0 && h.hopStart() == h.hopLimit())) {
 		return;
 	}
-	const bool asked = h.next_hop != 0 && h.next_hop == mt::relayByte(_bridge.self());
-
-	if (may_yield && !asked && yields(hash) && _mesh.cancelForeignRelay(hash)) {
-		_stats.yielded++;
-	} else {
-		_mesh.foreignDupeHeard(raw, len);
-	}
+	_mesh.foreignDupeHeard(raw, len);
 }
 
 mt::RxResult MtRelayPort::unopened(const uint8_t raw[], int len, uint32_t self)
@@ -294,12 +270,12 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		_stats.opaque++;
 	}
 	if (r == mt::RX_DUPLICATE && relay_len == 0) {
-		echoHeard(raw, len, policy.yields);
+		echoHeard(raw, len);
 		return r;
 	}
 	if (relay_len > 0 && mt::repeatsInMode(policy.relay_all, cls)) {
 		keepHop(raw, len, relay, policy);
-		queue(relay, relay_len, snr_x4, cls, policy);
+		queue(relay, relay_len, snr_x4, policy);
 	}
 	return r;
 }

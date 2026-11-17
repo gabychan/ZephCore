@@ -175,10 +175,8 @@ inline void shortName(const char *name, char out[5])
 	out[n] = '\0';
 }
 
-/* A router sends early and never yields to an echo; so does a late router,
- * but with the client's delay. */
+/* A router sends early; a late router has the client's delay. */
 inline bool roleSendsEarly(uint8_t role) { return role == ROLE_ROUTER; }
-inline bool roleYieldsToEcho(uint8_t role) { return role != ROLE_ROUTER && role != ROLE_ROUTER_LATE; }
 /* A muted client repeats nothing, whatever z.mt.relay says. */
 inline bool roleRepeats(uint8_t role) { return role != ROLE_CLIENT_MUTE; }
 
