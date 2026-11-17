@@ -61,8 +61,9 @@ Notes on the mapping:
 - **Zephtacore** (the Meshtastic bridge, `boards/common/zephtacore.conf`) is a `zephtacore` release variant
   in the board's `zephcore.yml` (`conf: ../../common/zephtacore.conf`, `subtitle: Zephtacore`), published for
   the companion and the repeater under the same tile. Files are named `<stem>-<role>-zephtacore-<hash>.<ext>`;
-  the Zephtacore web flasher (`custom_builder_web/flasher.html`) downloads only these. Today `t1000_e` and
-  `wio_tracker_l1` carry it; a board joins by adding the same variant.
+  the Zephtacore web flasher (`custom_builder_web/flasher.html`) downloads only these. Every published board of the
+  web builder carries it except `lilygo_tlora_c6`, `xiao_esp32c6` and `lora_e5_mini`, whose companion does not fit;
+  a board joins by adding the same variant, and CI says whether both roles fit.
 - **Native-Linux** boards (femtofox, rak6421) are `noflash` download-only tiles.
 - **nRF54L15** boards (ME25LS02) are `noflash` too, for a different reason: the SoC has no USB
   peripheral, so no bootloader exists and nothing the configurator can drive is possible. They
