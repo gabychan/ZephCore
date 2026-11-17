@@ -2,6 +2,10 @@
 target: xiao_nrf52840
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "Seeed Studio Xiao nRF52 WIO"
   maker: seeed

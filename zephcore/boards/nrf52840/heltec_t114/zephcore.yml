@@ -3,6 +3,9 @@ target: heltec_t114
 release:
   roles: [companion, repeater]
   variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
     - id: noscreen
       conf: no_display.conf
       subtitle: "No screen"

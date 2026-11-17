@@ -2,6 +2,10 @@
 target: meshtracker_x1
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 # Catalog: name pre-matched to MeshCore's flasher convention ("Seeed Studio" +
 # full product name), so this folds into their tile automatically the moment
 # they add one -- the merge is by exact name. Their flasher config has no X1 entry

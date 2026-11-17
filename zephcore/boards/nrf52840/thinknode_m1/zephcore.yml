@@ -2,6 +2,10 @@
 target: thinknode_m1
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "Elecrow ThinkNode M1"
   maker: elecrow

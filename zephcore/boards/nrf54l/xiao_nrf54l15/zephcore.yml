@@ -2,6 +2,10 @@
 target: xiao_nrf54l15/nrf54l15/cpuapp
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 # Catalog: no USB bootloader (nRF54L15); the XIAO carries a SAMD11 CMSIS-DAP
 # bridge, so its own USB cable is enough (openocd/pyocd) -- still not a browser
 # flash flow. Download-only tile.

@@ -2,6 +2,10 @@
 target: muziworks_r1neo
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "muzi works R1 Neo"
   maker: muziworks

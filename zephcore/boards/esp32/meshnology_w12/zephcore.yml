@@ -4,6 +4,10 @@ capabilities:
   wifi: true
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 # Catalog: MeshCore firmware has a meshnology_w12 variant but their flasher config
 # has no W12 device and no meshnology maker, so there is nothing to fold into yet.
 # The name follows their maker-plus-product convention, so it folds by itself if

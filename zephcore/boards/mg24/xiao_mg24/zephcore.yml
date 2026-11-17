@@ -2,6 +2,10 @@
 target: xiao_mg24
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 # Catalog: no USB device peripheral, so no bootloader and no browser-flashable
 # path; the .hex is flashed with an external probe (the XIAO's USB-C is a debug
 # bridge). MeshCore has no MG24 support, hence a ZephCore-only tile.
