@@ -988,6 +988,11 @@
       "source": "tests/unit/fw_tests.cpp"
     },
     {
+      "id": "UNIT-FW-016",
+      "name": "Echoes of one flood share their verdict key; two adverts of one node, or two packets differing past byte 8, do not",
+      "source": "tests/unit/fw_tests.cpp"
+    },
+    {
       "id": "UNIT-RX-001",
       "name": "Frames are counted by hops crossed, 7 or more together, unknown apart; empty buckets are left out",
       "source": "tests/unit/rxstats_tests.cpp"

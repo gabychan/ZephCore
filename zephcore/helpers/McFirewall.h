@@ -83,6 +83,18 @@ inline bool within(uint32_t now, uint32_t since, uint32_t span)
 	return (uint32_t)(now - since) < span;
 }
 
+/* The key a flood's verdict is remembered by: FNV-1a over its type and whole payload. Echoes of one
+ * flood share it (only the path differs); two adverts of one node do not. */
+inline uint32_t verdictKey(const mesh::Packet &pkt)
+{
+	uint32_t h = (0x811c9dc5u ^ pkt.getPayloadType()) * 0x01000193u;
+
+	for (uint16_t i = 0; i < pkt.payload_len; i++) {
+		h = (h ^ pkt.payload[i]) * 0x01000193u;
+	}
+	return h;
+}
+
 /* RAM only. */
 class Firewall {
 	struct AdvertSeen {

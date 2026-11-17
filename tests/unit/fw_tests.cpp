@@ -177,3 +177,19 @@ TEST(fw_screened, "UNIT-FW-015", "A copy of a frame already screened gets its ve
     CHECK(!f.screened(7, dropped) && f.screened(131, dropped));
     CHECK(f.counters().gap == 0 && f.counters().rate == 0);
 }
+
+TEST(fw_verdict_key, "UNIT-FW-016", "Echoes of one flood share their verdict key; two adverts of one node, or two packets differing past byte 8, do not") {
+    mesh::Packet a, b;
+    a.header = b.header = (PAYLOAD_TYPE_ADVERT << PH_TYPE_SHIFT) | ROUTE_TYPE_FLOOD;
+    a.payload_len = b.payload_len = 100;
+    for (int i = 0; i < 100; i++) a.payload[i] = b.payload[i] = (uint8_t)i;
+    a.path_len = 0;
+    b.path_len = 1;
+    b.path[0] = 0x42;
+    CHECK(fw::verdictKey(a) == fw::verdictKey(b));
+    b.payload[PUB_KEY_SIZE] ^= 1;  /* the advert timestamp: same node, a later advert */
+    CHECK(fw::verdictKey(a) != fw::verdictKey(b));
+    b.payload[PUB_KEY_SIZE] ^= 1;
+    b.header = (PAYLOAD_TYPE_GRP_TXT << PH_TYPE_SHIFT) | ROUTE_TYPE_FLOOD;
+    CHECK(fw::verdictKey(a) != fw::verdictKey(b));
+}
