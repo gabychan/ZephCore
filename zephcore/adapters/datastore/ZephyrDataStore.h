@@ -47,7 +47,10 @@ public:
 
 	void loadChannels(DataStoreHost *host);
 	void saveChannels(DataStoreHost *host);
-	/* Revision of the default channels the list was last given; 0 when never. */
+	/* Revision of the default channels that builds before prefs.json kept it
+	 * (mt.dr) stored in a file of its own; 0 when there is none. */
+	uint8_t loadLegacyMtDefaultsRev();
+	void removeLegacyMtDefaultsRev();
 	uint8_t getBlobByKey(const uint8_t key[], int key_len, uint8_t dest_buf[]);
 	bool putBlobByKey(const uint8_t key[], int key_len, const uint8_t src_buf[], uint8_t len);
 	bool deleteBlobByKey(const uint8_t key[], int key_len);
@@ -87,12 +90,14 @@ private:
 	static constexpr const char *EXT_CONTACTS_FILE = "/ext/contacts3";
 	static constexpr const char *EXT_CHANNELS_FILE = "/ext/channels2";
 	static constexpr const char *EXT_MTKEYS_FILE = "/ext/mtkeys";
+	static constexpr const char *EXT_MT_REV_FILE = "/ext/mt_rev";
 	static constexpr const char *EXT_ADV_BLOBS_FILE = "/ext/adv_blobs";
 
 	/* Fallback to internal if no external */
 	static constexpr const char *INT_CONTACTS_FILE = "/lfs/contacts3";
 	static constexpr const char *INT_CHANNELS_FILE = "/lfs/channels2";
 	static constexpr const char *INT_MTKEYS_FILE = "/lfs/mtkeys";
+	static constexpr const char *INT_MT_REV_FILE = "/lfs/mt_rev";
 	static constexpr const char *INT_ADV_BLOBS_FILE = "/lfs/adv_blobs";
 
 	mesh::RTCClock *_clock;
@@ -103,6 +108,7 @@ private:
 	/* Get path based on external availability */
 	const char *contactsFile() const { return _has_ext_fs ? EXT_CONTACTS_FILE : INT_CONTACTS_FILE; }
 	const char *mtKeysFile() const { return _has_ext_fs ? EXT_MTKEYS_FILE : INT_MTKEYS_FILE; }
+	const char *mtRevFile() const { return _has_ext_fs ? EXT_MT_REV_FILE : INT_MT_REV_FILE; }
 	bool rewriteMtKeys(MtKeyKeep keep, void *ctx, uint32_t *kept);
 	const char *channelsFile() const { return _has_ext_fs ? EXT_CHANNELS_FILE : INT_CHANNELS_FILE; }
 	const char *advBlobsFile() const { return _has_ext_fs ? EXT_ADV_BLOBS_FILE : INT_ADV_BLOBS_FILE; }

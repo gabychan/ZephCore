@@ -1055,6 +1055,13 @@ int main(void)
 	/* The first boot on a firmware with a new defaults revision adds the default
 	 * channels that are missing; later boots leave the list as the user has it. */
 	{
+		if (companion_mesh.prefs.mt.defaults_rev == 0) {
+			companion_mesh.prefs.mt.defaults_rev = data_store.loadLegacyMtDefaultsRev();
+			if (companion_mesh.prefs.mt.defaults_rev != 0) {
+				data_store.savePrefs(companion_mesh.prefs);
+				data_store.removeLegacyMtDefaultsRev();
+			}
+		}
 		if (companion_mesh.prefs.mt.defaults_rev != CompanionMesh::MT_DEFAULTS_REV) {
 			companion_mesh.mtAddDefaultChannels();
 			companion_mesh.prefs.mt.defaults_rev = CompanionMesh::MT_DEFAULTS_REV;
