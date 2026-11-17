@@ -85,6 +85,8 @@ default channels and node name in order.
 - A Meshtastic node heard for the first time is added as a contact only as your auto-add settings
   allow; with manual adding it shows up as a discovered contact instead.
 - Renaming the node changes the name in its Meshtastic NodeInfo too, without a restart.
+- With `z.mt.enable off` the companion sends nothing as Meshtastic: a message the app sends on a `#mt-` channel or to
+  a Meshtastic contact is refused at once, instead of going out on a receiver that could not hear the answer.
 - Settings of the Meshtastic side live in `prefs.json` only in builds that include it.
 - New ping bot on the companion and the repeater: it answers a command of your choice on MeshCore `#bot` and on
   Meshtastic `Bots` with the hops, the SNR and the route (all of it in MeshCore, one hop per line with the RSSI/SNR after the last, the

@@ -765,6 +765,9 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 		return false;
 	}
 	sent = false;
+	if (!prefs.mt.enable) {
+		return true;  /* off: nothing goes out as Meshtastic */
+	}
 	if (!_mt_ready) {
 		mtSetup();
 	}
@@ -854,6 +857,9 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, uint32_t timest
 	}
 	sent = false;
 	ack = 0;
+	if (!prefs.mt.enable) {
+		return true;
+	}
 	if (!_mt_ready) {
 		mtSetup();
 	}
@@ -957,7 +963,10 @@ void CompanionMesh::mtSendAck(uint32_t to, uint32_t request_id)
 
 void CompanionMesh::mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool want_response)
 {
-	int ch = channel_id == mt::kNoChannel || !_mt.hasChannel(channel_id) ? mtFirstChannel()
+	if (!prefs.mt.enable) {
+		return;
+	}
+	int ch =channel_id == mt::kNoChannel || !_mt.hasChannel(channel_id) ? mtFirstChannel()
 									   : (int)channel_id;
 	uint8_t frame[mt::kMaxTxFrame];
 	size_t n = ch < 0 ? 0 : _mt.buildNodeInfoTo((uint8_t)ch, node, want_response, frame,
