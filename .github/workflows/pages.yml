@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - "custom_builder_web/**"
+      - "tests/web/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -27,6 +28,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Test the flasher and builder logic
+        run: node --test tests/web
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

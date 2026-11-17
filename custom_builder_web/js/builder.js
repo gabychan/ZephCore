@@ -2,6 +2,7 @@
  * Zephtacore Web Builder Engine - User-Centric Flow
  */
 document.addEventListener("DOMContentLoaded", () => {
+  const { kconfigString, shellQuote } = window.ZephtacoreLogic;
   // Hardware & Role Elements
   const boardsContainer = document.getElementById("boardsGrid");
   const rolesContainer = document.getElementById("rolesGrid");
@@ -174,14 +175,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Roles with their own conf in zephcore/boards/common; companion builds without one.
   const ROLE_CONF_ROLES = ["repeater", "room_server", "observer", "kiss_modem"];
-
-  function kconfigString(value) {
-    return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-  }
-
-  function shellQuote(value) {
-    return `'${String(value).replace(/'/g, "'\\''")}'`;
-  }
 
   function saveCurrentConfig() {
     const cfg = getCurrentConfig();
