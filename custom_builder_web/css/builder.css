@@ -134,61 +134,10 @@
   text-align: right;
 }
 
-/* Sticky Live Airtime & Summary Panel */
+/* Sticky side panel */
 .builder-sidebar {
   position: sticky;
   top: 5.5rem;
-}
-
-.airtime-gauge-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-lg);
-  padding: 1.6rem;
-  margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-cyan-glow);
-}
-
-.airtime-metric-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.7rem 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.airtime-metric-row:last-child {
-  border-bottom: none;
-}
-
-.airtime-metric-label {
-  font-size: 0.88rem;
-  color: var(--text-secondary);
-}
-
-.airtime-metric-value {
-  font-family: var(--font-mono);
-  font-size: 1.08rem;
-  font-weight: 800;
-  color: var(--brand-cyan);
-}
-
-.airtime-bar-bg {
-  width: 100%;
-  height: 10px;
-  background: var(--bg-input);
-  border-radius: var(--radius-full);
-  margin-top: 0.85rem;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-}
-
-.airtime-bar-fill {
-  height: 100%;
-  background: var(--gradient-primary);
-  border-radius: var(--radius-full);
-  transition: width var(--transition-normal);
-  box-shadow: 0 0 10px var(--brand-cyan);
 }
 
 /* ==========================================================================
