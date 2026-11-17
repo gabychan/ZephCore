@@ -5,10 +5,6 @@ capabilities:
   ble_ota: false
 release:
   roles: [companion, repeater]
-  variants:
-    - id: zephtacore
-      conf: ../../common/zephtacore.conf
-      subtitle: Zephtacore
 catalog:
   device: "Seeed Studio Xiao ESP32-C6"
   maker: seeed

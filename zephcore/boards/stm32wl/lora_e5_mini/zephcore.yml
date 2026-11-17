@@ -2,10 +2,6 @@
 target: lora_e5_mini
 release:
   roles: [companion, repeater]
-  variants:
-    - id: zephtacore
-      conf: ../../common/zephtacore.conf
-      subtitle: Zephtacore
 # Catalog: no Bluetooth on this SoC -- the companion speaks MeshCore serial
 # framing over USART1, bridged to USB-C by the onboard USB-UART chip, so it is
 # offered as companionUsb rather than companionBle. SWD-flashed, download-only.
