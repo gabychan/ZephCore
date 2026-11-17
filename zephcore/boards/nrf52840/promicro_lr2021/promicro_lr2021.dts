@@ -114,13 +114,14 @@
 };
 
 /* Wake from a low-battery System OFF: LPCOMP on the same divider as the ADC
- * (AIN7, Vpin = VBAT / 2) against 9/16 of VDD (3.3 V). Rising past it is VBAT
- * ~3.7 V with hysteresis. Keep `autoshutdown` below that. */
+ * (AIN7) against 5/8 of VDD. Bench-measured on a ProMicro: 9/16 woke at 3.3 V
+ * (too close to the 3.2 V autoshutdown), so 5/8 targets ~3.65 V with
+ * hysteresis. Keep `autoshutdown` below that. */
 &comp {
 	compatible = "nordic,nrf-lpcomp";
 	status = "okay";
 	psel = <NRF_COMP_AIN7>;
-	refsel = "VDD_9_16";
+	refsel = "VDD_5_8";
 	enable-hyst;
 };
 
