@@ -13,10 +13,9 @@ const catalog = {
 };
 
 // Runs initFlasherCore against a minimal DOM and a fake catalog fetch.
-async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boards = null, install = "keep", serial = true, nrf = null } = {}) {
+async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boards = null, install = "keep", serial = true, nrf = null, pending = null } = {}) {
   const els = {};
   const downloads = [];
-  const dialog = { shown: 0 };
   const el = (id) =>
     (els[id] ||= {
       id, textContent: "", style: {}, value: "", disabled: false, innerHTML: "",
@@ -44,24 +43,20 @@ async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boa
     ZEPHTACORE_ROLES: [{ id: "companion", name: "Companion" }, { id: "repeater", name: "Repeater" }, { id: "observer", name: "Observer" }],
     location: { search: "" }
   };
-  const store = { getItem: () => null, setItem() {}, removeItem() {} };
+  const store = { getItem: () => (pending ? JSON.stringify(pending) : null), setItem() {}, removeItem() {} };
   const fetchFn = async (url) =>
     String(url).includes("catalog.json")
       ? { ok: fetchOk, json: async () => catalog }
       : { ok: true, arrayBuffer: async () => (String(url).endsWith(".zip") ? new TextEncoder().encode(String(url)) : new Uint8Array([1, 2, 3, 4])).buffer };
   const src = fs.readFileSync(path.join(__dirname, "../../custom_builder_web/js/flasher-core.js"), "utf8");
-  const choice = { keep: "btnInstallKeep", clean: "btnInstallClean", cancel: "btnInstallCancel" }[install];
-  Object.assign(el("installModeDialog"), {
-    showModal() { dialog.shown++; els[choice].listeners.click(); },
-    close() {}
-  });
+  el("installClean").checked = install === "clean";
+  el("installKeep").checked = install !== "clean";
   els.flasherBoardSelect = { ...el("flasherBoardSelect"), value: board };
   els.flasherRoleSelect = { ...el("flasherRoleSelect"), value: "companion" };
   const navigatorStub = serial ? { serial: { requestPort: async () => ({ fake: "port" }) } } : {};
   new Function("window", "document", "sessionStorage", "navigator", "fetch", "URLSearchParams", src)(win, doc, store, navigatorStub, fetchFn, URLSearchParams);
   await new Promise((r) => setTimeout(r, 20));
   els.downloads = downloads;
-  els.dialog = dialog;
   return els;
 }
 
@@ -138,8 +133,26 @@ test("ESP32: keeping the data does not erase the flash", async () => {
   const esp = fakeEsptool("ESP32-S3");
   const els = await loadPage({ boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: esp.module, install: "keep" });
   await els.btnUnifiedFlash.listeners.click();
-  assert.equal(els.dialog.shown, 1);
+  assert.equal(els.installModeBox.style.display, "");
   assert.equal(esp.calls.writeFlash[0].eraseAll, false);
+});
+
+test("ESP32: the clean choice says what it does for the board", async () => {
+  espCatalog();
+  const els = await loadPage({ boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: fakeEsptool("ESP32-S3").module });
+  assert.match(els.installCleanText.textContent, /^Borra TODA la flash/);
+});
+
+test("ESP32: the settings hint appears only when settings wait to be sent", async () => {
+  espCatalog();
+  const opts = { boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: fakeEsptool("ESP32-S3").module };
+  const plain = await loadPage(opts);
+  await plain.btnUnifiedFlash.listeners.click();
+  assert.equal(plain.flashStatusText.textContent, "Firmware grabado y placa reiniciada.");
+  const withSettings = await loadPage({ ...opts, pending: { name: "Zephta-1", freq: "869.618" } });
+  assert.equal(withSettings.pendingConfigBanner.style.display, "");
+  await withSettings.btnUnifiedFlash.listeners.click();
+  assert.match(withSettings.flashStatusText.textContent, /pulsa "Enviar ajustes por USB"/);
 });
 
 test("ESP32: a clean install erases the whole flash while writing", async () => {
@@ -151,19 +164,10 @@ test("ESP32: a clean install erases the whole flash while writing", async () => 
   assert.deepEqual(esp.calls.after, ["hard_reset"]);
 });
 
-test("cancelling the install question touches nothing", async () => {
-  espCatalog();
-  const esp = fakeEsptool("ESP32-S3");
-  const els = await loadPage({ boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: esp.module, install: "cancel" });
-  await els.btnUnifiedFlash.listeners.click();
-  assert.equal(esp.calls.writeFlash.length, 0);
-  assert.equal(esp.calls.disconnected, 0);
-});
-
-test("UF2 without Web Serial: without a formatter in the catalog the question is not asked and the firmware downloads", async () => {
+test("UF2 without Web Serial: without a formatter in the catalog the choice is hidden and the firmware downloads", async () => {
   const els = await loadPage({ install: "clean", serial: false });
   await els.btnUnifiedFlash.listeners.click();
-  assert.equal(els.dialog.shown, 0);
+  assert.equal(els.installModeBox.style.display, "none");
   assert.deepEqual(els.downloads, ["t1000_e-companion-zephtacore-abc1234.uf2"]);
 });
 
@@ -172,7 +176,7 @@ test("UF2 without Web Serial: a clean install hands out the formatter first and 
   try {
     const els = await loadPage({ install: "clean", serial: false });
     await els.btnUnifiedFlash.listeners.click();
-    assert.equal(els.dialog.shown, 1);
+    assert.equal(els.installModeBox.style.display, "");
     assert.deepEqual(els.downloads, ["SoftDevice_v7_formatter.uf2"]);
     assert.equal(els.btnNextStep.style.display, "");
     await els.btnNextStep.listeners.click();

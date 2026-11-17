@@ -18,27 +18,6 @@
     <script src="js/flasher-logic.js" defer></script>
     <script src="js/flasher-serial.js" defer></script>
     <script src="js/flasher-core.js" defer></script>
-    <style>
-      .pending-config-banner {
-        background: linear-gradient(135deg, rgba(0, 242, 254, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
-        border: 2px solid var(--brand-cyan);
-        border-radius: var(--radius-lg);
-        padding: 1.25rem 1.5rem;
-        margin-bottom: 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 1rem;
-        box-shadow: var(--shadow-cyan-glow);
-      }
-      .config-pills-row {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-        margin-top: 0.35rem;
-      }
-    </style>
   </head>
   <body>
     <!-- Top Navigation Bar -->
@@ -74,158 +53,104 @@
     <main class="container flasher-container" style="margin-top: 2.5rem; margin-bottom: 4rem;">
       <div class="section-header text-left">
         <span class="section-tag">Instalación y Grabación Directa</span>
-        <h1 class="section-title">Web Flasher &amp; Consola Serie USB</h1>
+        <h1 class="section-title">Web Flasher</h1>
         <p class="section-desc">
-          Programa tu dispositivo directamente desde el navegador (Google Chrome o Microsoft Edge en escritorio) sin instalar Python ni controladores externos.
+          Instala Zephtacore desde el navegador (Chrome o Edge en escritorio), sin Python ni controladores.
         </p>
       </div>
 
-      <!-- Pending Builder Config Action Card (Shown when coming from Builder) -->
-      <div id="pendingConfigBanner" class="pending-config-banner" style="display: none;">
-        <div style="flex: 1; min-width: 280px;">
-          <div style="display: flex; align-items: center; gap: 0.65rem; margin-bottom: 0.4rem;">
-            <span style="font-size: 1.4rem;">🚀</span>
-            <div>
-              <strong style="color: var(--brand-cyan); font-size: 1.15rem; font-weight: 800; display: block;">
-                Configuración del Builder Lista para Flashear
-              </strong>
-              <span style="font-size: 0.82rem; color: var(--text-secondary);">
-                Conecta tu placa por USB y pulsa el botón para iniciar el flasheo e inyectar tus ajustes en un solo paso.
-              </span>
-            </div>
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h2 class="card-title">Placa y rol</h2>
+          <p class="card-subtitle">Elige el modelo exacto y el rol del nodo.</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="flasherBoardSelect">Placa</label>
+            <select id="flasherBoardSelect" class="form-control"></select>
           </div>
-          <div class="config-pills-row" style="margin-top: 0.65rem;">
-            <span class="tag-badge tag-cyan" id="cfgBadgeName">Nodo: ZephtaNode</span>
-            <span class="tag-badge tag-emerald" id="cfgBadgeFreq">869.618 MHz (SF7/BW62.5)</span>
-            <span class="tag-badge" id="cfgBadgeRole" style="background: rgba(139, 92, 246, 0.1); color: var(--brand-purple); border: 1px solid rgba(139, 92, 246, 0.3);">Rol: Companion</span>
-            <span class="tag-badge" id="cfgBadgeHops" style="background: var(--bg-surface-elevated); color: var(--text-primary); border: 1px solid var(--border-card);">Saltos: 7</span>
-            <span class="tag-badge" id="cfgBadgeBoard" style="background: var(--bg-surface-elevated); color: var(--brand-cyan); border: 1px solid var(--border-card);">Placa: Seeed T1000-E</span>
+
+          <div class="form-group">
+            <label class="form-label" for="flasherRoleSelect">Rol</label>
+            <select id="flasherRoleSelect" class="form-control"></select>
           </div>
         </div>
 
-        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-          <button id="btnUnifiedFlash" class="btn btn-primary" type="button" style="padding: 0.85rem 1.6rem; font-size: 1rem; font-weight: 700; box-shadow: var(--shadow-cyan-glow);">
-            ⬇️ Descargar firmware
+        <div id="boardPreviewBox" class="board-preview-box">
+          <div class="board-preview-info">
+            <span id="previewBoardTitle" class="board-preview-title"></span>
+            <span id="previewBoardDesc" class="board-preview-desc"></span>
+          </div>
+          <div class="board-preview-tags">
+            <span id="previewMcuTag" class="tag-badge tag-cyan"></span>
+            <span id="previewRadioTag" class="tag-badge tag-emerald"></span>
+            <span id="previewFlashTag" class="tag-badge" style="background: rgba(139, 92, 246, 0.1); color: var(--brand-purple); border: 1px solid rgba(139, 92, 246, 0.3);"></span>
+            <span id="previewBuildTag" class="tag-badge" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-card);"></span>
+          </div>
+        </div>
+
+        <div id="installModeBox" class="install-step" style="display: none;">
+          <h2 class="card-title">Tus datos</h2>
+          <label class="install-choice">
+            <input type="radio" name="installMode" id="installKeep" value="keep" checked />
+            <span><strong>Conservar mis datos</strong><br />Solo reemplaza el firmware: la identidad y los ajustes siguen como están.</span>
+          </label>
+          <label class="install-choice">
+            <input type="radio" name="installMode" id="installClean" value="clean" />
+            <span><strong>Instalación limpia</strong><br /><span id="installCleanText"></span></span>
+          </label>
+        </div>
+
+        <div class="install-step">
+          <button id="btnUnifiedFlash" class="btn btn-primary" type="button" style="padding: 0.85rem 1.6rem; font-size: 1rem; font-weight: 700;">
+            ⚡ Grabar firmware por USB
           </button>
-          <button id="btnInjectOnly" class="btn btn-outline" type="button">
-            🔌 Enviar ajustes por USB
-          </button>
-          <a href="builder.html" class="btn btn-outline btn-sm" title="Volver al Builder para cambiar ajustes">
-            ✏️ Editar Ajustes
-          </a>
-        </div>
-      </div>
+          <span class="install-hint">Requiere Web Serial (Chrome o Edge en PC o Mac).</span>
 
-      <!-- Device Connection Status Bar -->
-      <div class="device-status-bar">
-        <div class="device-status-indicator">
-          <div id="devicePulseDot" class="status-dot-pulse offline"></div>
-          <span id="deviceStatusText">Dispositivo USB: Desconectado</span>
-        </div>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <span class="tag-badge tag-cyan" id="chipsetDetectionTag">Auto-Detect Activo</span>
-          <button id="btnSerialConnect" class="btn btn-primary btn-sm" type="button">
-            ⚡ Conectar Puerto Serie
-          </button>
-        </div>
-      </div>
-
-      <!-- Flasher Tabs Switcher -->
-      <div class="flasher-tabs">
-        <button class="flasher-tab-btn active" data-target="tabAutoRelease" type="button">
-          🚀 Firmware Oficial
-        </button>
-        <button class="flasher-tab-btn" data-target="tabLocalFile" type="button">
-          📁 Flashear Archivo Local (.bin / .uf2)
-        </button>
-      </div>
-
-      <!-- Tab 1: Official Firmware Release -->
-      <div id="tabAutoRelease" class="flasher-tab-panel">
-        <div class="card" style="margin-bottom: 1.5rem;">
-          <div class="card-header">
-            <h2 class="card-title">1. Seleccionar Hardware y Propósito</h2>
-            <p class="card-subtitle">Elige el modelo exacto y el rol del nodo para preparar la imagen binaria adecuada.</p>
-          </div>
-
-          <div class="grid-2">
-            <div class="form-group">
-              <label class="form-label" for="flasherBoardSelect">Dispositivo / Placa de Radio</label>
-              <select id="flasherBoardSelect" class="form-control"></select>
+          <div id="progressCard" class="flashing-progress-card" style="display: none;">
+            <div class="progress-header">
+              <span id="flashStatusText"></span>
+              <span id="progressPercent" style="font-family: var(--font-mono); color: var(--brand-cyan);">0%</span>
             </div>
-
-            <div class="form-group">
-              <label class="form-label" for="flasherRoleSelect">Rol Operativo</label>
-              <select id="flasherRoleSelect" class="form-control"></select>
+            <div class="progress-track">
+              <div id="flashProgressBar" class="progress-bar-fill"></div>
             </div>
+            <button id="btnNextStep" class="btn btn-primary btn-sm" type="button" style="display: none; margin-top: 0.75rem;"></button>
           </div>
+        </div>
 
-          <!-- Dynamic Board Preview Box -->
-          <div id="boardPreviewBox" class="board-preview-box">
-            <div class="board-preview-info">
-              <span id="previewBoardTitle" class="board-preview-title">Seeed SenseCAP Card T1000-E</span>
-              <span id="previewBoardDesc" class="board-preview-desc">Tarjeta ultra-fina con GPS y transceptor Semtech LR1110.</span>
-            </div>
-            <div class="board-preview-tags">
-              <span id="previewMcuTag" class="tag-badge tag-cyan">nRF52840</span>
-              <span id="previewRadioTag" class="tag-badge tag-emerald">Semtech LR1110</span>
-              <span id="previewFlashTag" class="tag-badge" style="background: rgba(139, 92, 246, 0.1); color: var(--brand-purple); border: 1px solid rgba(139, 92, 246, 0.3);">Modo UF2</span>
-              <span id="previewBuildTag" class="tag-badge" style="background: var(--bg-surface-elevated); border: 1px solid var(--border-card);"></span>
-            </div>
+        <!-- Settings waiting to be sent: from the Builder or from a backup -->
+        <div id="pendingConfigBanner" class="install-step" style="display: none;">
+          <h2 class="card-title">Ajustes por enviar</h2>
+          <p class="card-subtitle">Cuando la placa arranque con el firmware nuevo, envíale estos ajustes por USB.</p>
+          <div class="config-pills-row">
+            <span class="tag-badge tag-cyan" id="cfgBadgeName"></span>
+            <span class="tag-badge tag-emerald" id="cfgBadgeFreq"></span>
+            <span class="tag-badge" id="cfgBadgeRole"></span>
+            <span class="tag-badge" id="cfgBadgeHops"></span>
+            <span class="tag-badge" id="cfgBadgeBoard"></span>
           </div>
-
-          <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <button id="btnStartFlash" class="btn btn-primary" type="button" style="padding: 0.85rem 1.6rem; font-size: 1rem;">
-              ℹ️ Cómo grabar este archivo
-            </button>
-            <span style="font-size: 0.85rem; color: var(--text-muted);">
-              Requiere navegador compatible con Web Serial API (Chrome / Edge en PC o Mac).
-            </span>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem;">
+            <button id="btnInjectOnly" class="btn btn-primary btn-sm" type="button">🔌 Enviar ajustes por USB</button>
+            <a href="builder.html" class="btn btn-outline btn-sm">✏️ Editar ajustes en el Builder</a>
           </div>
         </div>
       </div>
 
-      <!-- Tab 2: Custom Local File -->
-      <div id="tabLocalFile" class="flasher-tab-panel" style="display: none;">
-        <div class="card" style="margin-bottom: 1.5rem;">
-          <div class="card-header">
-            <h2 class="card-title">Cargar Binario Personalizado o Respaldo</h2>
-            <p class="card-subtitle">Sube un archivo <code>.bin</code> (ESP32), <code>.uf2</code> (nRF52), o un respaldo <code>prefs.json</code> para restaurar ajustes.</p>
-          </div>
-
-          <div id="flasherDropzone" class="dropzone">
-            <div class="dropzone-icon">📥</div>
-            <div class="dropzone-title">Arrastra aquí tu firmware o archivo de preferencias</div>
-            <div class="dropzone-sub">Formatos compatibles: .bin, .uf2, .zip, .json</div>
-            <input type="file" id="firmwareFileInput" accept=".bin,.uf2,.zip,.json" style="display: none;" />
-          </div>
+      <details id="restoreSection" class="fold">
+        <summary>Restaurar un respaldo de ajustes</summary>
+        <p class="card-subtitle">Sube un <code>prefs.json</code> guardado antes para enviarlo a la placa.</p>
+        <div id="flasherDropzone" class="dropzone">
+          <div class="dropzone-icon">📥</div>
+          <div class="dropzone-title">Arrastra aquí tu archivo <code>prefs.json</code></div>
+          <input type="file" id="firmwareFileInput" accept=".json" style="display: none;" />
         </div>
-      </div>
-
-      <!-- Flashing Progress Indicator -->
-      <div id="progressCard" class="flashing-progress-card" style="display: none;">
-        <div class="progress-header">
-          <span id="flashStatusText">Conectando al transceptor...</span>
-          <span id="progressPercent" style="font-family: var(--font-mono); color: var(--brand-cyan);">0%</span>
-        </div>
-        <div class="progress-track">
-          <div id="flashProgressBar" class="progress-bar-fill"></div>
-        </div>
-        <button id="btnNextStep" class="btn btn-primary btn-sm" type="button" style="display: none; margin-top: 0.75rem;"></button>
-      </div>
-
-      <dialog id="installModeDialog" style="margin: auto; max-width: 32rem; padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-strong); background: var(--bg-surface-elevated); color: var(--text-primary);">
-        <h3 style="margin-top: 0;">¿Cómo quieres instalar?</h3>
-        <p id="installModeText"></p>
-        <p><strong>Conservar mis datos</strong> solo reemplaza el firmware y deja identidad y ajustes como están.</p>
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end;">
-          <button id="btnInstallCancel" class="btn btn-outline btn-sm" type="button">Cancelar</button>
-          <button id="btnInstallKeep" class="btn btn-primary btn-sm" type="button">Conservar mis datos</button>
-          <button id="btnInstallClean" class="btn btn-outline btn-sm" type="button">Instalación limpia</button>
-        </div>
-      </dialog>
+      </details>
 
       <!-- Integrated Serial Terminal -->
+      <details id="consoleSection" class="fold">
+        <summary>Consola serie</summary>
       <div class="terminal-window" id="terminal">
         <div class="terminal-titlebar">
           <div class="terminal-dots">
@@ -236,6 +161,7 @@
           <span class="terminal-title">Consola Web Serial · 115200 Baud · Zephtacore Runtime</span>
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <span id="serialStatusBadge" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">OFFLINE</span>
+            <button id="btnSerialConnect" class="btn btn-primary btn-sm" type="button">⚡ Conectar Puerto Serie</button>
           </div>
         </div>
 
@@ -267,6 +193,7 @@ Los comandos CLI pueden enviarse escribiendo abajo o pulsando los atajos de tele
           <button class="btn-command-shortcut" data-cmd="reboot" type="button">reboot</button>
         </div>
       </div>
+      </details>
     </main>
 
     <!-- Site Footer -->

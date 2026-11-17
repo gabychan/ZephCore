@@ -7,13 +7,11 @@ function initFlasherCore() {
   const fileInput = document.getElementById("firmwareFileInput");
   const boardSelect = document.getElementById("flasherBoardSelect");
   const roleSelect = document.getElementById("flasherRoleSelect");
-  const btnStartFlash = document.getElementById("btnStartFlash");
   const progressCard = document.getElementById("progressCard");
   const progressBar = document.getElementById("flashProgressBar");
   const progressPercent = document.getElementById("progressPercent");
   const flashStatusText = document.getElementById("flashStatusText");
-  const flasherTabs = document.querySelectorAll(".flasher-tab-btn");
-  const tabPanels = document.querySelectorAll(".flasher-tab-panel");
+  const consoleSection = document.getElementById("consoleSection");
 
   // Preview elements
   const previewBoardTitle = document.getElementById("previewBoardTitle");
@@ -32,15 +30,12 @@ function initFlasherCore() {
   const cfgBadgeBoard = document.getElementById("cfgBadgeBoard");
   const btnUnifiedFlash = document.getElementById("btnUnifiedFlash");
   const btnInjectOnly = document.getElementById("btnInjectOnly");
-  const installDialog = document.getElementById("installModeDialog");
-  const installModeText = document.getElementById("installModeText");
-  const btnInstallKeep = document.getElementById("btnInstallKeep");
-  const btnInstallClean = document.getElementById("btnInstallClean");
-  const btnInstallCancel = document.getElementById("btnInstallCancel");
+  const installModeBox = document.getElementById("installModeBox");
+  const installKeep = document.getElementById("installKeep");
+  const installClean = document.getElementById("installClean");
+  const installCleanText = document.getElementById("installCleanText");
   const btnNextStep = document.getElementById("btnNextStep");
 
-  let activeFile = null;
-  let activeBuffer = null;
   let pendingConfig = null;
 
   // Initialize Board and Role Selects
@@ -65,7 +60,7 @@ function initFlasherCore() {
 
   function showPendingConfig() {
     if (!pendingConfig || !pendingConfigBanner) return;
-    pendingConfigBanner.style.display = "flex";
+    pendingConfigBanner.style.display = "";
     if (cfgBadgeName) cfgBadgeName.textContent = `Nodo: ${pendingConfig.name}`;
     if (cfgBadgeFreq) cfgBadgeFreq.textContent = `${pendingConfig.freq} MHz (SF${pendingConfig.sf || 7}/BW${pendingConfig.bw || 62.5})`;
     if (cfgBadgeRole) cfgBadgeRole.textContent = `Rol: ${pendingConfig.role || "companion"}`;
@@ -129,17 +124,6 @@ function initFlasherCore() {
   }
   if (roleSelect) roleSelect.addEventListener("change", refreshBuildAvailability);
 
-  // Tabs Switcher
-  flasherTabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      flasherTabs.forEach((t) => t.classList.remove("active"));
-      tabPanels.forEach((p) => (p.style.display = "none"));
-      tab.classList.add("active");
-      const target = document.getElementById(tab.getAttribute("data-target"));
-      if (target) target.style.display = "block";
-    });
-  });
-
   // Sends the settings over the serial port and stops at the first command the node
   // refuses, does not answer or cannot be sent. Returns true when all were accepted.
   function fail(cmd, reason) {
@@ -185,10 +169,6 @@ function initFlasherCore() {
   if (btnInjectOnly) {
     btnInjectOnly.addEventListener("click", () => runInjectOnly(pendingConfig));
   }
-  if (btnInstallKeep) btnInstallKeep.addEventListener("click", () => chooseInstallMode("keep"));
-  if (btnInstallClean) btnInstallClean.addEventListener("click", () => chooseInstallMode("clean"));
-  if (btnInstallCancel) btnInstallCancel.addEventListener("click", () => chooseInstallMode(null));
-  if (installDialog) installDialog.addEventListener("cancel", () => chooseInstallMode(null));
   if (btnNextStep) btnNextStep.addEventListener("click", runNextStep);
 
   // Dropzone drag-and-drop
@@ -219,56 +199,37 @@ function initFlasherCore() {
     });
   }
 
+  // Only prefs.json backups: the firmware comes from the catalog.
   function handleFileSelected(file) {
-    activeFile = file;
-
-    // Check if user uploaded a prefs.json backup
-    if (file.name.endsWith(".json")) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const imported = JSON.parse(e.target.result);
-          if (imported) {
-            pendingConfig = {
-              name: imported.name || "ZephtaNode",
-              adminPass: imported.password || "",
-              freq: (imported.radio && imported.radio.freq) || "869.618",
-              sf: (imported.radio && imported.radio.sf) || "7",
-              bw: (imported.radio && imported.radio.bw) || "62.5",
-              cr: (imported.radio && imported.radio.cr) || "2",
-              txPower: (imported.radio && imported.radio.tx_power) || "22",
-              mtRelay: (imported.mt && imported.mt.relay) || "essential",
-              mtOpaque: imported.mt ? imported.mt.opaque : true,
-              mtHops: (imported.mt && imported.mt.hops) || "7",
-              pingBot: imported.mt ? imported.mt.ping : false
-            };
-            if (pendingConfigBanner) {
-              pendingConfigBanner.style.display = "flex";
-              if (cfgBadgeName) cfgBadgeName.textContent = `Respaldo: ${pendingConfig.name}`;
-              if (cfgBadgeFreq) cfgBadgeFreq.textContent = `${pendingConfig.freq} MHz`;
-            }
-            alert(`¡Respaldo "${file.name}" cargado con éxito! Pulsa "Enviar ajustes por USB" para restaurar tu nodo.`);
-          }
-        } catch (err) {
-          alert(`Error al leer el archivo JSON: ${err.message}`);
-        }
-      };
-      reader.readAsText(file);
+    if (!file.name.endsWith(".json")) {
+      alert("Solo se admiten respaldos prefs.json. El firmware se descarga del catálogo.");
       return;
     }
-
-    // Binary file
     const reader = new FileReader();
     reader.onload = (e) => {
-      activeBuffer = e.target.result;
-      if (flashStatusText) {
-        flashStatusText.textContent = `Archivo listo: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+      try {
+        const imported = JSON.parse(e.target.result);
+        if (!imported) return;
+        pendingConfig = {
+          name: imported.name || "ZephtaNode",
+          adminPass: imported.password || "",
+          freq: (imported.radio && imported.radio.freq) || "869.618",
+          sf: (imported.radio && imported.radio.sf) || "7",
+          bw: (imported.radio && imported.radio.bw) || "62.5",
+          cr: (imported.radio && imported.radio.cr) || "2",
+          txPower: (imported.radio && imported.radio.tx_power) || "22",
+          mtRelay: (imported.mt && imported.mt.relay) || "essential",
+          mtOpaque: imported.mt ? imported.mt.opaque : true,
+          mtHops: (imported.mt && imported.mt.hops) || "7",
+          pingBot: imported.mt ? imported.mt.ping : false
+        };
+        showPendingConfig();
+        alert(`¡Respaldo "${file.name}" cargado con éxito! Pulsa "Enviar ajustes por USB" para restaurar tu nodo.`);
+      } catch (err) {
+        alert(`Error al leer el archivo JSON: ${err.message}`);
       }
-      if (progressCard) progressCard.style.display = "block";
-      if (progressBar) progressBar.style.width = "100%";
-      if (progressPercent) progressPercent.textContent = "Cargado";
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsText(file);
   }
 
   const CATALOG_URLS = [
@@ -332,6 +293,7 @@ function initFlasherCore() {
       btnUnifiedFlash.disabled = !available;
       btnUnifiedFlash.textContent = usesWebSerialFlash(board) ? "⚡ Grabar firmware por USB" : "⬇️ Descargar firmware";
     }
+    await refreshInstallChoice();
   }
 
   function setProgress(percent, text) {
@@ -410,7 +372,7 @@ function initFlasherCore() {
       });
 
       await loader.after("hard_reset");
-      setProgress(100, 'Firmware grabado y placa reiniciada. Cuando arranque, pulsa "Enviar ajustes por USB".');
+      setProgress(100, `Firmware grabado y placa reiniciada.${SEND_SETTINGS_HINT()}`);
     } catch (err) {
       console.error("ESP32 flash error:", err);
       setProgress(0, `Error: ${err.message}`);
@@ -420,11 +382,15 @@ function initFlasherCore() {
   }
 
   function afterDownloadHint(board, fileName) {
-    const next = 'Cuando la placa arranque con el firmware nuevo, pulsa "Enviar ajustes por USB".';
-    if (board.flashType === "uf2") return `Descargado "${fileName}". Cópialo al disco UF2 de la placa. ${next}`;
-    if (board.flashType === "hex") return `Descargado "${fileName}". Prográmalo con west flash o una sonda SWD. ${next}`;
-    return `Descargado "${fileName}". ${next}`;
+    const next = SEND_SETTINGS_HINT();
+    if (board.flashType === "uf2") return `Descargado "${fileName}". Cópialo al disco UF2 de la placa.${next}`;
+    if (board.flashType === "hex") return `Descargado "${fileName}". Prográmalo con west flash o una sonda SWD.${next}`;
+    return `Descargado "${fileName}".${next}`;
   }
+
+  // The Builder or a backup left settings to send once the new firmware runs.
+  const SEND_SETTINGS_HINT = () =>
+    pendingConfig ? ' Cuando la placa arranque, pulsa "Enviar ajustes por USB".' : "";
 
   function selectedBoard() {
     const boards = window.ZEPHTACORE_BOARDS || [];
@@ -437,9 +403,9 @@ function initFlasherCore() {
 
   const CLEAN_LOSS = "Se pierden la identidad del nodo (clave nueva: tus contactos lo verán como otro nodo), los ajustes, los contactos y los emparejamientos Bluetooth.";
   const CLEAN_TEXT = {
-    bin: `Instalación limpia: borra TODA la flash de la placa antes de grabar el firmware, por si el sistema de archivos quedó corrupto. ${CLEAN_LOSS}`,
-    dfu: `Instalación limpia: primero se carga en la placa el formateador oficial de su SoftDevice, que borra el sistema de archivos, y después se instala el firmware, todo por USB. El navegador te pedirá elegir el puerto varias veces. ${CLEAN_LOSS}`,
-    uf2: `Instalación limpia: primero se descarga un formateador que borra el sistema de archivos, y después el firmware (dos copias al disco UF2). ${CLEAN_LOSS}`
+    bin: `Borra TODA la flash de la placa antes de grabar el firmware, por si el sistema de archivos quedó corrupto. ${CLEAN_LOSS}`,
+    dfu: `Primero se carga en la placa el formateador oficial de su SoftDevice, que borra el sistema de archivos, y después se instala el firmware, todo por USB. El navegador te pedirá elegir el puerto varias veces. ${CLEAN_LOSS}`,
+    uf2: `Primero se descarga un formateador que borra el sistema de archivos, y después el firmware (dos copias al disco UF2). ${CLEAN_LOSS}`
   };
 
   // ESP32 and nRF52 are written from the browser; nRF52 needs Web Serial for the DFU.
@@ -447,24 +413,26 @@ function initFlasherCore() {
     return board.flashType === "bin" || (board.flashType === "uf2" && "serial" in navigator);
   }
 
-  let resolveInstallMode = null;
-  function chooseInstallMode(mode) {
-    if (!resolveInstallMode) return;
-    const resolve = resolveInstallMode;
-    resolveInstallMode = null;
-    installDialog.close();
-    resolve(mode);
+  // Whether the page can clean the board: the ESP32 flash is erased from here, and a UF2 board needs
+  // the SoftDevice formatter of the catalog.
+  async function canCleanInstall(board, role) {
+    return board.flashType === "bin" || (board.flashType === "uf2" && !!(await resolveFormatterUrl(board, role)));
   }
 
-  // "keep", "clean", or null when the user cancels. Boards with no way to clean from here are not asked.
-  async function askInstallMode(board, role) {
-    const cleanable = board.flashType === "bin" || (board.flashType === "uf2" && !!(await resolveFormatterUrl(board, role)));
-    if (!cleanable || !installDialog) return "keep";
-    installModeText.textContent = CLEAN_TEXT[board.flashType === "uf2" && usesWebSerialFlash(board) ? "dfu" : board.flashType];
-    return new Promise((resolve) => {
-      resolveInstallMode = resolve;
-      installDialog.showModal();
-    });
+  // Shows the keep / clean choice only for a board that can be cleaned.
+  async function refreshInstallChoice() {
+    const board = selectedBoard();
+    const role = selectedRole();
+    if (!board || !installModeBox) return;
+    const cleanable = await canCleanInstall(board, role);
+    if (board !== selectedBoard() || role !== selectedRole()) return;
+    installModeBox.style.display = cleanable ? "" : "none";
+    if (!cleanable) installKeep.checked = true;
+    else installCleanText.textContent = CLEAN_TEXT[board.flashType === "uf2" && usesWebSerialFlash(board) ? "dfu" : board.flashType];
+  }
+
+  async function selectedInstallMode(board, role) {
+    return installClean && installClean.checked && (await canCleanInstall(board, role)) ? "clean" : "keep";
   }
 
   // Steps that each need their own click: the browser only lets a page open a serial port
@@ -495,7 +463,7 @@ function initFlasherCore() {
         return;
       }
       if (index + 1 < steps.length) offerSteps(steps, index + 1);
-      else setProgress(100, 'Firmware instalado. Cuando la placa arranque, pulsa "Enviar ajustes por USB".');
+      else setProgress(100, `Firmware instalado.${SEND_SETTINGS_HINT()}`);
     });
   }
 
@@ -584,8 +552,7 @@ function initFlasherCore() {
     if (!board) return;
     const targetRole = selectedRole();
 
-    const mode = await askInstallMode(board, targetRole);
-    if (!mode) return;
+    const mode = await selectedInstallMode(board, targetRole);
 
     if (progressCard) {
       progressCard.style.display = "block";
@@ -628,22 +595,11 @@ function initFlasherCore() {
     }
 
     if (progressCard) progressCard.style.display = "block";
+    if (consoleSection) consoleSection.open = true;
     if (!(await window.ZephtacoreSerial.connect())) return;
     if (await injectConfigSequence(configToUse)) {
       setProgress(100, "Ajustes enviados. El nodo se reinicia.");
     }
-  }
-
-  // Flasher Trigger Action
-  if (btnStartFlash) {
-    btnStartFlash.addEventListener("click", () => {
-      if (progressCard) progressCard.style.display = "block";
-      if (!activeFile) {
-        setProgress(0, "Selecciona primero un archivo de firmware.");
-        return;
-      }
-      setProgress(0, `Esta web graba solo el firmware del catálogo, no archivos locales. Copia "${activeFile.name}" al disco UF2 de la placa o grábalo con esptool (ESP32, en 0x0), y después usa "Enviar ajustes por USB".`);
-    });
   }
 
   refreshBuildAvailability();

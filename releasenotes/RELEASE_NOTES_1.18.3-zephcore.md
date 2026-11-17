@@ -17,8 +17,9 @@ default channels and node name in order.
 - The web flasher writes nRF52 boards over USB, with the Adafruit bootloader's serial DFU and the `.zip` package of the
   catalog, instead of a UF2 copied by hand (the UF2 copy stays for browsers without Web Serial). The board reboots into
   the bootloader and the browser asks for its port once per step.
-- The web flasher asks whether to keep the data or do a clean install. On ESP32 a clean install erases the whole flash
-  while writing. On nRF52 it loads the SoftDevice's formatter package first, which erases the file system and returns the
+- The web flasher shows one flow: the board and role, whether to keep the data or do a clean install, and the install
+  button, always visible. The settings to send, the console and the backup restore sit apart below it.
+- On ESP32 a clean install erases the whole flash while writing. On nRF52 it loads the SoftDevice's formatter package first, which erases the file system and returns the
   board to the bootloader, and then the firmware. The formatter is the one the catalog names for the board. A clean
   install gives the node a new identity.
 - The companion of a board whose USB-C is a USB-UART bridge (Heltec V3, ThinkNode M9) now serves the app and the
