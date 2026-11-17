@@ -87,10 +87,10 @@ window.ZEPHTACORE_COMMANDS = [
     name: "z.mt.ping.enable",
     category: "meshtastic",
     type: "get|set",
-    params: "on|off",
+    params: "on <comando>|off",
     default: "off",
-    desc: "Activa el bot de ping en el canal 'Bots'. Responde con mediciones de saltos, último relay y SNR.",
-    example: "set z.mt.ping.enable on",
+    desc: "Activa el bot de ping de Meshtastic. Responde al <comando> (1 a 15 caracteres, sin espacios) con saltos, último relay y SNR. Sin <comando>, solo funciona si ya hay uno fijado.",
+    example: "set z.mt.ping.enable on /ping",
     tags: ["meshtastic", "ping", "diagnostico"]
   },
   {
@@ -109,20 +109,20 @@ window.ZEPHTACORE_COMMANDS = [
     name: "z.mc.fw.drop",
     category: "meshcore",
     type: "get|set",
-    params: "<payload_type>",
-    default: "0",
-    desc: "Firewall MeshCore: descarta selectivamente tipos de trama no deseados o flood ruidoso.",
-    example: "set z.mc.fw.drop 4",
+    params: "<regla> on|off|none",
+    default: "none",
+    desc: "Firewall MeshCore: descarta tipos de trama flood. Reglas: advert, request, text, group, ack, path, trace. 'get' lista las reglas activas con las tramas descartadas; 'none' las desactiva todas.",
+    example: "set z.mc.fw.drop advert on",
     tags: ["meshcore", "firewall", "seguridad"]
   },
   {
     name: "z.mc.ping.enable",
     category: "meshcore",
     type: "get|set",
-    params: "on|off",
+    params: "on <comando>|off",
     default: "off",
-    desc: "Activa el bot de respuesta automática en el canal MeshCore '#bot'.",
-    example: "set z.mc.ping.enable on",
+    desc: "Activa el bot de ping de MeshCore. Responde al <comando> (1 a 15 caracteres, sin espacios). Sin <comando>, solo funciona si ya hay uno fijado.",
+    example: "set z.mc.ping.enable on /ping",
     tags: ["meshcore", "ping", "diagnostico"]
   },
   {
@@ -188,13 +188,13 @@ window.ZEPHTACORE_COMMANDS = [
     tags: ["radio", "cad", "rf"]
   },
   {
-    name: "batt",
+    name: "power",
     category: "sistema",
     type: "get",
     params: "",
     default: "-",
-    desc: "Muestra el voltaje en milivoltios (mV) y la estimación porcentual de la batería LiPo/LiFePO4.",
-    example: "get batt",
+    desc: "Muestra las fuentes de alimentación: batería en mV, USB, carga solar, alimentación externa y cargador.",
+    example: "power",
     tags: ["bateria", "energia", "hardware"]
   },
   {
