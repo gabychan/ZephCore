@@ -1301,6 +1301,11 @@
       "id": "UNIT-ZCMD-006",
       "name": "set <key> help on a key that takes any text is that value; get help still gives the usage; a refusal leaves the reply alone",
       "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-012",
+      "name": "The command takes neighbors or vecinos, a plain page number and recent or recientes in any order; anything else is page 0",
+      "source": "tests/unit/neighbour_tests.cpp"
     }
   ]
 }

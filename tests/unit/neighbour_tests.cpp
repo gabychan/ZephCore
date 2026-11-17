@@ -157,3 +157,18 @@ TEST(neighbours_name_before_entry, "UNIT-NEIGH-011", "The short name of a node h
         if (e.id == 4) { CHECK(std::string(e.name) == ""); }
     }
 }
+
+TEST(neigh_args, "UNIT-NEIGH-012", "The command takes neighbors or vecinos, a plain page number and recent or recientes in any order; anything else is page 0") {
+    size_t page = 99;
+    bool recent = true;
+    CHECK(neighbours::parseArgs("get z.mc.neighbors", "get z.mc.", page, recent) && page == 1 && !recent);
+    CHECK(neighbours::parseArgs("get z.mc.vecinos 2", "get z.mc.", page, recent) && page == 2 && !recent);
+    CHECK(neighbours::parseArgs("get z.mt.neighbors recent 3", "get z.mt.", page, recent) && page == 3 && recent);
+    CHECK(neighbours::parseArgs("get z.mt.neighbors 3  recientes", "get z.mt.", page, recent) && page == 3 && recent);
+    CHECK(neighbours::parseArgs("get z.mc.neighbors abc", "get z.mc.", page, recent) && page == 0);
+    CHECK(neighbours::parseArgs("get z.mc.neighbors 2x", "get z.mc.", page, recent) && page == 0);
+    CHECK(neighbours::parseArgs("get z.mc.neighbors -1", "get z.mc.", page, recent) && page == 0);
+    CHECK(neighbours::parseArgs("get z.mc.neighbors 99999", "get z.mc.", page, recent) && page == 0);
+    CHECK(!neighbours::parseArgs("get z.mc.neighborsx", "get z.mc.", page, recent));
+    CHECK(!neighbours::parseArgs("get z.mt.neighbors", "get z.mc.", page, recent));
+}

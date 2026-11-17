@@ -261,7 +261,7 @@ The repeater and the companion repeat Meshtastic floods on the radio they share 
 
 ### Neighbours
 
-`get z.mc.neighbors [page] [recent]` and `get z.mt.neighbors [page] [recent]` (also `get z.mc.vecinos`, `get z.mt.vecinos`, and `recientes` for `recent`; page and `recent` in any order) list the nodes heard directly, one line each, best SNR first or, with `recent`, heard last first (the title then ends in `recent`: `(10) 1/3 recent`), 4 lines to a page so a page fits one radio reply; the title carries the number heard and the page (`1/3`). Without a page, page 1; a page past the last says `page 4 of 3`:
+`get z.mc.neighbors [page] [recent]` and `get z.mt.neighbors [page] [recent]` (also `get z.mc.vecinos`, `get z.mt.vecinos`, and `recientes` for `recent`; page and `recent` in any order; a page that is not a plain number of up to 4 digits is page 0, which answers "page 0 of N") list the nodes heard directly, one line each, best SNR first or, with `recent`, heard last first (the title then ends in `recent`: `(10) 1/3 recent`), 4 lines to a page so a page fits one radio reply; the title carries the number heard and the page (`1/3`). Without a page, page 1; a page past the last says `page 4 of 3`:
 
 ```
 MeshCore neighbors (3) 1/1
