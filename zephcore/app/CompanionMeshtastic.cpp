@@ -153,10 +153,8 @@ protected:
 
 		if (c && mtContactBase(c->name, base, sizeof(base)) && base[0] != '!') {
 			neighbours::setRowName(r, base);
-		} else if (e.name[0]) {
-			snprintf(r.name, sizeof(r.name), "%s", e.name);
 		} else {
-			neighbours::nodeLabel(r.name, sizeof(r.name), e.id);
+			neighbours::nameOrNode(e, r);
 		}
 	}
 

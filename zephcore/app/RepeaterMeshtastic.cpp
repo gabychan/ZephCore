@@ -173,11 +173,7 @@ public:
 protected:
 	void label(const neighbours::Entry &e, neighbours::Row &r) const override
 	{
-		if (e.name[0]) {
-			snprintf(r.name, sizeof(r.name), "%s", e.name);
-		} else {
-			neighbours::nodeLabel(r.name, sizeof(r.name), e.id);
-		}
+		neighbours::nameOrNode(e, r);
 	}
 };
 } /* namespace */

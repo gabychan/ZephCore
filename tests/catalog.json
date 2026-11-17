@@ -1376,6 +1376,11 @@
       "id": "UNIT-MT-068",
       "name": "hopsAway counts the hops spent and is 0 without hop_start; fromOrigin needs hop_start and none spent",
       "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-020",
+      "name": "A row takes the name the node announced, else its number in hex",
+      "source": "tests/unit/neighbour_tests.cpp"
     }
   ]
 }

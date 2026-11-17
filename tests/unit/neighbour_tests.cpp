@@ -172,3 +172,14 @@ TEST(neigh_args, "UNIT-NEIGH-012", "The command takes neighbors or vecinos, a pl
     CHECK(!neighbours::parseArgs("get z.mc.neighborsx", "get z.mc.", page, recent));
     CHECK(!neighbours::parseArgs("get z.mt.neighbors", "get z.mc.", page, recent));
 }
+
+TEST(neighbours_name_or_node, "UNIT-NEIGH-020", "A row takes the name the node announced, else its number in hex") {
+    neighbours::Entry e = {};
+    neighbours::Row r;
+    e.id = 0xA1B2C3D4;
+    neighbours::nameOrNode(e, r);
+    CHECK(std::string(r.name) == "!a1b2c3d4");
+    snprintf(e.name, sizeof(e.name), "Mont");
+    neighbours::nameOrNode(e, r);
+    CHECK(std::string(r.name) == "Mont");
+}

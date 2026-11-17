@@ -117,6 +117,16 @@ inline void formatSnr(char *out, size_t cap, int8_t snr_x4)
 	snprintf(out, cap, "%s%d.%d", t < 0 ? "-" : "", (t < 0 ? -t : t) / 10, (t < 0 ? -t : t) % 10);
 }
 
+/* The name the node announced, else "!a1b2c3d4". */
+inline void nameOrNode(const Entry &e, Row &r)
+{
+	if (e.name[0]) {
+		snprintf(r.name, sizeof(r.name), "%s", e.name);
+	} else {
+		nodeLabel(r.name, sizeof(r.name), e.id);
+	}
+}
+
 /* A Table as a List; label() puts the node's name in the row. */
 class TableList : public List {
 public:
