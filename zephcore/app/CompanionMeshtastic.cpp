@@ -480,6 +480,10 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 
 bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
+	/* Off: the receiver hears MeshCore's sync word alone, so every frame is MeshCore's. */
+	if (!prefs.mt.enable) {
+		return false;
+	}
 	/* With no Meshtastic channel nothing is opened here: only a MeshCore-shaped frame goes on. */
 	if (getNumChannels() == 0) {
 		return MtRelayPort::unopened(raw, len, 0) == mt::RX_IGNORED;

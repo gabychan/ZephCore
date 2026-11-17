@@ -268,13 +268,8 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 				  const Policy &policy)
 {
 	if (!policy.enabled) {
-		/* Off: what is not shaped like MeshCore is not ours to repeat as MeshCore either. */
-		mt::RxResult r = unopened(raw, len, _bridge.self());
-
-		if (r == mt::RX_IGNORED) {
-			_stats.dropped++;
-		}
-		return r;
+		/* Off: the receiver hears MeshCore's sync word alone, so every frame is MeshCore's. */
+		return mt::RX_NOT_MESHTASTIC;
 	}
 	uint8_t relay[mt::kMaxFrame];
 	size_t relay_len = 0;
