@@ -199,6 +199,7 @@ bool ZephyrDataStore::formatFileSystem()
 
 	lfs_mounted = mounted;
 	ext_lfs_mounted = ext_mounted;
+	_mtkeys_cache.clear();
 
 	LOG_INF("formatFileSystem: mount() returned %d", mounted ? 1 : 0);
 	return mounted;
@@ -610,7 +611,14 @@ bool ZephyrDataStore::getMtKey(uint32_t node, uint8_t key[32])
 {
 	uint32_t count;
 
-	return mtkeys_scan(mtKeysFile(), node, key, &count);
+	if (_mtkeys_cache.get(node, key)) {
+		return true;
+	}
+	if (!mtkeys_scan(mtKeysFile(), node, key, &count)) {
+		return false;
+	}
+	_mtkeys_cache.put(node, key);
+	return true;
 }
 
 struct MtKeysRewrite {
@@ -652,6 +660,7 @@ bool ZephyrDataStore::rewriteMtKeys(MtKeyKeep keep, void *ctx, uint32_t *kept)
 		*kept = 0;
 		return true;
 	}
+	_mtkeys_cache.clear();
 	bool ok = zephcore_fs_atomic_write(rw.src, writer, &rw, "rewriteMtKeys");
 
 	*kept = rw.kept;
@@ -695,7 +704,11 @@ ZephyrDataStore::MtKeyResult ZephyrDataStore::putMtKey(uint32_t node, const uint
 
 	ok = (fs_sync(&file) >= 0) && ok;
 	fs_close(&file);
-	return ok ? MTKEY_STORED : MTKEY_FAILED;
+	if (!ok) {
+		return MTKEY_FAILED;
+	}
+	_mtkeys_cache.put(node, key);
+	return MTKEY_STORED;
 }
 
 bool ZephyrDataStore::removeMtKey(uint32_t node)

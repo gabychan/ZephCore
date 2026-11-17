@@ -9,6 +9,7 @@
 #include <helpers/meshtastic/MtConfig.h>
 #include <helpers/meshtastic/MtFirewall.h>
 #include <helpers/meshtastic/MtZeroHop.h>
+#include <helpers/meshtastic/MtKeyCache.h>
 #include <mesh/ContentionTracker.h>
 #include <mesh/Packet.h>
 
@@ -1910,4 +1911,19 @@ TEST(mt_node_set_share, "UNIT-MT-070", "The fingerprint of the contacts' node nu
     CHECK(ab == nodeSetShare(0x2222u) + nodeSetShare(0x1111u));
     CHECK(ab != nodeSetShare(0x1111u) + nodeSetShare(0x3333u));    // removed one, added another: same count
     CHECK(ab != nodeSetShare(0x1111u) + nodeSetShare(0x1111u));
+}
+
+TEST(mt_key_cache, "UNIT-MT-071", "The key cache answers the nodes it holds, a node's new key replaces its old one, a full cache forgets the oldest, and clear empties it") {
+    mt::KeyCache<2> c;
+    uint8_t k1[32], k2[32], k3[32], out[32];
+    memset(k1, 1, 32); memset(k2, 2, 32); memset(k3, 3, 32);
+    CHECK(!c.get(10, out));
+    c.put(10, k1); c.put(20, k2);
+    CHECK(c.get(10, out) && memcmp(out, k1, 32) == 0);
+    c.put(10, k3);                                                  // same node: in place, 20 stays
+    CHECK(c.get(10, out) && memcmp(out, k3, 32) == 0 && c.get(20, out) && memcmp(out, k2, 32) == 0);
+    c.put(30, k1);                                                  // full: the slot written longest ago goes
+    CHECK(c.get(30, out) && memcmp(out, k1, 32) == 0 && !c.get(10, out) && c.get(20, out));
+    c.clear();
+    CHECK(!c.get(20, out) && !c.get(30, out));
 }

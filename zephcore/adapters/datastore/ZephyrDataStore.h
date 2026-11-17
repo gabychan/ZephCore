@@ -13,6 +13,8 @@
 #include <NodePrefs.h>
 #include <ContactInfo.h>
 #include <ChannelDetails.h>
+#include <helpers/meshtastic/MtKeyCache.h>
+#include <zephyr/sys/util_macro.h>
 
 class DataStoreHost {
 public:
@@ -104,6 +106,8 @@ private:
 	bool _has_ext_fs;
 	bool _mtkeys_all_in_use = false;
 	uint32_t _mtkeys_epoch = 0;
+	/* Only builds with the Meshtastic bridge look keys up. */
+	mt::KeyCache<IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC) ? 4 : 1> _mtkeys_cache;
 
 	/* Get path based on external availability */
 	const char *contactsFile() const { return _has_ext_fs ? EXT_CONTACTS_FILE : INT_CONTACTS_FILE; }
