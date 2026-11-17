@@ -21,6 +21,14 @@ inline bool parseOnOff(const char *v, uint8_t &b)
 	return false;
 }
 
+/* Tenths of a dB from an SNR in quarters of a dB, rounded half away from zero: 13 -> 33, -13 -> -33. */
+inline int snrTenths(int8_t snr_x4)
+{
+	const int t = snr_x4 * 5;
+
+	return (t + (t >= 0 ? 1 : -1)) / 2;
+}
+
 /* Bytes of s to keep when it is cut to max without splitting a UTF-8 character. */
 inline size_t utf8Cut(const char *s, size_t max)
 {

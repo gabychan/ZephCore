@@ -111,9 +111,8 @@ inline void nodeLabel(char *out, size_t cap, uint32_t node)
 /* 10.3 from 41 (a quarter of a dB each), rounded to a tenth. */
 inline void formatSnr(char *out, size_t cap, int8_t snr_x4)
 {
-	int t = snr_x4 * 5;
+	const int t = zcmd::snrTenths(snr_x4);
 
-	t = (t + (t >= 0 ? 1 : -1)) / 2;
 	snprintf(out, cap, "%s%d.%d", t < 0 ? "-" : "", (t < 0 ? -t : t) / 10, (t < 0 ? -t : t) % 10);
 }
 

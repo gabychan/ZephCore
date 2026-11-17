@@ -60,7 +60,7 @@ TEST(ping_direct, "UNIT-PING-001", "A direct ping is answered with the SNR alone
     CHECK(mc(p, "/ping", 0, 30, -92) == "direct (-92)");
     p.snr = 1;
     p.rssi = 0;
-    CHECK(mc(p, "Ana: /ping", 0, -1, -92) == "@[Ana] direct (-0.2)");
+    CHECK(mc(p, "Ana: /ping", 0, -1, -92) == "@[Ana] direct (-0.3)");
     p.snr = 0;
     CHECK(mc(p, "Ana: /ping", 0, 30, -92) == "@[Ana] direct");
 }

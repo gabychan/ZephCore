@@ -286,7 +286,7 @@ inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, c
 		return 0;
 	}
 	const bool mc = w == PROTO_MC;
-	const int snr10 = h.snr_x4 * 10 / 4;  /* tenths of a dB, truncated toward zero */
+	const int snr10 = zcmd::snrTenths(h.snr_x4);
 	const int snr_abs = snr10 < 0 ? -snr10 : snr10;
 	char tail[40];
 	size_t t = 0;
