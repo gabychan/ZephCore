@@ -16,7 +16,7 @@ Meshtastic como base, con MeshCore añadido sobre la misma radio SX126x.
 
 | Función | Cómo lo hace |
 | --- | --- |
-| Recepción híbrida | Sync word por registro: `0x14B4` (SX126x), `0x1B` (LR11x0). Medido solo SX1262 a SX1262 en banco. Sin medida de pérdida. |
+| Recepción híbrida | Sync word por registro: `0x14B4` (SX126x), `0x22` (LR11x0, LR20xx). Medido solo SX1262 a SX1262 en banco. Sin medida de pérdida. |
 | Clasificación en RX | Un frame que parece MeshCore se prueba primero con los canales Meshtastic propios. Si descifra, es Meshtastic. Veto si los bytes 0..3 o 4..7 coinciden con nuestro NodeNum. |
 | TX | Sync word por frame: `0x12` (MeshCore) o `0x2B` (Meshtastic). Preámbulo largo para MeshCore (32 símbolos con SF8 o menos, 16 con más). |
 | Repetidor | Flood con dedupe independiente del path, delay adaptativo, cola de prioridad, LBT, direct, TRACE, MULTIPART ACK. |
@@ -94,7 +94,7 @@ Valores a probar, tomados de meshtacore:
 | TX MeshCore | `0x1424` |
 | TX Meshtastic | `0x24B4` |
 
-Para LR11x0 el RX híbrido es el sync word de 8 bits `0x1B`.
+Para LR11x0 y LR20xx el RX híbrido es el sync word de 8 bits `0x22`: con `0x1B` el LR1110 perdía MeshCore fuerte (ver README).
 
 Sin verificar: nada de esto se ha probado en hardware desde este worktree. Los valores salen de la documentación de meshtacore.
 

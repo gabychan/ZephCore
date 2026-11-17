@@ -34,8 +34,11 @@ Repeating is the `z.mt.relay` setting (see `docs/CLI_commands.md`), not a build 
 is the default of `z.mt.hops`, the hop limit of the frames we originate; Meshtastic's own default is 3.
 
 SX127x boards build, but cannot pick the sync word per frame, so Meshtastic is neither heard nor sent there.
-On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x1B`
-(high nibble of one, low nibble of the other, as in meshtacore). The driver applies it at the next RX or TX start.
+On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x22`
+(Meshtastic's high nibble, MeshCore's low one). On a T1000-E (LR1110) a strong frame whose low nibble differs from
+the receive word ends in a header error, while weak ones pass: with meshtacore's `0x1B` every nearby MeshCore node was
+lost (0 of 24 adverts at -29 dBm) and only farther ones, repeated, were heard. `0x22` keeps MeshCore at every level and
+hears only weak Meshtastic. Measured on the LR1110 only; the LR2021 takes the same word unmeasured. The driver applies it at the next RX or TX start.
 The LR2021 side detectors (other SFs) use the same word as the main detector.
 
 ## Defaults

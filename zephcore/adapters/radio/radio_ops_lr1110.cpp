@@ -14,11 +14,12 @@ namespace mesh {
 /* No AGC reset: this part has no jammed-AGC fault, and running the SX126x
  * remedy anyway cost packets (LLD 03 §13). Drift recalibration is specified
  * (UM: image cal after > 10 C), with the temperature from the board. */
-/* 8-bit words: MeshCore 0x12, Meshtastic 0x2B; the hybrid takes the high nibble
- * of one and the low nibble of the other. */
+/* 8-bit words: MeshCore 0x12, Meshtastic 0x2B. The hybrid takes Meshtastic's high
+ * nibble and MeshCore's low one: a strong frame is only received when the low
+ * nibble matches, so MeshCore is the one heard at every signal level. */
 static uint8_t lr11xx_sync_word(SyncKind kind)
 {
-	return kind == SyncKind::Meshtastic ? 0x2B : kind == SyncKind::HybridRx ? 0x1B : 0x12;
+	return kind == SyncKind::Meshtastic ? 0x2B : kind == SyncKind::HybridRx ? 0x22 : 0x12;
 }
 
 static void lr11xx_set_sync_word_kinds(const struct device *dev, SyncKind rx, SyncKind tx)

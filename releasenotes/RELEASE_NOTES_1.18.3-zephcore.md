@@ -87,3 +87,7 @@ default channels and node name in order.
 
 - SX126x: changing the sync word between MeshCore and Meshtastic no longer waits for the radio's
   sleep phase when RX duty cycle is on.
+- LR1110 and LR2021 boards (the T1000-E among them) with Zephtacore: nearby MeshCore nodes are heard again.
+  The hybrid receive word was `0x1B`, which made the LR1110 drop every strong MeshCore frame, so close nodes only
+  arrived repeated and never showed as neighbours. It is now `0x22`, which favours MeshCore: on these chips only weak
+  Meshtastic frames are received.
