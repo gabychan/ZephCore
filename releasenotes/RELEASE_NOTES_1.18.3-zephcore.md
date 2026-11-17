@@ -5,6 +5,16 @@ default channels and node name in order.
 
 ---
 
+## Zephtacore builds in the release
+
+- The `t1000_e` and `wio_tracker_l1` companion and repeater are also published with the Meshtastic bridge
+  (`boards/common/zephtacore.conf`), as the `zephtacore` variant of their `zephcore.yml`: files named
+  `<board>-<role>-zephtacore-<hash>`, listed in the catalog with the subtitle Zephtacore. The Zephtacore web flasher
+  downloads only these. See `docs/PROVIDER_CATALOG.md`.
+- A push to a branch other than `master` still builds, but no longer replaces the release or `firmware-dist`.
+
+---
+
 ## Reception statistics (repeater)
 
 - `get z.mc.hopstats` and `get z.mt.hopstats` count the frames heard by hops crossed; `get z.mc.relays` and
