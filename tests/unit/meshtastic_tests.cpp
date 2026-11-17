@@ -1158,6 +1158,12 @@ TEST(mt_config_roles, "UNIT-MT-039", "A companion has no channel or telemetry se
     CHECK(t.armed() && !t.due(0xFFFFFF00u) && !t.due(0x000000FFu) && t.due(0x00000100u) && t.due(0x5000u));
     t.stop();
     CHECK(!t.due(0x5000u));
+    t.rearm(1000, true, 60);
+    CHECK(t.armed() && t.at() == 61000u);
+    t.rearm(2000, false, 60);                      // off
+    CHECK(!t.armed());
+    t.rearm(3000, true, 0);                        // on, but no period set
+    CHECK(!t.armed());
 }
 
 TEST(mt_discriminate_shapes, "UNIT-MT-040", "Every MeshCore payload type, route and path width passes the shape test; Meshtastic broadcast and version 2/3 first bytes never do") {

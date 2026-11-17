@@ -68,6 +68,15 @@ public:
 		_on = true;
 	}
 	void stop() { _on = false; }
+	/* The next round after one that came due: another period when on, else stopped. */
+	void rearm(uint32_t now_ms, bool on, uint32_t period_s)
+	{
+		if (on && period_s) {
+			arm(now_ms, period_s * 1000u);
+		} else {
+			stop();
+		}
+	}
 	bool armed() const { return _on; }
 	uint32_t at() const { return _at; }
 	bool due(uint32_t now_ms) const { return _on && (int32_t)(now_ms - _at) >= 0; }
