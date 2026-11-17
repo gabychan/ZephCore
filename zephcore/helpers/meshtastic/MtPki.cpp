@@ -148,15 +148,18 @@ size_t pkiSeal(const PkiCrypto &c, const uint8_t key[32], uint32_t from, uint32_
 		return 0;
 	}
 	buildNonce(id, extra, from, nonce);
-	if (!ccmTag(c, key, nonce, plain, len, tag) || !ccmCtr(c, key, nonce, plain, len, out) ||
-	    !ccmBlock(c, key, nonce, 0, ks)) {
-		return 0;
+	bool ok = ccmTag(c, key, nonce, plain, len, tag) && ccmCtr(c, key, nonce, plain, len, out) &&
+		  ccmBlock(c, key, nonce, 0, ks);
+
+	if (ok) {
+		for (size_t i = 0; i < kTag; i++) {
+			out[len + i] = (uint8_t)(tag[i] ^ ks[i]);
+		}
+		putLe32(out + len + kTag, extra);
 	}
-	for (size_t i = 0; i < kTag; i++) {
-		out[len + i] = (uint8_t)(tag[i] ^ ks[i]);
-	}
-	putLe32(out + len + kTag, extra);
-	return len + kPkiOverhead;
+	crypto_wipe(tag, sizeof(tag));
+	crypto_wipe(ks, sizeof(ks));
+	return ok ? len + kPkiOverhead : 0;
 }
 
 int pkiOpen(const PkiCrypto &c, const uint8_t key[32], uint32_t from, uint32_t id,
@@ -170,19 +173,15 @@ int pkiOpen(const PkiCrypto &c, const uint8_t key[32], uint32_t from, uint32_t i
 	size_t n = len - kPkiOverhead;
 
 	buildNonce(id, getLe32(in + n + kTag), from, nonce);
-	if (!ccmCtr(c, key, nonce, in, n, out) || !ccmTag(c, key, nonce, out, n, tag) ||
-	    !ccmBlock(c, key, nonce, 0, ks)) {
-		crypto_wipe(out, n);
-		return -1;
-	}
-	for (size_t i = 0; i < kTag; i++) {
-		tag[i] ^= ks[i];
-	}
-	uint8_t diff = 0;
+	bool ok = ccmCtr(c, key, nonce, in, n, out) && ccmTag(c, key, nonce, out, n, tag) &&
+		  ccmBlock(c, key, nonce, 0, ks);
+	uint8_t diff = ok ? 0 : 1;
 
-	for (size_t i = 0; i < kTag; i++) {
-		diff |= (uint8_t)(tag[i] ^ in[n + i]);
+	for (size_t i = 0; ok && i < kTag; i++) {
+		diff |= (uint8_t)((tag[i] ^ ks[i]) ^ in[n + i]);
 	}
+	crypto_wipe(tag, sizeof(tag));
+	crypto_wipe(ks, sizeof(ks));
 	if (diff != 0) {
 		crypto_wipe(out, n);
 		return -1;

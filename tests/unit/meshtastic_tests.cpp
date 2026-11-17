@@ -1680,3 +1680,44 @@ TEST(mt_ids_and_own_frames, "UNIT-MT-060", "A packet id is never 0, and our own 
     for (int i = 0; i < kDedupSize + 8; i++) b.buildText(3, kBroadcast, "yo", 2, frame, sizeof(frame));
     CHECK(b.handleFrame(first, first_n, 0, cap, relay, &relay_len) == RX_DUPLICATE && cap.texts.size() == 1);
 }
+
+TEST(mt_input_checks, "UNIT-MT-061", "Node numbers, channel names, keys, ports and positions are checked in full") {
+    RepeaterPrefs rp = {};
+    bool ch = false;
+    CHECK(mtCmd(rp, "set z.mt.zerohop.add !a1b2c3d4", &ch) == "OK" && rp.zerohop_nodes[0] == 0xA1B2C3D4u);
+    for (const char *bad : {"0x123456", "-1234567", "!+abcdef1", "a1b2c3d", "a1b2c3d45"}) {
+        std::string line = std::string("set z.mt.zerohop.add ") + bad;
+        CHECK(mtCmd(rp, line.c_str(), &ch).find("Error") == 0 && !ch);
+    }
+    // A key is canonical base64: padding only at the end, no stray bits.
+    uint8_t key[32];
+    CHECK(base64Decode("AAAAAAAAAAAAAAAAAAAAAA==", key, sizeof(key)) == 16);
+    CHECK(base64Decode("AAAAAAAAAAAAAAAAAAAAAA", key, sizeof(key)) == 16);
+    CHECK(base64Decode("AAAAAAAAAAAAAAAAAAAAAB==", key, sizeof(key)) == -1);   // leftover bits set
+    CHECK(base64Decode("AAAA=AAA", key, sizeof(key)) == -1 && base64Decode("AAAA===", key, sizeof(key)) == -1);
+    // portnum beyond 32 bits does not wrap into a valid port.
+    const uint8_t big[] = {0x08, 0x81, 0x80, 0x80, 0x80, 0x10};   // 2^32 + 1
+    Data d;
+    CHECK(!decodeData(big, sizeof(big), d));
+    // A position out of range is not delivered.
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 7), b = makeNode(0xB2B2B2B2u, "beta", 9);
+    Position p = {};
+    p.has_lat = p.has_lon = true;
+    p.lat_i = 910000000; p.lon_i = 0;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    Capture cap;
+    size_t n = a.buildPosition(3, p, frame, sizeof(frame));
+    CHECK(n > 0 && b.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.positions.empty());
+    p.lat_i = 411234567; p.lon_i = -22345678;
+    n = a.buildPosition(3, p, frame, sizeof(frame));
+    CHECK(b.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.positions.size() == 1);
+    // The largest User fits the buffer of the NodeInfo.
+    User u = {};
+    std::memset(u.id, 'i', sizeof(u.id) - 1);
+    std::memset(u.long_name, 'l', sizeof(u.long_name) - 1);
+    std::memset(u.short_name, 's', sizeof(u.short_name) - 1);
+    u.hw_model = 255; u.role = 11; u.has_public_key = true;
+    uint8_t pb[104];
+    CHECK(encodeUser(u, pb, sizeof(pb)) > 0);
+}

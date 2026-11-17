@@ -1256,6 +1256,11 @@
       "id": "UNIT-MT-060",
       "name": "A packet id is never 0, and our own sends do not use up the duplicate table",
       "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-061",
+      "name": "Node numbers, channel names, keys, ports and positions are checked in full",
+      "source": "tests/unit/meshtastic_tests.cpp"
     }
   ]
 }

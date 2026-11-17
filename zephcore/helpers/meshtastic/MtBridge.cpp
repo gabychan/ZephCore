@@ -6,6 +6,7 @@
 #include "MtBridge.h"
 #include "MtDiscriminate.h"
 
+#include <monocypher.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -315,6 +316,9 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 
 	uint8_t hops = h.hopStart() > h.hopLimit() ? (uint8_t)(h.hopStart() - h.hopLimit()) : 0;
 
+	if (fillRelay(h, raw, len, relay_out, relay_len)) {
+		seen_now->relayed = true;
+	}
 	if (d.portnum == PORT_TEXT) {
 		if ((h.to == kBroadcast || h.to == _self) && d.payload_len > 0) {
 			sink.onText(match->id, h.from, h.to, h.id, d.reply_id,
@@ -322,10 +326,6 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		}
 	} else {
 		deliverData(h, d, match->id, snr_x4, sink);
-	}
-
-	if (fillRelay(h, raw, len, relay_out, relay_len)) {
-		seen_now->relayed = true;
 	}
 	return RX_HANDLED;
 }
@@ -358,6 +358,7 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 	}
 	int n = pkiOpen(*_pki, key, h.from, h.id, raw + kHeaderLen, plen, buf, plen);
 
+	crypto_wipe(key, sizeof(key));
 	return n > 0 && decodeData(buf, (size_t)n, d);
 }
 
@@ -392,7 +393,9 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int
 	} else if (d.portnum == PORT_POSITION) {
 		Position p;
 
-		if (decodePosition(d.payload, d.payload_len, p) && p.has_lat && p.has_lon) {
+		if (decodePosition(d.payload, d.payload_len, p) && p.has_lat && p.has_lon &&
+		    p.lat_i >= -900000000 && p.lat_i <= 900000000 &&
+		    p.lon_i >= -1800000000 && p.lon_i <= 1800000000) {
 			sink.onPosition(h.from, p);
 		}
 	} else if (d.portnum == PORT_ROUTING && h.to == _self && d.request_id != 0) {
@@ -468,7 +471,7 @@ size_t Bridge::buildText(uint8_t channel_id, uint32_t to, const char *text, size
 size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)
 {
 	const Channel *ch = find(channel_id);
-	uint8_t pb[96];
+	uint8_t pb[104];
 
 	if (!ch) {
 		return 0;
@@ -482,7 +485,7 @@ size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_respon
 			       size_t cap)
 {
 	const Channel *ch = find(channel_id);
-	uint8_t pb[96];
+	uint8_t pb[104];
 
 	if (!ch) {
 		return 0;
@@ -500,8 +503,11 @@ size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const ch
 	if (!_pki || len == 0 || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
 		return 0;
 	}
-	return buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap, reply_id,
-			  0, false, want_ack);
+	size_t n = buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap,
+			      reply_id, 0, false, want_ack);
+
+	crypto_wipe(key, sizeof(key));
+	return n;
 }
 
 size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,
@@ -514,8 +520,11 @@ size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub
 	if (!_pki || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
 		return 0;
 	}
-	return buildFrame(nullptr, key, to, PORT_ROUTING, kRoutingAck, sizeof(kRoutingAck), out, cap,
-			  0, request_id);
+	size_t n = buildFrame(nullptr, key, to, PORT_ROUTING, kRoutingAck, sizeof(kRoutingAck), out,
+			      cap, 0, request_id);
+
+	crypto_wipe(key, sizeof(key));
+	return n;
 }
 
 size_t Bridge::buildPosition(uint8_t channel_id, const Position &pos, uint8_t *out, size_t cap)

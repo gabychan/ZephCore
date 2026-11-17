@@ -295,7 +295,7 @@ bool decodeData(const uint8_t *buf, size_t len, Data &d)
 			if (!r.varint(v)) {
 				return false;
 			}
-			d.portnum = (uint32_t)v;
+			d.portnum = v > 0xFFFFFFFFu ? 0xFFFFFFFFu : (uint32_t)v;  /* out of range stays out */
 			have_port = true;
 		} else if (num == 2 && wt == WT_LEN) {
 			if (!r.bytes(d.payload, d.payload_len)) {
