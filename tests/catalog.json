@@ -1276,6 +1276,11 @@
       "id": "UNIT-DISPATCH-024",
       "name": "A radio that cannot take a second sync word is never handed a foreign frame",
       "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-025",
+      "name": "A consumed foreign frame is not logged as a raw MeshCore packet; a MeshCore one is",
+      "source": "tests/unit/dispatcher_tests.cpp"
     }
   ]
 }

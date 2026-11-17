@@ -275,11 +275,12 @@ void Dispatcher::checkRecv() {
       if (len <= 0) {
         break;  // ring empty
       }
-      logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
-      if (onRecvForeign(raw, len, _radio->getLastSNR(), _radio->getLastRSSI())) {  // ZEPHCORE
+      // ZEPHCORE: a foreign frame is not a MeshCore raw packet: it is not logged as one.
+      if (onRecvForeign(raw, len, _radio->getLastSNR(), _radio->getLastRSSI())) {
         rx_air_time += _radio->getEstForeignAirtimeFor(len);  // on the air all the same
         continue;
       }
+      logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
 
       pkt = _mgr->allocNew();
       if (pkt == NULL) {

@@ -279,3 +279,13 @@ TEST(dispatch_foreign_needs_radio, "UNIT-DISPATCH-024", "A radio that cannot tak
     f.dispatcher.loop();
     CHECK(f.radio.sent.empty());
 }
+TEST(dispatch_foreign_not_logged_raw, "UNIT-DISPATCH-025", "A consumed foreign frame is not logged as a raw MeshCore packet; a MeshCore one is") {
+    Fixture f; f.begin();
+    const std::vector<uint8_t> meshcore = {9, 0, 0xAA}, other = {0xDE, 0xAD, 0xBE, 0xEF, 1, 2, 3};
+    f.radio.incoming = {other, other};
+    f.dispatcher.consume_foreign = true; f.dispatcher.loop();
+    CHECK(f.dispatcher.foreign_rx.size() == 2 && f.dispatcher.raw_logged == 0);
+    f.radio.incoming = {meshcore};
+    f.dispatcher.consume_foreign = false; f.dispatcher.loop();
+    CHECK(f.dispatcher.raw_logged == 1);
+}

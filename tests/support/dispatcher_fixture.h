@@ -72,6 +72,7 @@ struct Dispatcher : mesh::Dispatcher {
     unsigned successes = 0, failures = 0;
     bool consume_foreign = false;
     std::vector<std::vector<uint8_t>> foreign_rx;
+    unsigned raw_logged = 0;
     Dispatcher(Radio& radio, Clock& clock, mesh::PacketManager& pool) : mesh::Dispatcher(radio, clock, pool) {
         setTxQueuedCallback([](uint32_t delay, void *self) {
             static_cast<Dispatcher*>(self)->wakes.push_back(delay);
@@ -85,6 +86,7 @@ struct Dispatcher : mesh::Dispatcher {
     bool onRecvForeign(const uint8_t raw[], int len, float, float) override {
         foreign_rx.emplace_back(raw, raw + len); return consume_foreign;
     }
+    void logRxRaw(float, float, const uint8_t[], int) override { ++raw_logged; }
     uint8_t getDutyCyclePercent() const override { return duty; }
     uint32_t getDutyCycleWindowMs() const override { return window; }
     uint32_t getCADFailRetryDelay() const override { return 100; }
