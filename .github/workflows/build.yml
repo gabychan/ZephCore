@@ -170,6 +170,13 @@ jobs:
     - name: compile-only roles
       run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/kiss_modem.conf"
 
+    # The Meshtastic bridge (boards/common/zephtacore.conf) is in no manifest: companion and repeater.
+    - name: compile-only zephtacore companion
+      run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/zephtacore.conf"
+
+    - name: compile-only zephtacore repeater
+      run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/repeater.conf;boards/common/zephtacore.conf"
+
     # Hit rate is the entire point of the per-job ccache namespace above, but the
     # action only prints stats at SETUP time — it runs `ccache -z -s -vv`, which
     # reports the restored cache and then zeroes the counters. Without a stats
