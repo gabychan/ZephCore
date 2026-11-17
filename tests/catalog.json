@@ -1331,6 +1331,16 @@
       "id": "UNIT-DISPATCH-026",
       "name": "A foreign frame up to 255 bytes goes out whole, its tail slot comes back, and when the slots are used the frame is refused",
       "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-066",
+      "name": "The decoders read nothing outside their buffer on truncated, flipped or random input, and a sealed payload shorter than its overhead opens to nothing",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-067",
+      "name": "Random Meshtastic-sized frames are taken for MeshCore ones rarely, and the shape of each MeshCore payload type is held",
+      "source": "tests/unit/meshtastic_tests.cpp"
     }
   ]
 }
