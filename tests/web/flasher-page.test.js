@@ -12,8 +12,10 @@ const catalog = {
 };
 
 // Runs initFlasherCore against a minimal DOM and a fake catalog fetch.
-async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boards = null } = {}) {
+async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boards = null, install = "keep" } = {}) {
   const els = {};
+  const downloads = [];
+  const dialog = { shown: 0 };
   const el = (id) =>
     (els[id] ||= {
       id, textContent: "", style: {}, value: "", disabled: false, innerHTML: "",
@@ -24,7 +26,10 @@ async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boa
     getElementById: el,
     querySelectorAll: () => [],
     addEventListener() {},
-    createElement: () => ({})
+    createElement: () => {
+      const a = { click() { downloads.push(a.download); } };
+      return a;
+    }
   };
   const win = {
     ZephtacoreLogic: L,
@@ -43,11 +48,18 @@ async function loadPage({ fetchOk = true, board = "t1000_e", esptool = null, boa
       ? { ok: fetchOk, json: async () => catalog }
       : { ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer };
   const src = fs.readFileSync(path.join(__dirname, "../../custom_builder_web/js/flasher-core.js"), "utf8");
+  const choice = { keep: "btnInstallKeep", clean: "btnInstallClean", cancel: "btnInstallCancel" }[install];
+  Object.assign(el("installModeDialog"), {
+    showModal() { dialog.shown++; els[choice].listeners.click(); },
+    close() {}
+  });
   els.flasherBoardSelect = { ...el("flasherBoardSelect"), value: board };
   els.flasherRoleSelect = { ...el("flasherRoleSelect"), value: "companion" };
   const navigatorStub = { serial: { requestPort: async () => ({ fake: "port" }) } };
   new Function("window", "document", "sessionStorage", "navigator", "fetch", "URLSearchParams", src)(win, doc, store, navigatorStub, fetchFn, URLSearchParams);
   await new Promise((r) => setTimeout(r, 20));
+  els.downloads = downloads;
+  els.dialog = dialog;
   return els;
 }
 
@@ -117,4 +129,65 @@ test("ESP32: a chip of another family stops the flash before anything is written
   assert.deepEqual(esp.calls.after, []);
   assert.equal(esp.calls.disconnected, 1);
   assert.match(els.flashStatusText.textContent, /no es un ESP32-S3.*No se ha escrito nada/);
+});
+
+test("ESP32: keeping the data does not erase the flash", async () => {
+  espCatalog();
+  const esp = fakeEsptool("ESP32-S3");
+  const els = await loadPage({ boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: esp.module, install: "keep" });
+  await els.btnUnifiedFlash.listeners.click();
+  assert.equal(els.dialog.shown, 1);
+  assert.equal(esp.calls.writeFlash[0].eraseAll, false);
+});
+
+test("ESP32: a clean install erases the whole flash while writing", async () => {
+  espCatalog();
+  const esp = fakeEsptool("ESP32-S3");
+  const els = await loadPage({ boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: esp.module, install: "clean" });
+  await els.btnUnifiedFlash.listeners.click();
+  assert.equal(esp.calls.writeFlash[0].eraseAll, true);
+  assert.deepEqual(esp.calls.after, ["hard_reset"]);
+});
+
+test("cancelling the install question touches nothing", async () => {
+  espCatalog();
+  const esp = fakeEsptool("ESP32-S3");
+  const els = await loadPage({ boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: esp.module, install: "cancel" });
+  await els.btnUnifiedFlash.listeners.click();
+  assert.equal(esp.calls.writeFlash.length, 0);
+  assert.equal(esp.calls.disconnected, 0);
+});
+
+test("UF2: without a formatter in the catalog the question is not asked and the firmware downloads", async () => {
+  const els = await loadPage({ install: "clean" });
+  await els.btnUnifiedFlash.listeners.click();
+  assert.equal(els.dialog.shown, 0);
+  assert.deepEqual(els.downloads, ["t1000_e-companion-zephtacore-abc1234.uf2"]);
+});
+
+test("UF2: a clean install hands out the formatter first and the firmware after the board is formatted", async () => {
+  catalog.device[0].firmware[0].erase = CDN + "SoftDevice_v7_formatter.zip";
+  try {
+    const els = await loadPage({ install: "clean" });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.equal(els.dialog.shown, 1);
+    assert.deepEqual(els.downloads, ["SoftDevice_v7_formatter.uf2"]);
+    assert.equal(els.btnAfterFormat.style.display, "");
+    await els.btnAfterFormat.listeners.click();
+    assert.deepEqual(els.downloads, ["SoftDevice_v7_formatter.uf2", "t1000_e-companion-zephtacore-abc1234.uf2"]);
+    assert.equal(els.btnAfterFormat.style.display, "none");
+  } finally {
+    delete catalog.device[0].firmware[0].erase;
+  }
+});
+
+test("UF2: keeping the data downloads only the firmware even when a formatter exists", async () => {
+  catalog.device[0].firmware[0].erase = CDN + "SoftDevice_v7_formatter.zip";
+  try {
+    const els = await loadPage({ install: "keep" });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.deepEqual(els.downloads, ["t1000_e-companion-zephtacore-abc1234.uf2"]);
+  } finally {
+    delete catalog.device[0].firmware[0].erase;
+  }
 });

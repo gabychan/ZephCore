@@ -93,3 +93,19 @@ test("kconfigString escapes quotes and backslashes; shellQuote survives a single
   assert.equal(L.kconfigString('a"b\\c'), '"a\\"b\\\\c"');
   assert.equal(L.shellQuote("it's"), "'it'\\''s'");
 });
+
+test("the formatter is the .uf2 beside the .zip the catalog names, from the firmware-dist CDN only", () => {
+  const zip = (name) => ({ erase: CDN + name });
+  assert.equal(L.formatterUrl(zip("SoftDevice_v6_formatter.zip")), CDN + "SoftDevice_v6_formatter.uf2");
+  assert.equal(L.formatterUrl(zip("SoftDevice_v7_formatter.zip")), CDN + "SoftDevice_v7_formatter.uf2");
+  assert.equal(L.formatterUrl(zip("SoftDevice_v9_formatter.zip")), null);
+  assert.equal(L.formatterUrl(zip("evil.zip")), null);
+  assert.equal(L.formatterUrl({ erase: "https://example.com/SoftDevice_v7_formatter.zip" }), null);
+  assert.equal(L.formatterUrl({}), null);
+  assert.equal(L.formatterUrl(null), null);
+});
+
+test("each catalog file carries the erase package of its firmware option", () => {
+  const cat = { device: [{ firmware: [{ role: "x", erase: CDN + "SoftDevice_v7_formatter.zip", version: { "1.0": { files: [{ name: "a.uf2", url: CDN + "a.uf2" }] } } }] }] };
+  assert.deepEqual(L.catalogFiles(cat), [{ name: "a.uf2", url: CDN + "a.uf2", erase: CDN + "SoftDevice_v7_formatter.zip" }]);
+});

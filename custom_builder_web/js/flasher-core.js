@@ -2,7 +2,7 @@
  * Zephtacore Web Flasher Core Engine - Direct USB Configuration Injection
  */
 function initFlasherCore() {
-  const { buildConfigCommands, catalogFiles, findCatalogFile, isErrorReply } = window.ZephtacoreLogic;
+  const { buildConfigCommands, catalogFiles, findCatalogFile, formatterUrl, isErrorReply } = window.ZephtacoreLogic;
   const dropzone = document.getElementById("flasherDropzone");
   const fileInput = document.getElementById("firmwareFileInput");
   const boardSelect = document.getElementById("flasherBoardSelect");
@@ -32,6 +32,12 @@ function initFlasherCore() {
   const cfgBadgeBoard = document.getElementById("cfgBadgeBoard");
   const btnUnifiedFlash = document.getElementById("btnUnifiedFlash");
   const btnInjectOnly = document.getElementById("btnInjectOnly");
+  const installDialog = document.getElementById("installModeDialog");
+  const installModeText = document.getElementById("installModeText");
+  const btnInstallKeep = document.getElementById("btnInstallKeep");
+  const btnInstallClean = document.getElementById("btnInstallClean");
+  const btnInstallCancel = document.getElementById("btnInstallCancel");
+  const btnAfterFormat = document.getElementById("btnAfterFormat");
 
   let activeFile = null;
   let activeBuffer = null;
@@ -179,6 +185,11 @@ function initFlasherCore() {
   if (btnInjectOnly) {
     btnInjectOnly.addEventListener("click", () => runInjectOnly(pendingConfig));
   }
+  if (btnInstallKeep) btnInstallKeep.addEventListener("click", () => chooseInstallMode("keep"));
+  if (btnInstallClean) btnInstallClean.addEventListener("click", () => chooseInstallMode("clean"));
+  if (btnInstallCancel) btnInstallCancel.addEventListener("click", () => chooseInstallMode(null));
+  if (installDialog) installDialog.addEventListener("cancel", () => chooseInstallMode(null));
+  if (btnAfterFormat) btnAfterFormat.addEventListener("click", () => downloadAfterFormat());
 
   // Dropzone drag-and-drop
   if (dropzone && fileInput) {
@@ -283,13 +294,22 @@ function initFlasherCore() {
     return catalogFilesPromise;
   }
 
-  async function resolveFirmwareUrl(board, role) {
+  async function findBuild(board, role) {
     if (!PUBLISHED_ROLES.includes(role)) {
       throw new Error(`El rol "${role}" no se publica como binario: compílalo con west desde el Builder.`);
     }
     const files = await loadCatalogFiles();
-    const file = files && findCatalogFile(files, board, role);
+    return files ? findCatalogFile(files, board, role) : null;
+  }
+
+  async function resolveFirmwareUrl(board, role) {
+    const file = await findBuild(board, role);
     return file ? file.url : null;
+  }
+
+  // The UF2 formatter the catalog names for the board's SoftDevice, or null.
+  async function resolveFormatterUrl(board, role) {
+    return formatterUrl(await findBuild(board, role));
   }
 
   // Tells whether the catalog has a Zephtacore build for the selected board and role.
@@ -325,23 +345,31 @@ function initFlasherCore() {
     const url = await resolveFirmwareUrl(board, role);
     if (!url) throw new Error(`No hay build Zephtacore publicado para ${board.name} (${role}). Compílalo con west desde el Builder.`);
 
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`La descarga de ${url.split("/").pop()} falló (HTTP ${resp.status}).`);
-    return { name: url.split("/").pop(), bytes: new Uint8Array(await resp.arrayBuffer()) };
+    return { name: url.split("/").pop(), bytes: await fetchBytes(url) };
   }
 
-  async function downloadFirmware(board, role) {
-    const { name, bytes } = await fetchFirmware(board, role);
+  async function fetchBytes(url) {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`La descarga de ${url.split("/").pop()} falló (HTTP ${resp.status}).`);
+    return new Uint8Array(await resp.arrayBuffer());
+  }
+
+  function saveBytes(name, bytes) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
     a.download = name;
     a.click();
+  }
+
+  async function downloadFirmware(board, role) {
+    const { name, bytes } = await fetchFirmware(board, role);
+    saveBytes(name, bytes);
     return name;
   }
 
-  // ESP32: writes the merged image at 0x0 with esptool-js. The chip must answer and be the
-  // board's own family before anything is written.
-  async function flashEsp32(board, role) {
+  // ESP32: writes the merged image at 0x0 with esptool-js, erasing the whole flash first when
+  // clean. The chip must answer and be the board's own family before anything is written.
+  async function flashEsp32(board, role, clean) {
     if (!("serial" in navigator)) {
       alert("Web Serial no está soportado en este navegador. Por favor usa Google Chrome o Microsoft Edge en tu ordenador.");
       return;
@@ -370,13 +398,13 @@ function initFlasherCore() {
         throw new Error(`El chip detectado (${chipDescription}) no es un ${board.mcu}. No se ha escrito nada.`);
       }
 
-      setProgress(20, `Grabando ${name} en 0x0...`);
+      setProgress(20, clean ? `Borrando toda la flash y grabando ${name} en 0x0 (puede tardar un minuto)...` : `Grabando ${name} en 0x0...`);
       await loader.writeFlash({
         fileArray: [{ data: bytes, address: 0 }],
         flashSize: "keep",
         flashMode: "keep",
         flashFreq: "keep",
-        eraseAll: false,
+        eraseAll: clean,
         compress: true,
         reportProgress: (_file, written, total) => setProgress(20 + Math.round((written / total) * 75), `Grabando ${name}...`)
       });
@@ -407,23 +435,82 @@ function initFlasherCore() {
     return (roleSelect && roleSelect.value) || "companion";
   }
 
+  const CLEAN_LOSS = "Se pierden la identidad del nodo (clave nueva: tus contactos lo verán como otro nodo), los ajustes, los contactos y los emparejamientos Bluetooth.";
+  const CLEAN_TEXT = {
+    bin: `Instalación limpia: borra TODA la flash de la placa antes de grabar el firmware, por si el sistema de archivos quedó corrupto. ${CLEAN_LOSS}`,
+    uf2: `Instalación limpia: primero se descarga un formateador que borra el sistema de archivos, y después el firmware (dos copias al disco UF2). ${CLEAN_LOSS}`
+  };
+
+  let resolveInstallMode = null;
+  function chooseInstallMode(mode) {
+    if (!resolveInstallMode) return;
+    const resolve = resolveInstallMode;
+    resolveInstallMode = null;
+    installDialog.close();
+    resolve(mode);
+  }
+
+  // "keep", "clean", or null when the user cancels. Boards with no way to clean from here are not asked.
+  async function askInstallMode(board, role) {
+    const cleanable = board.flashType === "bin" || (board.flashType === "uf2" && !!(await resolveFormatterUrl(board, role)));
+    if (!cleanable || !installDialog) return "keep";
+    installModeText.textContent = CLEAN_TEXT[board.flashType];
+    return new Promise((resolve) => {
+      resolveInstallMode = resolve;
+      installDialog.showModal();
+    });
+  }
+
+  // nRF52 clean install, step 1: the formatter erases the file system and puts the board
+  // back in UF2 mode; the firmware is downloaded once the user says it is back.
+  async function startCleanUf2(board, role) {
+    setProgress(20, `Descargando el formateador para ${board.name}...`);
+    const url = await resolveFormatterUrl(board, role);
+    if (!url) throw new Error(`El catálogo no tiene formateador para ${board.name}.`);
+    const name = url.split("/").pop();
+    saveBytes(name, await fetchBytes(url));
+    setProgress(40, `Descargado "${name}". Pon la placa en modo UF2 (doble pulsación de reset) y cópialo al disco: se formatea y vuelve sola a modo UF2. Cuando el disco reaparezca, pulsa "Ya formateada: descargar firmware".`);
+    if (btnAfterFormat) btnAfterFormat.style.display = "";
+  }
+
+  async function downloadAfterFormat() {
+    const board = selectedBoard();
+    if (!board) return;
+    if (btnAfterFormat) btnAfterFormat.style.display = "none";
+    try {
+      const fileName = await downloadFirmware(board, selectedRole());
+      setProgress(60, afterDownloadHint(board, fileName));
+    } catch (err) {
+      console.error("Firmware download error:", err);
+      setProgress(0, `Error: ${err.message}`);
+    }
+  }
+
   // Step 1: download the firmware for the board and role.
   async function runUnifiedFlash(cfg) {
     const board = selectedBoard();
     if (!board) return;
     const targetRole = selectedRole();
 
+    const mode = await askInstallMode(board, targetRole);
+    if (!mode) return;
+
     if (progressCard) {
       progressCard.style.display = "block";
       progressCard.scrollIntoView({ behavior: "smooth" });
     }
+    if (btnAfterFormat) btnAfterFormat.style.display = "none";
 
     if (board.flashType === "bin") {
-      await flashEsp32(board, targetRole);
+      await flashEsp32(board, targetRole, mode === "clean");
       return;
     }
 
     try {
+      if (mode === "clean") {
+        await startCleanUf2(board, targetRole);
+        return;
+      }
       setProgress(20, `Consultando catálogo de firmware para ${board.name}...`);
       const fileName = await downloadFirmware(board, targetRole);
       setProgress(60, afterDownloadHint(board, fileName));

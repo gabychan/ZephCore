@@ -62,6 +62,7 @@
           <ul style="padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.7;">
             <li><strong>Placas nRF52840 (Seeed T1000-E, Heltec T114, XIAO BLE, RAK4631):</strong> Conecta el cable USB y pulsa dos veces seguidas el botón RESET. Aparecerá una unidad de disco USB en tu explorador de archivos. Arrastra y suelta el archivo <code>.uf2</code> correspondiente. La placa se reiniciará automáticamente.</li>
             <li><strong>Placas ESP32-S3 (Heltec V3/V4, LilyGO T3S3):</strong> Abre el <a href="../flasher.html">Web Flasher de Zephtacore</a> en Chrome o Edge, elige tu placa y pulsa "Grabar firmware por USB": se graba el archivo <code>-merged.bin</code> en el offset 0 y la placa se reinicia. Después usa "Enviar ajustes por USB".</li>
+            <li><strong>Instalación limpia:</strong> al pulsar el botón, el Web Flasher pregunta si conservas tus datos o haces una instalación limpia, útil si el sistema de archivos quedó corrupto. Borra la identidad del nodo (clave nueva: tus contactos lo verán como otro nodo), los ajustes, los contactos y los emparejamientos Bluetooth. En ESP32 borra toda la flash antes de grabar. En nRF52 descarga primero el formateador: cópialo al disco UF2, la placa se formatea y vuelve sola a modo UF2, y entonces descargas el firmware.</li>
           </ul>
         </div>
 

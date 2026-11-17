@@ -54,7 +54,7 @@
     for (const dev of catalog.device || []) {
       for (const fw of dev.firmware || []) {
         const ver = newestVersion(fw.version);
-        if (ver) out.push(...(fw.version[ver].files || []));
+        if (ver) out.push(...(fw.version[ver].files || []).map((f) => ({ ...f, erase: fw.erase })));
       }
     }
     return out;
@@ -66,6 +66,14 @@
     const stem = board.id.replace(/\//g, "-").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pat = new RegExp(`^${stem}-${role}-zephtacore-[0-9a-f]{7,40}${FILE_SUFFIX[board.flashType] || FILE_SUFFIX.bin}$`);
     return files.find((f) => pat.test(f.name || "") && FIRMWARE_URL_PREFIX.test(f.url || "")) || null;
+  }
+
+  // The catalog's `erase` of a firmware option is the .zip of the formatter for the board's
+  // SoftDevice; the .uf2 sits beside it. Anything else is not trusted.
+  const FORMATTER_ZIP = /^https:\/\/cdn\.jsdelivr\.net\/gh\/(xejarque|liquidraver)\/ZephCore@firmware-dist\/SoftDevice_v[67]_formatter\.zip$/;
+  function formatterUrl(file) {
+    const zip = file && file.erase;
+    return FORMATTER_ZIP.test(zip || "") ? zip.replace(/\.zip$/, ".uf2") : null;
   }
 
   function kconfigString(value) {
@@ -81,7 +89,7 @@
     return /^[>\s]*(Error|ERR)\b/im.test(text || "");
   }
 
-  const api = { isErrorReply, firmwareCodingRate, buildConfigCommands, catalogFiles, findCatalogFile, kconfigString, shellQuote };
+  const api = { isErrorReply, firmwareCodingRate, buildConfigCommands, catalogFiles, findCatalogFile, formatterUrl, kconfigString, shellQuote };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZephtacoreLogic = api;
 })(typeof window !== "undefined" ? window : globalThis);
