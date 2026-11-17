@@ -20,7 +20,7 @@ native-Linux preset boards/linux_native/<preset>.conf carries a sibling
                                      # companion built with --sysbuild)
     release:                         # absent = not published (bring-up)
       roles: [companion, repeater]   # REQUIRED in release
-      variants:                      # extra published builds of this board
+      variants:                      # extra builds; only `zephtacore` is published
         - id: noscreen               # artifact infix
           conf: no_display.conf      # relative to the board dir
           subtitle: No screen        # catalog role-row subtitle
@@ -172,6 +172,14 @@ def check(boards, makers=None):
     return errors
 
 
+PUBLISHED_VARIANT = "zephtacore"
+
+
+def published_variants(board):
+    """The only builds this fork publishes: the board's Zephtacore variant, if it has one."""
+    return [v for v in board.release.get("variants") or [] if v.get("id") == PUBLISHED_VARIANT]
+
+
 def matrix(boards, group, role_filter=None):
     """Release builds for one build.sh group: target|role|variant|confs|stem|sysbuild|host|cross."""
     want = {"nrf": "nrf52"}.get(group, group)
@@ -183,8 +191,8 @@ def matrix(boards, group, role_filter=None):
             continue
         sb = {True: "sysbuild", False: "no-sysbuild", None: ""}[b.sysbuild]
         base_confs = [b.conf] if b.conf else []
-        builds = [("", base_confs)]
-        for v in b.release.get("variants") or []:
+        builds = []
+        for v in published_variants(b):
             rel = os.path.relpath(os.path.join(b.board_dir, v["conf"]), APP_DIR).replace(os.sep, "/")
             builds.append((v["id"], base_confs + [rel]))
         for role in b.release["roles"]:

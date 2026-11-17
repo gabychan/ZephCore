@@ -147,8 +147,7 @@ def load_catalog_boards():
                 base[k] = c[k]
         if b.platform == "nrf52":
             base["softdevice"] = softdevice_of(b)
-        out.append(base)
-        for v in b.release.get("variants") or []:
+        for v in board_manifest.published_variants(b):
             e = dict(base, variant=v["id"])
             e.pop("subtitle", None)
             if v.get("subtitle"):

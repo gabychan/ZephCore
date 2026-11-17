@@ -510,7 +510,9 @@ jobs:
     # ADD ~100 new assets beside the old ones and leave the tag pinned to the old
     # commit. Deleting first (with the tag) makes each build a clean replacement:
     # current assets only, tag re-created on the building commit.
-    # `|| true` — the first release of a version has nothing to delete.
+    # The first release of a version has nothing to delete (`view` fails); a failing
+    # delete aborts the job, because uploading over the old release piles up assets
+    # until GitHub's 1000-per-release cap fails the upload.
     - name: replace existing release for this version
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -518,7 +520,7 @@ jobs:
         tag="${{ steps.tag.outputs.release_tag }}"
         if gh release view "$tag" >/dev/null 2>&1; then
           echo "Existing release $tag found — deleting it (and its tag) so this build replaces it"
-          gh release delete "$tag" --yes --cleanup-tag || true
+          gh release delete "$tag" --yes --cleanup-tag
         else
           echo "No existing release for $tag — creating a new one"
         fi
