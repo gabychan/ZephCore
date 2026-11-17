@@ -31,7 +31,8 @@ west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/co
 ```
 
 Repeating is the `z.mt.relay` setting (see `docs/CLI_commands.md`), not a build option. `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`
-is the default of `z.mt.hops`, the hop limit of the frames we originate; Meshtastic's own default is 3.
+is the default of `z.mt.hops`, the hop limit of the frames we originate: 3 as in Meshtastic, and 7 in
+`boards/common/zephtacore.conf`, with the network of its default channels.
 
 SX127x boards build, but cannot pick the sync word per frame, so Meshtastic is neither heard nor sent there.
 On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x22`

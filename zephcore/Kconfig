@@ -1436,11 +1436,10 @@ config ZEPHTACORE_MT_HOP_LIMIT
 	int "hop_limit of the Meshtastic frames we send (0-7)"
 	depends on ZEPHTACORE_MESHTASTIC
 	range 0 7
-	default 7
+	default 3
 	help
-	  Meshtastic's own default is 3. 7 is what the Spanish SFNarrow
-	  community network uses, and its nodes drop a frame whose
-	  hop_start is lower than they expect only by policy, so match the
-	  network you join.
+	  Meshtastic's own default. Match the network you join:
+	  boards/common/zephtacore.conf sets 7, what the Spanish SFNarrow
+	  community network uses.
 
 endmenu
