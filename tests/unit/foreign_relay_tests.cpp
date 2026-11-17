@@ -20,6 +20,7 @@ struct Tables : mesh::MeshTables {
 struct TestMesh : mesh::Mesh {
     TestMesh(mesh::Radio& r, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc,
              mesh::PacketManager& mgr, mesh::MeshTables& t) : mesh::Mesh(r, ms, rng, rtc, mgr, t) {}
+    using mesh::Mesh::extendPendingRetransmit;
 };
 struct Fixture {
     test_support::Clock clock;
@@ -91,4 +92,26 @@ TEST(foreign_relay_ema, "UNIT-FOREIGN-003", "The dupes of a foreign repeat never
     own.tick(11000);
     CHECK(own.getContentionEstimate() > 0.0f);
     (void)a;
+}
+
+TEST(mesh_extend_pending, "UNIT-FOREIGN-004", "A dupe of a MeshCore flood we hold pushes it back by 0.2 x its airtime from its own slot, never earlier, within the cap; a flood not tracked stays") {
+    Fixture f;
+    auto *p = f.pool.allocNew();
+    p->header = (PAYLOAD_TYPE_TXT_MSG << 2) | ROUTE_TYPE_FLOOD;
+    p->payload_len = 3; p->payload[0] = 1; p->payload[1] = 2; p->payload[2] = 3;
+    p->path_len = 0;
+    f.pool.queueOutbound(p, 1, f.clock.now + 400);
+    const uint32_t hash = mesh::ContentionTracker::computePacketHash32(p);
+    f.mesh.extendPendingRetransmit(hash);                          // not tracked: no headroom, nothing moves
+    CHECK(f.pool.getOutboundSchedule(0) == f.clock.now + 400);
+    f.mesh.getContentionTracker().trackRetransmit(hash, f.clock.now);
+    f.mesh.extendPendingRetransmit(hash);
+    const uint32_t first = f.pool.getOutboundSchedule(0);
+    CHECK(first > f.clock.now + 400);
+    f.clock.now = first + 5000;                                    // our slot passed
+    f.mesh.extendPendingRetransmit(hash);
+    CHECK(f.pool.getOutboundSchedule(0) >= f.clock.now);
+    uint32_t last = f.pool.getOutboundSchedule(0);
+    for (int i = 0; i < 100; i++) { f.mesh.extendPendingRetransmit(hash); CHECK(f.pool.getOutboundSchedule(0) >= last); last = f.pool.getOutboundSchedule(0); }
+    CHECK(f.mesh.getContentionTracker().getReactiveHeadroom(hash, 100) == 0);   // the cap is spent
 }
