@@ -1281,6 +1281,21 @@
       "id": "UNIT-DISPATCH-025",
       "name": "A consumed foreign frame is not logged as a raw MeshCore packet; a MeshCore one is",
       "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-001",
+      "name": "A foreign repeat is queued once, at most 8 wait, and a radio that cannot send it queues none",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-002",
+      "name": "A copy heard from another node pushes our repeat back from its own slot, never earlier; another frame leaves it alone",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-003",
+      "name": "The dupes of a foreign repeat never reach the flood delay of MeshCore",
+      "source": "tests/unit/foreign_relay_tests.cpp"
     }
   ]
 }

@@ -9,6 +9,7 @@ add_executable(zephcore_unit
   unit/policy_tests.cpp
   unit/pool_tests.cpp
   unit/contention_tests.cpp
+  unit/foreign_relay_tests.cpp
   unit/advert_tests.cpp
   unit/dispatcher_tests.cpp
   unit/identity_tests.cpp
