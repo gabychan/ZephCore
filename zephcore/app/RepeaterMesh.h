@@ -148,12 +148,10 @@ class RepeaterMesh : public mesh::Mesh, public CommonCLICallbacks {
   RateLimiter _ping_limit_mc{ping::kAnswersPerWindow, ping::kAnswerWindowS};
   RateLimiter _ping_limit_mt{ping::kAnswersPerWindow, ping::kAnswerWindowS};
   fw::Firewall _firewall;
+  rxstats::Observer _rx_mc;
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   fw::Firewall _mt_firewall;
   mt::FwScreen _mt_screen{_mt_firewall, _prefs.mtfw};
-#endif
-  rxstats::Observer _rx_mc;
-#if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   rxstats::Observer _rx_mt;
 #endif
   bool region_load_active;

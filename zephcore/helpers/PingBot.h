@@ -248,6 +248,43 @@ inline void unsent(Counters &c)
 	}
 }
 
+inline bool isDirect(const Heard &h)
+{
+	return h.hops == 0 && !h.relayed;
+}
+
+/* True when the line asks this protocol's ping and nothing turns it away; sender gets the name of whoever
+ * sent it. A ping the hop filters or the answer limit refuse is counted ignored. */
+inline bool asked(const Prefs &p, Counters &c, Protocol w, const char *line, const Heard &h, char *sender,
+		  size_t sender_cap, RateLimiter *limit, uint32_t now_s)
+{
+	const Proto &x = protoOf(p, w);
+
+	if (!x.enable || !validTrigger(x.trigger)) {
+		return false;
+	}
+	const char *msg = line;
+
+	sender[0] = '\0';
+	if (!h.plain) {
+		msg = messageOf(line, sender, sender_cap);
+	}
+	if (!sameText(msg, x.trigger)) {
+		return false;
+	}
+	const bool direct = isDirect(h);
+
+	if ((direct && p.ignore_direct) || (!direct && p.ignore_remote)) {
+		bump(c.ignored);
+		return false;
+	}
+	if (limit && !limit->allow(now_s)) {
+		bump(c.ignored);
+		return false;
+	}
+	return true;
+}
+
 /* The answer to a line heard on the bot's channel for protocol w, or 0 when it is not a ping this node answers.
  * MeshCore, one node per line, the signal (RSSI/SNR) stuck to the last one:
  *   @[Ana] 2 hops
@@ -260,31 +297,12 @@ inline void unsent(Counters &c)
 inline size_t reply(const Prefs &p, Counters &c, Protocol w, const char *line, const Heard &h, NameFn names,
 		    void *ctx, char *out, size_t cap, RateLimiter *limit = nullptr, uint32_t now_s = 0)
 {
-	const Proto &x = protoOf(p, w);
-
-	if (!x.enable || !validTrigger(x.trigger) || cap == 0) {
-		return 0;
-	}
 	char sender[32];
-	const char *msg = line;
 
-	sender[0] = '\0';
-	if (!h.plain) {
-		msg = messageOf(line, sender, sizeof(sender));
-	}
-	if (!sameText(msg, x.trigger)) {
+	if (cap == 0 || !asked(p, c, w, line, h, sender, sizeof(sender), limit, now_s)) {
 		return 0;
 	}
-	const bool direct = h.hops == 0 && !h.relayed;
-
-	if ((direct && p.ignore_direct) || (!direct && p.ignore_remote)) {
-		bump(c.ignored);
-		return 0;
-	}
-	if (limit && !limit->allow(now_s)) {
-		bump(c.ignored);
-		return 0;
-	}
+	const bool direct = isDirect(h);
 	const bool mc = w == PROTO_MC;
 	const int snr10 = zcmd::snrTenths(h.snr_x4);
 	const int snr_abs = snr10 < 0 ? -snr10 : snr10;

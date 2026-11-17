@@ -321,7 +321,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 				    (const char *)d.payload, d.payload_len, snr_x4, hops, h.relay);
 		}
 	} else {
-		deliverData(h, d, match->id, snr_x4, sink);
+		deliverData(h, d, match->id, sink);
 	}
 	return RX_HANDLED;
 }
@@ -373,14 +373,12 @@ void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sin
 		}
 		return;
 	}
-	deliverData(h, d, kNoChannel, snr_x4, sink);
+	deliverData(h, d, kNoChannel, sink);
 }
 
 /* What a decrypted Data carries besides text: NodeInfo, Position, ACKs. */
-void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int8_t snr_x4,
-			 Sink &sink)
+void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, Sink &sink)
 {
-	(void)snr_x4;
 	if (d.portnum == PORT_NODEINFO) {
 		User u;
 

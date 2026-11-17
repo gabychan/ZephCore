@@ -224,8 +224,7 @@ private:
 		bool want_ack = false;
 	};
 	size_t buildFrame(const TxSpec &t, uint8_t *out, size_t cap);
-	void deliverData(const Header &h, const Data &d, uint8_t channel_id, int8_t snr_x4,
-			 Sink &sink);
+	void deliverData(const Header &h, const Data &d, uint8_t channel_id, Sink &sink);
 	bool openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,
 		     Data &d);
 	void deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink);
