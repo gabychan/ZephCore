@@ -1311,6 +1311,11 @@
       "id": "UNIT-PING-015",
       "name": "An answer that was not sent leaves the counters as they were; one the limit turned away is counted ignored, saturating",
       "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-064",
+      "name": "A direct text sent with the id of the first try carries that id; without one it takes a new id each time",
+      "source": "tests/unit/meshtastic_tests.cpp"
     }
   ]
 }

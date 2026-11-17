@@ -365,6 +365,9 @@ private:
 	static constexpr int MT_RELAYS_KEEP = 8;
 	MtSent _mt_sent[MT_SENT_KEEP] = {};
 	uint8_t _mt_sent_next = 0;
+	struct MtLastDirect {
+		uint32_t node, timestamp, id;
+	} _mt_last_direct = {};
 	/* Who wrote the last texts on Meshtastic channels (ours included), by Meshtastic
 	 * packet id: a reply names its target by id in Meshtastic and by "@[name] "
 	 * in MeshCore. */
@@ -398,8 +401,9 @@ private:
 	/* App commands; false when the channel or contact is not a Meshtastic one. */
 	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent);
 	void mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rssi);
-	bool mtSendDirectText(const ContactInfo &contact, const char *text, size_t len, bool &sent,
-			      uint32_t &ack);
+	/* A retry (attempt > 0 of the same timestamp) goes out with the packet id of the first try. */
+	bool mtSendDirectText(const ContactInfo &contact, uint32_t timestamp, uint8_t attempt,
+			      const char *text, size_t len, bool &sent, uint32_t &ack);
 	void mtStoreKey(uint32_t node, const uint8_t key[32]);
 	bool mtKeyInUse(uint32_t node);
 	void mtSendAck(uint32_t to, uint32_t request_id);

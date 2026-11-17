@@ -2079,7 +2079,7 @@ bool CompanionMesh::handleCmdSendTxtMsg(const uint8_t *data, size_t len)
 		uint32_t mt_ack = 0;
 
 		if (contact && txt_type == TXT_TYPE_PLAIN &&
-		    mtSendDirectText(*contact, text, text_len, mt_sent, mt_ack)) {
+		    mtSendDirectText(*contact, msg_timestamp, attempt, text, text_len, mt_sent, mt_ack)) {
 			if (mt_sent) {
 				sendPacketSent(MSG_SEND_SENT_FLOOD, mt_ack, MT_ACK_TIMEOUT_MS);
 			} else {

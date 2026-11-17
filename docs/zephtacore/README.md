@@ -99,6 +99,8 @@ radio RX (hybrid sync 0x14B4) -> Dispatcher::checkRecv
 app message on a #mt- channel -> mt::Bridge::buildText -> Dispatcher::sendForeign
 app message to a Meshtastic contact -> mt::Bridge::buildDirectText (PKI) -> same TX queue
     -> normal TX queue (LBT, duty cycle) -> LoRaRadio writes sync 0x24B4 for the frame
+(a retry of a direct message, same timestamp and attempt > 0, keeps the first try's packet id, so the node's ACK
+ still answers the code the app holds and a node that has the frame drops the copy)
 ```
 
 | Piece | File |

@@ -409,7 +409,8 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int
 
 size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
 			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
-			  uint32_t reply_id, uint32_t request_id, bool want_response, bool want_ack)
+			  uint32_t reply_id, uint32_t request_id, bool want_response, bool want_ack,
+			  uint32_t packet_id)
 {
 	if (_self == 0 || cap < kHeaderLen) {
 		return 0;
@@ -437,7 +438,7 @@ size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to
 
 	h.to = to;
 	h.from = _self;
-	h.id = nextId();
+	h.id = packet_id ? packet_id : nextId();
 	h.flags = (uint8_t)(_hops | (_hops << 5) | (want_ack ? 0x08 : 0));
 	h.channel = pki_key ? 0 : ch->hash;
 	h.next_hop = 0;
@@ -496,7 +497,8 @@ size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_respon
 }
 
 size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const char *text,
-			       size_t len, uint8_t *out, size_t cap, uint32_t reply_id, bool want_ack)
+			       size_t len, uint8_t *out, size_t cap, uint32_t reply_id, bool want_ack,
+			       uint32_t packet_id)
 {
 	uint8_t key[32];
 
@@ -504,7 +506,7 @@ size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const ch
 		return 0;
 	}
 	size_t n = buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap,
-			      reply_id, 0, false, want_ack);
+			      reply_id, 0, false, want_ack, packet_id);
 
 	crypto_wipe(key, sizeof(key));
 	return n;

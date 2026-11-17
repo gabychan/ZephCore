@@ -852,8 +852,8 @@ void CompanionMesh::mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rss
 	}
 }
 
-bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *text, size_t len,
-				     bool &sent, uint32_t &ack)
+bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, uint32_t timestamp, uint8_t attempt,
+				     const char *text, size_t len, bool &sent, uint32_t &ack)
 {
 	uint32_t node;
 	uint8_t key[32];
@@ -871,14 +871,20 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 		return true;
 	}
 	uint8_t frame[mt::kMaxTxFrame];
-	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame), 0, true);
+	const bool retry = attempt > 0 && _mt_last_direct.id != 0 && _mt_last_direct.node == node &&
+			   _mt_last_direct.timestamp == timestamp;
+	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame), 0, true,
+				       retry ? _mt_last_direct.id : 0);
 	mt::Header h;
 
 	if (n > 0 && mt::parseHeader(frame, n, h)) {
 		/* The packet id is what the node's ACK answers: the app's ack code. */
 		sent = _mtport.send(frame, n);
 		if (sent) {
-			addPendingAck(h.id, mtContactIndex(contact));
+			if (!retry) {
+				addPendingAck(h.id, mtContactIndex(contact));
+				_mt_last_direct = {node, timestamp, h.id};
+			}
 			ack = h.id;
 		}
 	}

@@ -155,9 +155,12 @@ public:
 	/* Our NodeInfo to one node, asking for theirs when want_response. */
 	size_t buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_response, uint8_t *out,
 			       size_t cap);
-	/* PKI frames to a node whose public key is peer_pub. 0 without PKI or on a weak key. */
+	/* PKI frames to a node whose public key is peer_pub. 0 without PKI or on a weak key.
+	 * packet_id 0 takes a new id; a retry passes the id of the first try, which the node's
+	 * ACK answers and which a node that already has the frame drops as a duplicate. */
 	size_t buildDirectText(uint32_t to, const uint8_t peer_pub[32], const char *text, size_t len,
-			       uint8_t *out, size_t cap, uint32_t reply_id = 0, bool want_ack = false);
+			       uint8_t *out, size_t cap, uint32_t reply_id = 0, bool want_ack = false,
+			       uint32_t packet_id = 0);
 	size_t buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,
 			size_t cap);
 
@@ -210,7 +213,7 @@ private:
 	size_t buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
 			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
 			  uint32_t reply_id = 0, uint32_t request_id = 0, bool want_response = false,
-			  bool want_ack = false);
+			  bool want_ack = false, uint32_t packet_id = 0);
 	void deliverData(const Header &h, const Data &d, uint8_t channel_id, int8_t snr_x4,
 			 Sink &sink);
 	bool openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,

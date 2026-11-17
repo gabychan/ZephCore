@@ -1750,3 +1750,20 @@ TEST(mt_pki_failed, "UNIT-MT-063", "A key we hold that no longer opens a PKI fra
     CHECK(t.b.handleFrame(frame, n, 0, strangers, relay, &relay_len) == RX_NOT_MESHTASTIC);
     CHECK(strangers.failed.empty() && strangers.unknown_keys.size() == 1);
 }
+
+TEST(mt_direct_retry_id, "UNIT-MT-064", "A direct text sent with the id of the first try carries that id; without one it takes a new id each time") {
+    PkiPair t;
+    uint8_t first[kMaxFrame], again[kMaxFrame], other[kMaxFrame];
+    Header h1, h2, h3;
+    size_t n1 = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, first, sizeof(first), 0, true);
+    CHECK(n1 > 0 && parseHeader(first, n1, h1));
+    size_t n2 = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, again, sizeof(again), 0, true, h1.id);
+    CHECK(n2 == n1 && parseHeader(again, n2, h2) && h2.id == h1.id);
+    size_t n3 = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, other, sizeof(other), 0, true);
+    CHECK(n3 > 0 && parseHeader(other, n3, h3) && h3.id != h1.id);
+    uint8_t relay[kMaxFrame];
+    size_t relay_len;
+    CHECK(t.b.handleFrame(first, n1, 0, t.cb, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.b.handleFrame(again, n2, 0, t.cb, relay, &relay_len) == RX_DUPLICATE);
+    CHECK(t.cb.directs.size() == 1);
+}
