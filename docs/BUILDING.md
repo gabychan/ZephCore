@@ -48,6 +48,7 @@ west build -b <board> zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/<f
 | `repeater_uplink.conf` | Repeater WiFi + MQTT uplink | ESP32, with `repeater.conf` |
 | `wifi_ota.conf` | WiFi AP + HTTP firmware update | ESP32 repeaters; needs MCUboot, so `--sysbuild` |
 | `wifi_companion.conf` | App over TCP on your WiFi | Added automatically for boards whose manifest declares `wifi: true` |
+| `wifi_companion_zephtacore.conf` | 3 KB less system heap for the Zephtacore tables | Added automatically with `wifi_companion.conf` when `zephtacore.conf` is also given |
 | `ble_ota.conf` | Firmware update over BLE (MCUmgr, nRF Connect Device Manager) | Added automatically to ESP32 S3/C-series companions built with `--sysbuild`, unless the manifest says `ble_ota: false` |
 
 Board strings are in [supported_boards.md](supported_boards.md). Examples:
