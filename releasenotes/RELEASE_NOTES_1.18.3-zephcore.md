@@ -7,10 +7,13 @@ default channels and node name in order.
 
 ## Zephtacore builds in the release
 
-- The `t1000_e` and `wio_tracker_l1` companion and repeater are also published with the Meshtastic bridge
-  (`boards/common/zephtacore.conf`), as the `zephtacore` variant of their `zephcore.yml`: files named
+- Every board of the web builder that CI publishes, 37 of them, carries the companion and the repeater also with the
+  Meshtastic bridge (`boards/common/zephtacore.conf`), as the `zephtacore` variant of its `zephcore.yml`: files named
   `<board>-<role>-zephtacore-<hash>`, listed in the catalog with the subtitle Zephtacore. The Zephtacore web flasher
-  downloads only these. See `docs/PROVIDER_CATALOG.md`.
+  downloads only these. `lilygo_tlora_c6`, `xiao_esp32c6` and `lora_e5_mini` have none: their companion does not fit
+  in RAM (the C6 boards) or flash (`lora_e5_mini`). See `docs/PROVIDER_CATALOG.md`.
+- On a WiFi companion with Zephtacore the system heap is 3 KB smaller (`wifi_companion_zephtacore.conf`), which is what
+  lets the Heltec V3 and the Wireless Tracker build it.
 - A push to a branch other than `master` still builds, but no longer replaces the release or `firmware-dist`.
 
 ---
