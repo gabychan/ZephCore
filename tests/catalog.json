@@ -1296,6 +1296,11 @@
       "id": "UNIT-FOREIGN-003",
       "name": "The dupes of a foreign repeat never reach the flood delay of MeshCore",
       "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-006",
+      "name": "set <key> help on a key that takes any text is that value; get help still gives the usage; a refusal leaves the reply alone",
+      "source": "tests/unit/zcommand_tests.cpp"
     }
   ]
 }

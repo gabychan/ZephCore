@@ -15,8 +15,8 @@ namespace mt {
 
 /* The ports a drop rule silences. Routing (ACK and NAK) is never one of them. */
 enum FwRule : uint8_t { FW_TEXT, FW_POSITION, FW_NODEINFO, FW_TELEMETRY, FW_TRACEROUTE, FW_OTHER, FW_COUNT };
-static const char *const kFwRuleName[FW_COUNT] = {"text", "position", "nodeinfo", "telemetry", "traceroute", "other"};
-static constexpr fw::Rules kFwRules = {kFwRuleName, FW_COUNT};
+inline constexpr const char *kFwRuleName[FW_COUNT] = {"text", "position", "nodeinfo", "telemetry", "traceroute", "other"};
+inline constexpr fw::Rules kFwRules = {kFwRuleName, FW_COUNT};
 
 /* The rule of a port, fw::kNoRule for a frame this node cannot open (portnum 0) or an ACK. */
 inline uint8_t fwRuleOf(uint32_t portnum)

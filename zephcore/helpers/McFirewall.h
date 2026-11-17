@@ -34,8 +34,8 @@ struct Rules {
 
 /* MeshCore: the payload types a drop rule silences. CONTROL (neighbour discovery) is none of them. */
 enum McRule : uint8_t { RULE_ADVERT, RULE_REQUEST, RULE_TEXT, RULE_GROUP, RULE_ACK, RULE_PATH, RULE_TRACE, RULE_COUNT };
-static const char *const kMcRuleName[RULE_COUNT] = {"advert", "request", "text", "group", "ack", "path", "trace"};
-static constexpr Rules kMcRules = {kMcRuleName, RULE_COUNT};
+inline constexpr const char *kMcRuleName[RULE_COUNT] = {"advert", "request", "text", "group", "ack", "path", "trace"};
+inline constexpr Rules kMcRules = {kMcRuleName, RULE_COUNT};
 
 /* The rule of a payload type, kNoRule for a type no rule covers. */
 inline uint8_t ruleOf(uint8_t payload_type)

@@ -54,3 +54,13 @@ TEST(zcmd_help_no_meshtastic, "UNIT-ZCMD-005", "a build without Meshtastic has n
     CHECK(help("get z.mt help", false) == "<not mine>");
     CHECK(help("get z.mc help", false).find("> z.mc: neighbors") == 0);
 }
+
+TEST(zcmd_help_free_text, "UNIT-ZCMD-006", "set <key> help on a key that takes any text is that value; get help still gives the usage; a refusal leaves the reply alone") {
+    CHECK(help("set z.mc.ping.trigger help") == "<not mine>");
+    CHECK(help("set z.mt.channel help") == "<not mine>");
+    CHECK(help("get z.mc.ping.trigger help").find("> z.mc.ping.trigger:") == 0);
+    CHECK(help("set z.mt.hops help").find("0-7") != std::string::npos);   // a fixed-value key keeps its usage
+    char out[40] = "sentinel";
+    CHECK(!zcmd::helpReply("get z.nothing.here help", true, out, sizeof(out)) && strcmp(out, "sentinel") == 0);
+    CHECK(!zcmd::helpReply("set z.mc.ping.trigger help", true, out, sizeof(out)) && strcmp(out, "sentinel") == 0);
+}
