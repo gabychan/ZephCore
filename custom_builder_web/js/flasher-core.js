@@ -42,8 +42,11 @@ function initFlasherCore() {
     ).join("");
   }
 
+  // build.sh publishes only these two roles; the others are built with west.
+  const PUBLISHED_ROLES = ["companion", "repeater"];
+
   if (roleSelect && window.ZEPHTACORE_ROLES) {
-    roleSelect.innerHTML = window.ZEPHTACORE_ROLES.map(
+    roleSelect.innerHTML = window.ZEPHTACORE_ROLES.filter((r) => PUBLISHED_ROLES.includes(r.id)).map(
       (r) => `<option value="${r.id}">${r.name}</option>`
     ).join("");
   }
@@ -101,20 +104,10 @@ function initFlasherCore() {
         previewFlashTag.style.color = "#f59e0b";
         previewFlashTag.style.borderColor = "rgba(245, 158, 11, 0.3)";
       } else {
-        previewFlashTag.textContent = `Modo Web Serial (Offset ${board.defaultOffset || "0x00"})`;
+        previewFlashTag.textContent = `Grabado con esptool (offset ${board.defaultOffset || "0x00"})`;
         previewFlashTag.style.background = "rgba(0, 242, 254, 0.1)";
         previewFlashTag.style.color = "var(--brand-cyan)";
         previewFlashTag.style.borderColor = "rgba(0, 242, 254, 0.3)";
-      }
-    }
-
-    if (btnStartFlash) {
-      if (board.flashType === "uf2") {
-        btnStartFlash.textContent = "📥 Descargar Firmware Oficial UF2";
-      } else if (board.flashType === "hex") {
-        btnStartFlash.textContent = "📥 Descargar Firmware HEX (SWD)";
-      } else {
-        btnStartFlash.textContent = "⚡ Flashear e Inyectar Ajustes por USB";
       }
     }
   }
@@ -290,45 +283,50 @@ function initFlasherCore() {
     reader.readAsArrayBuffer(file);
   }
 
-  // Resolve real firmware binary URL from official catalog (xejarque fork with fallback)
+  const CATALOG_URLS = [
+    "https://cdn.jsdelivr.net/gh/xejarque/ZephCore@firmware-dist/catalog.json",
+    "https://cdn.jsdelivr.net/gh/liquidraver/ZephCore@firmware-dist/catalog.json"
+  ];
+  const FIRMWARE_URL_PREFIX = /^https:\/\/cdn\.jsdelivr\.net\/gh\/(xejarque|liquidraver)\/ZephCore@firmware-dist\//;
+  const FILE_SUFFIX = { uf2: "\\.uf2", hex: "\\.hex", bin: "-merged\\.bin" };
+
+  function newestVersion(versions) {
+    return Object.keys(versions || {}).sort((x, y) => x.localeCompare(y, undefined, { numeric: true })).pop();
+  }
+
+  // Every file of the newest version of every firmware option, whatever the device tile.
+  function catalogFiles(catalog) {
+    const out = [];
+    for (const dev of catalog.device || []) {
+      for (const fw of dev.firmware || []) {
+        const ver = newestVersion(fw.version);
+        if (ver) out.push(...(fw.version[ver].files || []));
+      }
+    }
+    return out;
+  }
+
+  // build.sh names files <target with / as ->>-<role>[-<variant>]-<git hash><suffix>.
+  function findCatalogFile(files, board, role) {
+    const stem = board.id.replace(/\//g, "-").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pat = new RegExp(`^${stem}-${role}-(?:[a-z0-9_]+-)?[0-9a-f]{7,40}${FILE_SUFFIX[board.flashType] || FILE_SUFFIX.bin}$`);
+    const plain = new RegExp(`^${stem}-${role}-[0-9a-f]{7,40}`);
+    const matches = files.filter((f) => pat.test(f.name || "") && FIRMWARE_URL_PREFIX.test(f.url || ""));
+    return matches.find((f) => plain.test(f.name)) || matches[0] || null;
+  }
+
   async function resolveFirmwareUrl(board, role) {
-    const roleKey = (role || "companion").toLowerCase();
-    const primaryCatalog = "https://cdn.jsdelivr.net/gh/xejarque/ZephCore@firmware-dist/catalog.json";
-    const fallbackCatalog = "https://cdn.jsdelivr.net/gh/liquidraver/ZephCore@firmware-dist/catalog.json";
-
-    for (const catUrl of [primaryCatalog, fallbackCatalog]) {
+    if (!PUBLISHED_ROLES.includes(role)) {
+      throw new Error(`El rol "${role}" no se publica como binario: compílalo con west desde el Builder.`);
+    }
+    for (const catUrl of CATALOG_URLS) {
       try {
-        const resp = await fetch(catUrl + "?_t=" + Date.now());
+        const resp = await fetch(`${catUrl}?_t=${Date.now()}`);
         if (!resp.ok) continue;
-        const catalog = await resp.json();
-        const devices = catalog.device || [];
-        const dev = devices.find((d) => {
-          const dn = (d.name || "").toLowerCase();
-          const bn = (board.name || "").toLowerCase();
-          const bid = (board.id || "").toLowerCase().split("/")[0];
-          return dn.includes(bn) || bn.includes(dn) || (d.firmware && JSON.stringify(d.firmware).toLowerCase().includes(bid));
-        });
-
-        if (dev && dev.firmware) {
-          const targetRole = roleKey === "repeater" ? "repeater" : "companion";
-          const fw = dev.firmware.find((f) => (f.role || "").toLowerCase().startsWith(targetRole)) || dev.firmware[0];
-          if (fw && fw.version) {
-            const verKey = Object.keys(fw.version)[0];
-            const files = (fw.version[verKey] && fw.version[verKey].files) || [];
-            if (board.flashType === "uf2") {
-              const fileObj = files.find((f) => f.name.endsWith(".uf2"));
-              if (fileObj && fileObj.url) return fileObj.url;
-            } else if (board.flashType === "hex") {
-              const fileObj = files.find((f) => f.name.endsWith(".hex"));
-              if (fileObj && fileObj.url) return fileObj.url;
-            } else {
-              const fileObj = files.find((f) => f.name.includes("merged") || f.name.endsWith(".bin"));
-              if (fileObj && fileObj.url) return fileObj.url;
-            }
-          }
-        }
+        const file = findCatalogFile(catalogFiles(await resp.json()), board, role);
+        if (file) return file.url;
       } catch (err) {
-        console.warn("Catalog fetch check error:", err);
+        console.warn("Catalog fetch error:", catUrl, err);
       }
     }
     return null;
@@ -363,13 +361,20 @@ function initFlasherCore() {
     return `Descargado "${fileName}". Esta web no graba ESP32: grábalo en 0x0 con esptool. ${next}`;
   }
 
+  function selectedBoard() {
+    const boards = window.ZEPHTACORE_BOARDS || [];
+    return boards.find((b) => b.id === (boardSelect && boardSelect.value)) || boards[0];
+  }
+
+  function selectedRole() {
+    return (roleSelect && roleSelect.value) || "companion";
+  }
+
   // Step 1: download the firmware for the board and role.
   async function runUnifiedFlash(cfg) {
-    const configToUse = cfg || pendingConfig;
-    const boardId = (configToUse && configToUse.boardId) || (boardSelect ? boardSelect.value : "t1000_e");
-    const board = (window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS.find((b) => b.id === boardId)) || (window.ZEPHTACORE_BOARDS && window.ZEPHTACORE_BOARDS[0]);
+    const board = selectedBoard();
     if (!board) return;
-    const targetRole = (configToUse && configToUse.role) || "companion";
+    const targetRole = selectedRole();
 
     if (progressCard) {
       progressCard.style.display = "block";
@@ -388,8 +393,9 @@ function initFlasherCore() {
 
   // Step 2: the board runs the new firmware, send the settings.
   async function runInjectOnly(cfg) {
-    const configToUse = cfg || pendingConfig;
-    if (!configToUse) return;
+    const base = cfg || pendingConfig;
+    if (!base) return;
+    const configToUse = { ...base, role: selectedRole() };
     if (!("serial" in navigator)) {
       alert("Web Serial no está soportado en este navegador. Por favor usa Google Chrome o Microsoft Edge en tu ordenador.");
       return;
