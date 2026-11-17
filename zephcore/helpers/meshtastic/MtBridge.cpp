@@ -359,7 +359,11 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 	int n = pkiOpen(*_pki, key, h.from, h.id, raw + kHeaderLen, plen, buf, plen);
 
 	crypto_wipe(key, sizeof(key));
-	return n > 0 && decodeData(buf, (size_t)n, d);
+	if (n <= 0) {
+		sink.onPkiFailed(h.from);
+		return false;
+	}
+	return decodeData(buf, (size_t)n, d);
 }
 
 void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink)

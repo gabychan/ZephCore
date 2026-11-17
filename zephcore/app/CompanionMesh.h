@@ -332,6 +332,7 @@ private:
 		void onAck(uint32_t from, uint32_t request_id, uint32_t error_reason) override;
 		void onNodeInfoRequest(uint8_t channel_id, uint32_t from) override;
 		void onUnknownKey(uint32_t from) override;
+		void onPkiFailed(uint32_t from) override;
 	};
 	struct MtKey {
 		uint32_t node;

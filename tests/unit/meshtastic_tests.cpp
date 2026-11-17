@@ -1721,3 +1721,37 @@ TEST(mt_input_checks, "UNIT-MT-061", "Node numbers, channel names, keys, ports a
     uint8_t pb[104];
     CHECK(encodeUser(u, pb, sizeof(pb)) > 0);
 }
+
+TEST(mt_discriminate_minimums, "UNIT-MT-062", "An advert, ACK or trace shorter than its fixed part is not MeshCore") {
+    uint8_t frame[MAX_TRANS_UNIT];
+    const struct { uint8_t type; size_t min; } kMin[] = {
+        {PAYLOAD_TYPE_ADVERT, PUB_KEY_SIZE + 4 + SIGNATURE_SIZE}, {PAYLOAD_TYPE_ACK, 4}, {PAYLOAD_TYPE_TRACE, 9},
+    };
+    for (auto m : kMin) {
+        std::memset(frame, 0x5A, sizeof(frame));
+        frame[0] = (uint8_t)((m.type << PH_TYPE_SHIFT) | ROUTE_TYPE_FLOOD);
+        frame[1] = 0;
+        CHECK(looksLikeMeshCore(frame, 2 + m.min, 0));
+        CHECK(!looksLikeMeshCore(frame, 2 + m.min - 1, 0));
+    }
+}
+
+TEST(mt_pki_failed, "UNIT-MT-063", "A key we hold that no longer opens a PKI frame is reported, an unknown key is not") {
+    struct Failed : Capture {
+        std::vector<uint32_t> failed;
+        void onPkiFailed(uint32_t from) override { failed.push_back(from); }
+    };
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, frame, sizeof(frame));
+    Failed stale;
+    uint8_t other[32], other_pub[32];
+    ownKey(21, other, other_pub);   // the peer's key changed: we hold an old one
+    stale.keys.push_back({0xA1A1A1A1u, std::vector<uint8_t>(other_pub, other_pub + 32)});
+    CHECK(t.b.handleFrame(frame, n, 0, stale, relay, &relay_len) == RX_NOT_MESHTASTIC);
+    CHECK(stale.failed.size() == 1 && stale.failed[0] == 0xA1A1A1A1u && stale.directs.empty());
+    Failed strangers;
+    CHECK(t.b.handleFrame(frame, n, 0, strangers, relay, &relay_len) == RX_NOT_MESHTASTIC);
+    CHECK(strangers.failed.empty() && strangers.unknown_keys.size() == 1);
+}

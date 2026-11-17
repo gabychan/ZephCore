@@ -77,6 +77,9 @@ public:
 	}
 	/* A PKI message for us from a node whose key we do not hold. */
 	virtual void onUnknownKey(uint32_t from) { (void)from; }
+	/* A PKI message for us from a node whose key we hold did not open: it may
+	 * have a new key. */
+	virtual void onPkiFailed(uint32_t from) { (void)from; }
 	/* X25519 public key of a node, false when unknown. */
 	virtual bool peerKey(uint32_t node, uint8_t key[32])
 	{

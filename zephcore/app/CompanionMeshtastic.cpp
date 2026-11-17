@@ -648,6 +648,12 @@ void CompanionMesh::MtSink::onUnknownKey(uint32_t from)
 	m.mtSendNodeInfoLimited(from, mt::kNoChannel, true);
 }
 
+void CompanionMesh::MtSink::onPkiFailed(uint32_t from)
+{
+	/* A key that no longer opens its messages may have changed: ask for the new one. */
+	m.mtSendNodeInfoLimited(from, mt::kNoChannel, true);
+}
+
 bool CompanionMesh::MtSink::peerKey(uint32_t node, uint8_t key[32])
 {
 	return m._store && m._store->getMtKey(node, key);

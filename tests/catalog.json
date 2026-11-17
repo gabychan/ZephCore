@@ -1261,6 +1261,16 @@
       "id": "UNIT-MT-061",
       "name": "Node numbers, channel names, keys, ports and positions are checked in full",
       "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-062",
+      "name": "An advert, ACK or trace shorter than its fixed part is not MeshCore",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-063",
+      "name": "A key we hold that no longer opens a PKI frame is reported, an unknown key is not",
+      "source": "tests/unit/meshtastic_tests.cpp"
     }
   ]
 }
