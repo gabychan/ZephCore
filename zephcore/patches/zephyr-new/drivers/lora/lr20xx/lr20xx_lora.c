@@ -1993,6 +1993,8 @@ static int lr20xx_lora_config(const struct device *dev,
 	 * the chip is still in continuous RX. Free at boot. */
 	lr20xx_system_set_standby_mode(&data->hal_ctx,
 				       LR20XX_SYSTEM_STANDBY_MODE_RC);
+	/* Out of RX: the next recv entry must not take its fast path. */
+	data->in_rx_mode = false;
 
 	lr20xx_calibrate_front_end(&data->hal_ctx, config->frequency);
 
