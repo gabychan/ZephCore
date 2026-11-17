@@ -276,3 +276,25 @@ test("nRF52: a board whose catalog has no DFU zip reports it and offers no step"
     files.push(...saved);
   }
 });
+
+test("ESP32: an image that does not match the catalog's sha256 is not written; one that does is", async () => {
+  espCatalog();
+  const espFiles = () => catalog.device[0].firmware[0].version["1.18.2"].files.filter((f) => f.name === ESP_CDN_FILE);
+  const sha1234 = "9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a";   // SHA-256 of bytes 1,2,3,4
+  try {
+    espFiles().forEach((f) => { f.sha256 = "00" + sha1234.slice(2); });
+    let esp = fakeEsptool("ESP32-S3");
+    let els = await loadPage({ boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: esp.module });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.equal(esp.calls.writeFlash.length, 0);
+    assert.match(els.flashStatusText.textContent, /SHA-256.*No se ha escrito nada/);
+
+    espFiles().forEach((f) => { f.sha256 = sha1234; });
+    esp = fakeEsptool("ESP32-S3");
+    els = await loadPage({ boards: espBoards, board: "heltec_v4/esp32s3/procpu", esptool: esp.module });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.equal(esp.calls.writeFlash.length, 1);
+  } finally {
+    espFiles().forEach((f) => { delete f.sha256; });
+  }
+});

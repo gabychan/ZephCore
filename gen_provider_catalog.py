@@ -26,6 +26,7 @@ Usage (local test, from a GitHub release API json):
 """
 
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -238,19 +239,24 @@ def files_for(assets, board, token):
     return out
 
 
-def build(assets, url_base, version):
+def build(assets, url_base, version, digests=None):
+    """digests maps a filename to its SHA-256 (hex); a file without one gets no `sha256`."""
     base = url_base.rstrip("/")
+    digests = digests or {}
     devices = {}   # name -> device object (first-seen order preserved)
     order = []
     used_roles = set()
     used_makers = set()
     stats = {"fold": 0, "new": 0, "skipped": []}
 
+    def spec_file(t, name, title):
+        f = {"type": t, "name": name, "url": f"{base}/{name}", "title": title}
+        if name in digests:
+            f["sha256"] = digests[name]
+        return f
+
     def spec_files(triples):
-        return [
-            {"type": t, "name": name, "url": f"{base}/{name}", "title": title}
-            for (t, name, title) in triples
-        ]
+        return [spec_file(t, name, title) for (t, name, title) in triples]
 
     def add_option(dev, role, subtitle, version, triples, erase=None):
         opt = {"role": role, "version": {version: {"notes": "", "files": spec_files(triples)}}}
@@ -361,6 +367,14 @@ def load_assets(args):
     raise SystemExit("provide --firmware-dir or --assets-json")
 
 
+def file_digests(firmware_dir, names):
+    out = {}
+    for n in names:
+        with open(os.path.join(firmware_dir, n), "rb") as fh:
+            out[n] = hashlib.sha256(fh.read()).hexdigest()
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--firmware-dir", help="directory of built firmware assets")
@@ -374,7 +388,8 @@ def main():
     args = ap.parse_args()
 
     assets = load_assets(args)
-    catalog, stats = build(assets, args.url_base, args.version)
+    digests = file_digests(args.firmware_dir, assets) if args.firmware_dir else {}
+    catalog, stats = build(assets, args.url_base, args.version, digests)
     errs = validate(catalog)
 
     devcount = len(catalog["device"])

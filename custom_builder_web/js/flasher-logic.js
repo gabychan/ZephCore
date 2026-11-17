@@ -90,7 +90,16 @@
     return /^[>\s]*(Error|ERR)\b/im.test(text || "");
   }
 
-  const api = { isErrorReply, firmwareCodingRate, buildConfigCommands, catalogFiles, findCatalogFile, formatterUrl, kconfigString, shellQuote };
+  // True when the catalog gives no sha256 for a file or its bytes have that SHA-256.
+  async function sha256Matches(bytes, expected, subtle) {
+    if (!expected) return true;
+    if (!subtle) throw new Error("Este navegador no puede comprobar el SHA-256 del firmware (hace falta HTTPS).");
+    const digest = new Uint8Array(await subtle.digest("SHA-256", bytes));
+    const hex = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+    return hex === String(expected).toLowerCase();
+  }
+
+  const api = { isErrorReply, sha256Matches, firmwareCodingRate, buildConfigCommands, catalogFiles, findCatalogFile, formatterUrl, kconfigString, shellQuote };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ZephtacoreLogic = api;
 })(typeof window !== "undefined" ? window : globalThis);

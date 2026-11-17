@@ -120,3 +120,15 @@ test("the DFU zip of a board is found by kind, and the formatter has a .zip and 
   assert.equal(L.findCatalogFile(files, board, "companion", "dfu").name, "t1000_e-companion-zephtacore-abc1234.zip");
   assert.equal(L.formatterUrl({ erase: CDN + "SoftDevice_v7_formatter.zip" }, "zip"), CDN + "SoftDevice_v7_formatter.zip");
 });
+
+test("sha256: no hash in the catalog passes, the right one passes in any case, another one fails", async () => {
+  const { subtle } = require("node:crypto").webcrypto;
+  const bytes = new TextEncoder().encode("abc");
+  const abc = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+  assert.equal(await L.sha256Matches(bytes, undefined, subtle), true);
+  assert.equal(await L.sha256Matches(bytes, abc, subtle), true);
+  assert.equal(await L.sha256Matches(bytes, abc.toUpperCase(), subtle), true);
+  assert.equal(await L.sha256Matches(bytes, "00" + abc.slice(2), subtle), false);
+  await assert.rejects(L.sha256Matches(bytes, abc, undefined));
+  assert.equal(await L.sha256Matches(bytes, undefined, undefined), true);
+});

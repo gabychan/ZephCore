@@ -2,7 +2,7 @@
  * Zephtacore Web Flasher Core Engine - Direct USB Configuration Injection
  */
 function initFlasherCore() {
-  const { buildConfigCommands, catalogFiles, findCatalogFile, formatterUrl, isErrorReply } = window.ZephtacoreLogic;
+  const { buildConfigCommands, catalogFiles, findCatalogFile, formatterUrl, isErrorReply, sha256Matches } = window.ZephtacoreLogic;
   const dropzone = document.getElementById("flasherDropzone");
   const fileInput = document.getElementById("firmwareFileInput");
   const boardSelect = document.getElementById("flasherBoardSelect");
@@ -263,11 +263,6 @@ function initFlasherCore() {
     return files ? findCatalogFile(files, board, role, kind) : null;
   }
 
-  async function resolveFirmwareUrl(board, role) {
-    const file = await findBuild(board, role);
-    return file ? file.url : null;
-  }
-
   // The UF2 formatter the catalog names for the board's SoftDevice, or null.
   async function resolveFormatterUrl(board, role) {
     return formatterUrl(await findBuild(board, role));
@@ -304,16 +299,22 @@ function initFlasherCore() {
 
   // Fetches the catalog binary for the board and role. Throws when there is none.
   async function fetchFirmware(board, role) {
-    const url = await resolveFirmwareUrl(board, role);
-    if (!url) throw new Error(`No hay build Zephtacore publicado para ${board.name} (${role}). Compílalo con west desde el Builder.`);
+    const file = await findBuild(board, role);
+    if (!file) throw new Error(`No hay build Zephtacore publicado para ${board.name} (${role}). Compílalo con west desde el Builder.`);
 
-    return { name: url.split("/").pop(), bytes: await fetchBytes(url) };
+    return { name: file.url.split("/").pop(), bytes: await fetchBytes(file.url, file.sha256) };
   }
 
-  async function fetchBytes(url) {
+  // Downloads a file; with the catalog's sha256 for it, refuses bytes that do not match.
+  async function fetchBytes(url, sha256) {
+    const name = url.split("/").pop();
     const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`La descarga de ${url.split("/").pop()} falló (HTTP ${resp.status}).`);
-    return new Uint8Array(await resp.arrayBuffer());
+    if (!resp.ok) throw new Error(`La descarga de ${name} falló (HTTP ${resp.status}).`);
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+    if (!(await sha256Matches(bytes, sha256, globalThis.crypto && globalThis.crypto.subtle))) {
+      throw new Error(`${name} no coincide con el SHA-256 del catálogo (descarga dañada o alterada). No se ha escrito nada.`);
+    }
+    return bytes;
   }
 
   function saveBytes(name, bytes) {
@@ -489,7 +490,7 @@ function initFlasherCore() {
     setProgress(10, "Descargando los paquetes DFU...");
     const file = await findBuild(board, role, "dfu");
     if (!file) throw new Error(`No hay paquete DFU publicado para ${board.name} (${role}).`);
-    const firmware = nrf.openDfuZip(await fetchBytes(file.url));
+    const firmware = nrf.openDfuZip(await fetchBytes(file.url, file.sha256));
     let formatter = null;
     if (clean) {
       const url = formatterUrl(file, "zip");

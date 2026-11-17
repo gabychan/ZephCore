@@ -27,6 +27,8 @@ default channels and node name in order.
   observers and bots can use the port. On the Heltec V3 the system heap is 68 KB, 63 KB with
   Zephtacore (`wifi_companion_uart.conf`, `wifi_companion_zephtacore_uart.conf`).
 - A push to a branch other than `master` still builds, but no longer replaces the release or `firmware-dist`.
+- The catalog gives the SHA-256 of every firmware file, and the web flasher refuses a download that does not match
+  it before writing anything.
 
 ---
 

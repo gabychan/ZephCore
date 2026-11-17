@@ -18,7 +18,9 @@ branch. Validate first at <https://apps.meshamerica.com/validate>.)
 
 `gen_provider_catalog.py` turns a release's firmware assets into `catalog.json`
 (the provider-spec schema: `version -> {notes, files:[{type,name,url}]}` with
-absolute HTTPS URLs). The `build firmware` workflow runs it in the
+absolute HTTPS URLs). Each file built into `--firmware-dir` also carries `sha256`, the hex SHA-256 of its
+bytes; the Zephtacore web flasher refuses a download that does not match it (and checks nothing when it is
+absent). It is not part of the provider spec. The `build firmware` workflow runs it in the
 `publish-catalog` job and force-pushes the firmware + catalog to the
 `firmware-dist` orphan branch on every `master` build.
 
