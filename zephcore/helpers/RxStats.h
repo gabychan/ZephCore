@@ -20,22 +20,25 @@ static constexpr size_t kBuckets = 8;     /* hops 0 to 6, and 7 or more */
 static constexpr size_t kRelaySlots = 16;
 static constexpr size_t kRelayMax = 3;    /* bytes of a relay name: a MeshCore path hash is up to 3 */
 static constexpr int kUnknownHops = -1;   /* a Meshtastic frame whose sender set no hop_start */
+static constexpr uint32_t kStaleS = 3600; /* a relay not heard for this long is dropped first */
 
 class Observer {
 	struct Relay {
 		uint8_t id[kRelayMax];
 		uint8_t size;
 		uint32_t count;
+		uint32_t last_s;
 	};
 	uint32_t _hops[kBuckets] = {};
 	uint32_t _unknown = 0;
 	Relay _relays[kRelaySlots] = {};
 
 public:
-	/* One frame heard: the hops it had crossed (kUnknownHops when not known) and the
-	 * node that sent it to us (size 0 when not known). A full table drops the relay
-	 * that carried least. */
-	void heard(int hops, const uint8_t *relay, size_t size)
+	/* One frame heard at now_s seconds: the hops it had crossed (kUnknownHops when not
+	 * known) and the node that sent it to us (size 0 when not known). A full table drops
+	 * the relay not heard for longest when that is over kStaleS, else the one that carried
+	 * least. */
+	void heard(int hops, const uint8_t *relay, size_t size, uint32_t now_s = 0)
 	{
 		if (hops < 0) {
 			_unknown++;
@@ -54,24 +57,38 @@ public:
 			}
 		}
 		if (!slot) {
-			slot = &_relays[0];
-			for (Relay &r : _relays) {
-				if (r.size == 0) {
-					slot = &r;
-					break;
-				}
-				if (r.count < slot->count) {
-					slot = &r;
-				}
-			}
+			slot = victim(now_s);
 			slot->size = (uint8_t)size;
 			memcpy(slot->id, relay, size);
 			slot->count = 0;
 		}
 		slot->count++;
+		slot->last_s = now_s;
 	}
 
 	void clear() { *this = Observer(); }
+
+private:
+	Relay *victim(uint32_t now_s)
+	{
+		Relay *fewest = &_relays[0];
+		Relay *oldest = &_relays[0];
+
+		for (Relay &r : _relays) {
+			if (r.size == 0) {
+				return &r;
+			}
+			if (r.count < fewest->count) {
+				fewest = &r;
+			}
+			if ((uint32_t)(now_s - r.last_s) > (uint32_t)(now_s - oldest->last_s)) {
+				oldest = &r;
+			}
+		}
+		return (uint32_t)(now_s - oldest->last_s) > kStaleS ? oldest : fewest;
+	}
+
+public:
 
 	/* "> 0:12 1:5 7+:1 ?:2", only the buckets with frames; "> none". */
 	void formatHops(char *out, size_t cap) const

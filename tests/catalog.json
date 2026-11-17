@@ -1366,6 +1366,11 @@
       "id": "UNIT-ZINFO-006",
       "name": "The counters of z.stats come from the radio, the mesh and the packet manager, air time in whole seconds",
       "source": "tests/unit/zinfo_tests.cpp"
+    },
+    {
+      "id": "UNIT-RX-007",
+      "name": "A full table drops a relay not heard for over an hour before the one with fewest frames",
+      "source": "tests/unit/rxstats_tests.cpp"
     }
   ]
 }

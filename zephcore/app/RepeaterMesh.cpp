@@ -760,7 +760,8 @@ mesh::DispatcherAction RepeaterMesh::onRecvPacket(mesh::Packet* pkt) {
     const uint8_t hops = pkt->getPathHashCount();
     const uint8_t size = pkt->getPathHashSize();
 
-    _rx_mc.heard(hops, hops ? &pkt->path[(hops - 1) * size] : nullptr, hops ? size : 0);
+    _rx_mc.heard(hops, hops ? &pkt->path[(hops - 1) * size] : nullptr, hops ? size : 0,
+                  (uint32_t)(k_uptime_get() / 1000));
   }
   recv_pkt_unscoped_flood = mesh::isUnscopedFlood(pkt);
   if (recv_pkt_unscoped_flood) {

@@ -299,7 +299,7 @@ What the repeater heard since boot, per protocol, in RAM (`clear stats` empties 
 | Command | Description |
 |---------|-------------|
 | `get z.mc.hopstats` / `get z.mt.hopstats` | Frames heard by hops crossed: `> 0:12 1:5 7+:1 ?:2`, only the buckets with frames, `7+` seven or more, `?` Meshtastic frames whose sender set no `hop_start`. MeshCore counts flood frames (the hashes in the path), every copy heard; Meshtastic counts `hop_start - hop_limit` of the frames its channels or the opaque path took. `> none` when empty. |
-| `get z.mc.relays` / `get z.mt.relays` | Who delivered the frames, most first: `> 3f:120 a1b2:40`. MeshCore: the last hash of the path of a flood frame (1 to 3 bytes, per `path.hash.mode`); a frame with no hops has none. Meshtastic: the relay byte of the header, which is the last byte of a node number (`z.mt.neighbors` shows the node). 16 relays are kept; a full table drops the one with fewest frames. |
+| `get z.mc.relays` / `get z.mt.relays` | Who delivered the frames, most first: `> 3f:120 a1b2:40`. MeshCore: the last hash of the path of a flood frame (1 to 3 bytes, per `path.hash.mode`); a frame with no hops has none. Meshtastic: the relay byte of the header, which is the last byte of a node number (`z.mt.neighbors` shows the node). 16 relays are kept; a full table drops the one not heard for over an hour, else the one with fewest frames. |
 
 ## Ping bot (*ZephCore only*)
 
