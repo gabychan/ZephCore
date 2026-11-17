@@ -70,7 +70,10 @@ default channels and node name in order.
   best SNR first, as `name (SNR, age)`, 4 to a page (`get z.mt.neighbors 2`), or the latest heard first with `recent` (`get z.mt.neighbors recent`). MeshCore lists repeaters heard with no hops, Meshtastic nodes heard with no relay
   in between. Kept in RAM, so a reboot empties them.
 - New `get z.info` (version, uptime, battery, flash, heap and contacts in use) and `get z.stats` (MeshCore and Meshtastic counters), each in
-  one line that fits a radio reply.
+  one line that fits a radio reply. The heap figures come from the kernel's heap counters, which every build now enables
+  (`CONFIG_SYS_HEAP_RUNTIME_STATS`).
+- With the Meshtastic bridge a new device starts at coding rate 4/6, the SFNarrow preset (4/5 without it). A device that
+  already has settings keeps them.
 - New dashboard page on 200x200 e-paper companions (ThinkNode M1): MeshCore and Meshtastic side by side, with packet counts, nearest
   neighbours and their signal, radio setup, heap, flash and time on air. It is the first page, and redraws when opened, on a button press
   and once an hour.

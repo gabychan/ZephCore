@@ -172,7 +172,7 @@ Not run on air.
 
 | Check | Result |
 | --- | --- |
-| Host tests (`python3 tests/run.py run --profile quick`) | 275 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX, PKI frames, foreign repeats in `Mesh` |
+| Host tests (`python3 tests/run.py run --profile quick`) | 286 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX, PKI frames, foreign repeats in `Mesh` |
 | Field numbers and nonce layout | Read against `mesh.proto` and `CryptoEngine.cpp` of the Meshtastic firmware |
 | Firmware build `wio_tracker_l1` (SX1262) | OK. Flash +4.6 KB (476724 vs 472084 B), RAM +1.3 KB (227168 vs 225824 B) |
 | Firmware builds `rak4631` (SX1262), companion and repeater with Meshtastic, and `wio_tracker_l1` companion | OK. Companion flash 449444 B and RAM 220264 B on `rak4631`; repeater flash 304360 B and RAM 86948 B; `wio_tracker_l1` companion flash 508264 B and RAM 230056 B. Run in CI as compile-only steps |
