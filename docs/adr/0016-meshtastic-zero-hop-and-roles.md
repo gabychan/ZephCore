@@ -37,4 +37,8 @@ companion announced `client` too although it repeats nothing by default.
   was never heard directly gets its hop kept too; the cost is one hop, not a loop: the `(from, id)` table stops a frame
   that comes back.
 - A fixed neighbour whose NodeInfo we cannot read is not learned; it goes on the list.
+- A repeat is never cancelled because another node sent the frame first, in any role. The copy only pushes our repeat back
+  (`backoff.multiplier` x airtime, capped as for MeshCore floods), as MeshCore does, so a lone repeater still carries the frame
+  when the node that was heard fails to. Meshtastic's own cancel-on-echo rule is not followed; the cost is a repeat that may
+  be heard twice by a neighbour, which its duplicate table absorbs.
 - Left out: per-port switches (position, telemetry) as meshtacore has; a frame of a channel without a key shows no port.

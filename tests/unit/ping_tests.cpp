@@ -260,3 +260,17 @@ TEST(ping_on_off_digits, "UNIT-PING-014", "1 and 0 mean on and off in every on/o
     CHECK(cmd(p, "set z.mt.ping.enable 0 /hola").rfind("Error", 0) == 0);
     CHECK(cmd(p, "set z.mt.ping.enable 10").rfind("Error", 0) == 0);
 }
+
+TEST(ping_unsent, "UNIT-PING-015", "An answer that was not sent leaves the counters as they were; one the limit turned away is counted ignored, saturating") {
+    ping::Counters c = {3, 7};
+    const ping::Counters before = c;
+    c.answered++;
+    ping::unsent(c, before, false);
+    CHECK(c.answered == 3 && c.ignored == 7);
+    c.answered++;
+    ping::unsent(c, before, true);
+    CHECK(c.answered == 3 && c.ignored == 8);
+    ping::Counters full = {0, 0xFFFF};
+    ping::unsent(full, full, true);
+    CHECK(full.ignored == 0xFFFF);
+}

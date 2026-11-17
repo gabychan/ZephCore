@@ -78,8 +78,8 @@ void refAesKeyed(const uint8_t* key, int key_len, const uint8_t in[16], uint8_t 
     std::memcpy(out, s, 16);
 }
 
-void refAes(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 16, in, out); }
-void refAes256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 32, in, out); }
+bool refAes(const uint8_t key[16], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 16, in, out); return true; }
+bool refAes256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16]) { refAesKeyed(key, 32, in, out); return true; }
 
 // Independent SHA-256 (FIPS 180-4), one shot.
 void refSha256(const uint8_t* msg, size_t len, uint8_t out[32]) {
@@ -855,24 +855,24 @@ TEST(contact_change, "UNIT-MT-029", "Only a new record or a changed name, type o
     CHECK(contactChangedSubstantively(nm, c));
 }
 
-TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive an echo; position is repeated but yields; the rest only in all") {
-    CHECK(relayClassOf(PORT_TEXT) == RelayClass::Always);
-    CHECK(relayClassOf(PORT_ROUTING) == RelayClass::Always);
-    CHECK(relayClassOf(PORT_NODEINFO) == RelayClass::Always);
-    CHECK(relayClassOf(PORT_TRACEROUTE) == RelayClass::Always);
+TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo, traceroute and position are essential; the rest is repeated only in all") {
+    CHECK(relayClassOf(PORT_TEXT) == RelayClass::Essential);
+    CHECK(relayClassOf(PORT_ROUTING) == RelayClass::Essential);
+    CHECK(relayClassOf(PORT_NODEINFO) == RelayClass::Essential);
+    CHECK(relayClassOf(PORT_TRACEROUTE) == RelayClass::Essential);
     CHECK(relayClassOf(PORT_POSITION) == RelayClass::Essential);
-    CHECK(relayClassOf(67) == RelayClass::CancelOnEcho);  // telemetry
-    CHECK(relayClassOf(0) == RelayClass::CancelOnEcho);
+    CHECK(relayClassOf(67) == RelayClass::Other);  // telemetry
+    CHECK(relayClassOf(0) == RelayClass::Other);
 
     Bridge a = makeNode(0xA1A1A1A1u, "alpha", 1), r = makeNode(0xD4D4D4D4u, "delta", 2);
     r.setRelay(true);
     uint8_t frame[kMaxFrame], relay[kMaxFrame];
     size_t relay_len = 0;
-    RelayClass cls = RelayClass::CancelOnEcho;
+    RelayClass cls = RelayClass::Other;
     Capture cap;
     size_t n = a.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame));
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_HANDLED);
-    CHECK(relay_len == n && cls == RelayClass::Always);
+    CHECK(relay_len == n && cls == RelayClass::Essential);
     Position pos = {};
     pos.has_lat = pos.has_lon = true;
     pos.lat_i = 414000000;
@@ -882,25 +882,22 @@ TEST(mt_relay_class, "UNIT-MT-030", "Text, ACK, NodeInfo and traceroute survive 
     CHECK(relay_len == n && cls == RelayClass::Essential);
 }
 
-TEST(mt_relay_table, "UNIT-MT-054", "Repeat and echo decision for every port in off, essential and all, held or opaque channel") {
-    struct Row { uint32_t port; bool held; bool essential; bool all; bool yields; };
+TEST(mt_relay_table, "UNIT-MT-054", "Repeat decision for every port in essential and all, held or opaque channel") {
+    struct Row { uint32_t port; bool held; bool essential; bool all; };
     const Row rows[] = {
-        {PORT_TEXT, true, true, true, false},
-        {PORT_ROUTING, true, true, true, false},
-        {PORT_NODEINFO, true, true, true, false},
-        {PORT_TRACEROUTE, true, true, true, false},
-        {PORT_POSITION, true, true, true, true},
-        {67, true, false, true, true},  // telemetry
-        {0, false, true, true, true},   // opaque channel: port unknown
+        {PORT_TEXT, true, true, true},
+        {PORT_ROUTING, true, true, true},
+        {PORT_NODEINFO, true, true, true},
+        {PORT_TRACEROUTE, true, true, true},
+        {PORT_POSITION, true, true, true},
+        {67, true, false, true},  // telemetry
+        {0, false, true, true},   // opaque channel: port unknown
     };
     for (const Row &r : rows) {
         RelayClass cls = r.held ? relayClassOf(r.port) : RelayClass::Essential;
         CHECK(repeatsInMode(false, cls) == r.essential);
         CHECK(repeatsInMode(true, cls) == r.all);
-        CHECK(yieldsOnEcho(cls) == r.yields);
     }
-    // A direct message on channel 0 we cannot open is the PKI case: repeated in essential, never yields.
-    CHECK(repeatsInMode(false, RelayClass::Always) && !yieldsOnEcho(RelayClass::Always));
 
     // relay off and relay.opaque off decide in the bridge, before the class.
     Bridge a(refAes);
@@ -914,14 +911,14 @@ TEST(mt_relay_table, "UNIT-MT-054", "Repeat and echo decision for every port in 
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);
     Capture cap;
     size_t relay_len = 0;
-    RelayClass cls = RelayClass::Always;
+    RelayClass cls = RelayClass::Other;
     r.setRelay(false); r.setRelayOpaque(true);
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
     r.setRelay(true); r.setRelayOpaque(false);
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
     r.setRelayOpaque(true);
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_OPAQUE && relay_len == n);
-    CHECK(cls == RelayClass::Essential && repeatsInMode(false, cls) && yieldsOnEcho(cls));
+    CHECK(cls == RelayClass::Essential && repeatsInMode(false, cls));
 }
 
 TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore") {
@@ -938,7 +935,7 @@ TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);  // holds LongFast only
     Capture cap;
     size_t relay_len = 0;
-    RelayClass cls = RelayClass::Always;
+    RelayClass cls = RelayClass::Other;
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
     r.setRelay(true);
     CHECK(r.handleFrame(frame, n, 0, cap, relay, &relay_len, &cls) == RX_NOT_MESHTASTIC);
@@ -1044,8 +1041,6 @@ TEST(mt_config_sanitize, "UNIT-MT-035", "Out of range stored settings are put ba
     CHECK(p.nodeinfo_s == 600 && p.telemetry_s == 86400);
     CHECK(std::string(p.channel) == "SFNarrow");
     CHECK(roleSendsEarly(ROLE_ROUTER) && !roleSendsEarly(ROLE_ROUTER_LATE));
-    CHECK(!roleYieldsToEcho(ROLE_ROUTER) && !roleYieldsToEcho(ROLE_ROUTER_LATE));
-    CHECK(roleYieldsToEcho(ROLE_CLIENT) && roleYieldsToEcho(ROLE_REPEATER));
 }
 
 TEST(mt_router_delay, "UNIT-MT-036", "A router waits at most 2 x cw slots, before the first slot a client may use") {
@@ -1488,7 +1483,7 @@ TEST(mt_roles_by_firmware, "UNIT-MT-053", "A repeater may be client, client_base
     sanitize(p);
     CHECK(p.role == ROLE_CLIENT_BASE);                             // a stored role is kept
     CHECK(!roleRepeats(ROLE_CLIENT_MUTE) && roleRepeats(ROLE_CLIENT) && roleRepeats(ROLE_CLIENT_BASE));
-    CHECK(roleYieldsToEcho(ROLE_CLIENT_BASE) && !roleSendsEarly(ROLE_CLIENT_BASE));
+    CHECK(!roleSendsEarly(ROLE_CLIENT_BASE));
 }
 
 static Header fwHeader(uint32_t from, uint8_t relay) {
@@ -1573,4 +1568,222 @@ TEST(mt_fw_commands, "UNIT-FW-014", "z.mt.fw.* use the Meshtastic rule names and
     CHECK(run("set z.mt.fw.rate 12") == "OK" && p.hop_rate == 12 && run("get z.mt.fw.rate") == "> 12");
     CHECK(run("get z.mt.fw.stats") == "> gap 0, rate 0, drop 0");
     CHECK(run("set z.mt.fw.drop none", &changed) == "OK" && p.drop == 0 && changed);
+}
+
+TEST(mt_pki_retry_after_key, "UNIT-MT-056", "A PKI direct text from a node with no key is not lost when its retry arrives with the key known") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    t.b.setRelay(true);
+    t.b.setRelayOpaque(true);
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "reintento", 9, frame, sizeof(frame));
+    Capture strangers;
+    CHECK(t.b.handleFrame(frame, n, 0, strangers, relay, &relay_len) == RX_OPAQUE && relay_len == 0);
+    CHECK(strangers.unknown_keys.size() == 1 && strangers.directs.empty());
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.cb.directs.size() == 1 && t.cb.directs[0].text == "reintento");
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_DUPLICATE && t.cb.directs.size() == 1);
+}
+
+namespace {
+struct DropEverything : Screen {
+    int asked = 0;
+    uint32_t last_port = 99;
+    bool drops(const Header &, uint32_t port) override { asked++; last_port = port; return true; }
+};
+}  // namespace
+
+TEST(mt_pki_screen, "UNIT-MT-057", "A PKI direct text goes through the firewall screen like a channel text") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    DropEverything screen;
+    t.b.setScreen(&screen);
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "filtrado", 8, frame, sizeof(frame));
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_DROPPED);
+    CHECK(screen.asked == 1 && screen.last_port == PORT_TEXT && t.cb.directs.empty());
+}
+
+TEST(mt_relay_byte_zero, "UNIT-MT-058", "A node whose number ends in 00 puts 0xFF in the relay byte, and a next hop naming it is repeated") {
+    Bridge a = makeNode(0xA1A1A100u, "alpha", 7);
+    Bridge c = makeNode(0xC3C3C300u, "gamma", 11);
+    c.setRelay(true);
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    size_t n = a.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame));
+    Header h;
+    CHECK(parseHeader(frame, n, h) && h.relay == 0xFF);
+    Capture cap;
+    CHECK(c.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == n);
+    CHECK(parseHeader(relay, relay_len, h) && h.relay == 0xFF && h.hopLimit() == 2);
+    // A next hop of 0xFF names a node ending in 00; another byte names someone else.
+    frame[14] = 0xFF;
+    Bridge c2 = makeNode(0xC3C3C300u, "gamma", 11);
+    c2.setRelay(true);
+    CHECK(c2.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == n);
+    frame[14] = 0x41;
+    Bridge c3 = makeNode(0xC3C3C300u, "gamma", 11);
+    c3.setRelay(true);
+    CHECK(c3.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == 0);
+}
+
+namespace {
+bool failAes(const uint8_t[16], const uint8_t[16], uint8_t[16]) { return false; }
+bool failAes256(const uint8_t[32], const uint8_t[16], uint8_t[16]) { return false; }
+}  // namespace
+
+TEST(mt_aes_failure, "UNIT-MT-059", "When the AES block fails nothing is sent in clear, and nothing is opened") {
+    Bridge good = makeNode(0xA1A1A1A1u, "alpha", 7);
+    Bridge bad(failAes);
+    bad.setSelf(0xB2B2B2B2u, "beta", "ZN", 9);
+    const uint8_t psk = 1;
+    CHECK(bad.setChannel(3, "LongFast", &psk, 1));
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    CHECK(bad.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame)) == 0);
+    size_t n = good.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame));
+    CHECK(n > 0);
+    Capture cap;
+    CHECK(bad.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_NOT_MESHTASTIC && cap.texts.empty());
+    uint8_t buf[kMaxFrame], key[32] = {1};
+    const PkiCrypto broken = {failAes256, refSha256, fixedRandom};
+    CHECK(pkiSeal(broken, key, 1, 2, (const uint8_t*)"abc", 3, buf, sizeof(buf)) == 0);
+    CHECK(pkiSeal(kPki, key, 1, 2, (const uint8_t*)"abc", 3, buf, sizeof(buf)) == 15);
+    uint8_t out[16];
+    CHECK(pkiOpen(broken, key, 1, 2, buf, 15, out, sizeof(out)) == -1);
+    CHECK(pkiOpen(kPki, key, 1, 2, buf, 15, out, sizeof(out)) == 3);
+}
+
+TEST(mt_ids_and_own_frames, "UNIT-MT-060", "A packet id is never 0, and our own sends do not use up the duplicate table") {
+    // Seed 0xFFFFFC00 gives prefix 0 and a counter at its top: the next id would be 0.
+    Bridge z(refAes);
+    z.setSelf(0xA1A1A1A1u, "z", "Z", 0xFFFFFC00u);
+    const uint8_t psk = 1;
+    CHECK(z.setChannel(3, "LongFast", &psk, 1));
+    uint8_t frame[kMaxFrame];
+    Header h;
+    size_t n = z.buildText(3, kBroadcast, "x", 1, frame, sizeof(frame));
+    CHECK(n > 0 && parseHeader(frame, n, h) && h.id != 0);
+
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 7), b = makeNode(0xB2B2B2B2u, "beta", 9);
+    uint8_t first[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    Capture cap;
+    size_t first_n = a.buildText(3, kBroadcast, "uno", 3, first, sizeof(first));
+    CHECK(b.handleFrame(first, first_n, 0, cap, relay, &relay_len) == RX_HANDLED);
+    // More own sends than the table holds must not push the heard frame out.
+    for (int i = 0; i < kDedupSize + 8; i++) b.buildText(3, kBroadcast, "yo", 2, frame, sizeof(frame));
+    CHECK(b.handleFrame(first, first_n, 0, cap, relay, &relay_len) == RX_DUPLICATE && cap.texts.size() == 1);
+}
+
+TEST(mt_input_checks, "UNIT-MT-061", "Node numbers, channel names, keys, ports and positions are checked in full") {
+    RepeaterPrefs rp = {};
+    bool ch = false;
+    CHECK(mtCmd(rp, "set z.mt.zerohop.add !a1b2c3d4", &ch) == "OK" && rp.zerohop_nodes[0] == 0xA1B2C3D4u);
+    for (const char *bad : {"0x123456", "-1234567", "!+abcdef1", "a1b2c3d", "a1b2c3d45"}) {
+        std::string line = std::string("set z.mt.zerohop.add ") + bad;
+        CHECK(mtCmd(rp, line.c_str(), &ch).find("Error") == 0 && !ch);
+    }
+    // A key is canonical base64: padding only at the end, no stray bits.
+    uint8_t key[32];
+    CHECK(base64Decode("AAAAAAAAAAAAAAAAAAAAAA==", key, sizeof(key)) == 16);
+    CHECK(base64Decode("AAAAAAAAAAAAAAAAAAAAAA", key, sizeof(key)) == 16);
+    CHECK(base64Decode("AAAAAAAAAAAAAAAAAAAAAB==", key, sizeof(key)) == -1);   // leftover bits set
+    CHECK(base64Decode("AAAA=AAA", key, sizeof(key)) == -1 && base64Decode("AAAA===", key, sizeof(key)) == -1);
+    // portnum beyond 32 bits does not wrap into a valid port.
+    const uint8_t big[] = {0x08, 0x81, 0x80, 0x80, 0x80, 0x10};   // 2^32 + 1
+    Data d;
+    CHECK(!decodeData(big, sizeof(big), d));
+    // A position out of range is not delivered.
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 7), b = makeNode(0xB2B2B2B2u, "beta", 9);
+    Position p = {};
+    p.has_lat = p.has_lon = true;
+    p.lat_i = 910000000; p.lon_i = 0;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    Capture cap;
+    size_t n = a.buildPosition(3, p, frame, sizeof(frame));
+    CHECK(n > 0 && b.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.positions.empty());
+    p.lat_i = 411234567; p.lon_i = -22345678;
+    n = a.buildPosition(3, p, frame, sizeof(frame));
+    CHECK(b.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && cap.positions.size() == 1);
+    // The largest User fits the buffer of the NodeInfo.
+    User u = {};
+    std::memset(u.id, 'i', sizeof(u.id) - 1);
+    std::memset(u.long_name, 'l', sizeof(u.long_name) - 1);
+    std::memset(u.short_name, 's', sizeof(u.short_name) - 1);
+    u.hw_model = 255; u.role = 11; u.has_public_key = true;
+    uint8_t pb[104];
+    CHECK(encodeUser(u, pb, sizeof(pb)) > 0);
+}
+
+TEST(mt_discriminate_minimums, "UNIT-MT-062", "An advert, ACK or trace shorter than its fixed part is not MeshCore") {
+    uint8_t frame[MAX_TRANS_UNIT];
+    const struct { uint8_t type; size_t min; } kMin[] = {
+        {PAYLOAD_TYPE_ADVERT, PUB_KEY_SIZE + 4 + SIGNATURE_SIZE}, {PAYLOAD_TYPE_ACK, 4}, {PAYLOAD_TYPE_TRACE, 9},
+    };
+    for (auto m : kMin) {
+        std::memset(frame, 0x5A, sizeof(frame));
+        frame[0] = (uint8_t)((m.type << PH_TYPE_SHIFT) | ROUTE_TYPE_FLOOD);
+        frame[1] = 0;
+        CHECK(looksLikeMeshCore(frame, 2 + m.min, 0));
+        CHECK(!looksLikeMeshCore(frame, 2 + m.min - 1, 0));
+    }
+}
+
+TEST(mt_pki_failed, "UNIT-MT-063", "A key we hold that no longer opens a PKI frame is reported, an unknown key is not") {
+    struct Failed : Capture {
+        std::vector<uint32_t> failed;
+        void onPkiFailed(uint32_t from) override { failed.push_back(from); }
+    };
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, frame, sizeof(frame));
+    Failed stale;
+    uint8_t other[32], other_pub[32];
+    ownKey(21, other, other_pub);   // the peer's key changed: we hold an old one
+    stale.keys.push_back({0xA1A1A1A1u, std::vector<uint8_t>(other_pub, other_pub + 32)});
+    CHECK(t.b.handleFrame(frame, n, 0, stale, relay, &relay_len) == RX_NOT_MESHTASTIC);
+    CHECK(stale.failed.size() == 1 && stale.failed[0] == 0xA1A1A1A1u && stale.directs.empty());
+    Failed strangers;
+    CHECK(t.b.handleFrame(frame, n, 0, strangers, relay, &relay_len) == RX_NOT_MESHTASTIC);
+    CHECK(strangers.failed.empty() && strangers.unknown_keys.size() == 1);
+}
+
+TEST(mt_direct_retry_id, "UNIT-MT-064", "A direct text sent with the id of the first try carries that id; without one it takes a new id each time") {
+    PkiPair t;
+    uint8_t first[kMaxFrame], again[kMaxFrame], other[kMaxFrame];
+    Header h1, h2, h3;
+    size_t n1 = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, first, sizeof(first), 0, true);
+    CHECK(n1 > 0 && parseHeader(first, n1, h1));
+    size_t n2 = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, again, sizeof(again), 0, true, h1.id);
+    CHECK(n2 == n1 && parseHeader(again, n2, h2) && h2.id == h1.id);
+    size_t n3 = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, other, sizeof(other), 0, true);
+    CHECK(n3 > 0 && parseHeader(other, n3, h3) && h3.id != h1.id);
+    uint8_t relay[kMaxFrame];
+    size_t relay_len;
+    CHECK(t.b.handleFrame(first, n1, 0, t.cb, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.b.handleFrame(again, n2, 0, t.cb, relay, &relay_len) == RX_DUPLICATE);
+    CHECK(t.cb.directs.size() == 1);
+}
+
+TEST(mt_default_channels, "UNIT-MT-065", "The default channel list gives name and key index in order, and stops at an entry that is not one") {
+    char name[mt::kChannelNameMax + 1];
+    uint8_t psk = 0;
+    const char *list = "SFNarrow:1, Test:2,Bots:2,Catalunya:1";
+    CHECK(nextDefaultChannel(list, name, sizeof(name), psk) && std::string(name) == "SFNarrow" && psk == 1);
+    CHECK(nextDefaultChannel(list, name, sizeof(name), psk) && std::string(name) == "Test" && psk == 2);
+    CHECK(nextDefaultChannel(list, name, sizeof(name), psk) && std::string(name) == "Bots" && psk == 2);
+    CHECK(nextDefaultChannel(list, name, sizeof(name), psk) && std::string(name) == "Catalunya" && psk == 1);
+    CHECK(!nextDefaultChannel(list, name, sizeof(name), psk));
+    const char *empty = "";
+    CHECK(!nextDefaultChannel(empty, name, sizeof(name), psk));
+    for (const char *bad : {"NoKey", ":1", "Name:", "Name:0", "Name:12", "Name:x", "TooLongChannelName:1"}) {
+        const char *l = bad;
+        CHECK(!nextDefaultChannel(l, name, sizeof(name), psk));
+    }
+    const char *mixed = "Good:3,bad";
+    CHECK(nextDefaultChannel(mixed, name, sizeof(name), psk) && psk == 3);
+    CHECK(!nextDefaultChannel(mixed, name, sizeof(name), psk));
 }

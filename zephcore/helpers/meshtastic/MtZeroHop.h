@@ -26,12 +26,6 @@ inline bool roleIsFixed(uint32_t role)
 	return role == ROLE_ROUTER || role == ROLE_ROUTER_LATE || role == ROLE_CLIENT_BASE;
 }
 
-/* The byte a node puts in the header when it repeats: never 0. */
-inline uint8_t relayByte(uint32_t node)
-{
-	return (uint8_t)node ? (uint8_t)node : 0xFF;
-}
-
 class ZeroHop {
 public:
 	/* The role a NodeInfo announces. A node that is no longer fixed is forgotten;

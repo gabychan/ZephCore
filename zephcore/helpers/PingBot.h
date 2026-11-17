@@ -221,6 +221,15 @@ inline void bump(uint16_t &c)
 	}
 }
 
+/* An answer reply() counted was not sent: the counters go back, and one the limit turned away is counted ignored. */
+inline void unsent(Counters &c, const Counters &before, bool limited)
+{
+	c = before;
+	if (limited) {
+		bump(c.ignored);
+	}
+}
+
 /* The answer to a line heard on the bot's channel for protocol w, or 0 when it is not a ping this node answers.
  * MeshCore, one node per line, the signal (RSSI/SNR) stuck to the last one:
  *   @[Ana] 2 hops

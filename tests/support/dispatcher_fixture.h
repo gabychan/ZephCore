@@ -21,8 +21,9 @@ struct Radio : mesh::Radio {
     std::deque<std::vector<uint8_t>> incoming;
     std::vector<std::vector<uint8_t>> sent;
     std::vector<bool> sent_foreign;
-    bool next_foreign = false;
+    bool next_foreign = false, foreign_capable = true;
     void setNextTxForeign(bool foreign) override { next_foreign = foreign; }
+    bool supportsForeign() const override { return foreign_capable; }
     int recvRaw(uint8_t *bytes, int size) override {
         if (incoming.empty()) return 0;
         auto raw = incoming.front(); incoming.pop_front();
@@ -71,6 +72,7 @@ struct Dispatcher : mesh::Dispatcher {
     unsigned successes = 0, failures = 0;
     bool consume_foreign = false;
     std::vector<std::vector<uint8_t>> foreign_rx;
+    unsigned raw_logged = 0;
     Dispatcher(Radio& radio, Clock& clock, mesh::PacketManager& pool) : mesh::Dispatcher(radio, clock, pool) {
         setTxQueuedCallback([](uint32_t delay, void *self) {
             static_cast<Dispatcher*>(self)->wakes.push_back(delay);
@@ -84,6 +86,7 @@ struct Dispatcher : mesh::Dispatcher {
     bool onRecvForeign(const uint8_t raw[], int len, float, float) override {
         foreign_rx.emplace_back(raw, raw + len); return consume_foreign;
     }
+    void logRxRaw(float, float, const uint8_t[], int) override { ++raw_logged; }
     uint8_t getDutyCyclePercent() const override { return duty; }
     uint32_t getDutyCycleWindowMs() const override { return window; }
     uint32_t getCADFailRetryDelay() const override { return 100; }

@@ -98,16 +98,21 @@ build_row() {
     ((${#extra[@]})) && cmd+=(-- "${extra[@]}")
 
     echo "Now building $target $tag"
-    "${cmd[@]}"
+    "${cmd[@]}" || return 1
     package "$GROUP" "$target" "$stem" "$tag"
 }
+
+# Every row is built even if one fails, and the failures are listed at the end,
+# so one run shows all of them instead of the first.
+failed=()
 
 python3 zephcore/scripts/board_manifest.py check
 mapfile -t ROWS < <(python3 zephcore/scripts/board_manifest.py matrix "$GROUP" $ROLE_FILTER)
 for row in "${ROWS[@]}"; do
     row=${row%$'\r'}    # Python on Windows prints CRLF
     IFS='|' read -r target role variant confs stem sysbuild host cross <<<"$row"
-    build_row "$target" "$role" "$variant" "$confs" "$stem" "$sysbuild" "$host" "$cross"
+    build_row "$target" "$role" "$variant" "$confs" "$stem" "$sysbuild" "$host" "$cross" \
+        || failed+=("$target ${role}${variant:+-$variant}")
 done
 
 if [[ $GROUP == "nrf" ]]; then
@@ -137,4 +142,10 @@ if [[ $GROUP == "nrf" ]]; then
         cp img/* firmware/
         echo "Published device art: $(ls img/ | tr '\n' ' ')"
     fi
+fi
+
+if ((${#failed[@]})); then
+    echo "::error::${#failed[@]} build(s) failed:"
+    printf '  %s\n' "${failed[@]}"
+    exit 1
 fi

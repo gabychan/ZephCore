@@ -73,6 +73,11 @@ config POWEROFF
 	depends on HAS_POWEROFF
 	default y
 
+# The comparator API, wherever the board describes an LPCOMP (the battery wake in
+# zephyr_poweroff.c). Repeats the driver's own `depends on`.
+config COMPARATOR
+	default y if DT_HAS_NORDIC_NRF_LPCOMP_ENABLED
+
 source "$(ZEPHYR_BASE)/Kconfig.zephyr"
 
 # DT-driven PSRAM auto-enable for ESP32 boards (see Kconfig.psram).
@@ -1233,7 +1238,9 @@ config ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
 	default 3200 if SOC_SERIES_NRF52
 	default 0
 	help
-	  Companion only. When the battery falls below this voltage the device
+	  Companion, and repeater / room server on a board whose devicetree has
+	  an LPCOMP node (`nordic,nrf-lpcomp`): the node wakes itself when the
+	  battery recovers. When the battery falls below this voltage the device
 	  shows a brief "Low Battery / Shutting Down" notice (3 s on OLED;
 	  e-paper persists without delay) and enters System OFF to protect the
 	  cell from over-discharge. The check piggybacks the existing periodic
@@ -1390,6 +1397,7 @@ menu "Zephtacore (Meshtastic bridge)"
 config ZEPHTACORE_MESHTASTIC
 	bool "Hear and speak Meshtastic on the same radio"
 	depends on ZEPHCORE_ROLE_COMPANION || ZEPHCORE_ROLE_REPEATER
+	depends on !ZEPHCORE_RADIO_SX127X
 	default n
 	help
 	  Receives MeshCore and Meshtastic with one radio (SX126x, LR1110 or
@@ -1405,8 +1413,19 @@ config ZEPHTACORE_MESHTASTIC
 	  the CLI.
 
 	  Needs a radio family that can write the sync word (SX126x, LR1110,
-	  LR2021). On other families the build still links, but the second
-	  protocol is never heard or sent.
+	  LR2021): it is not offered with the SX127x driver.
+
+config ZEPHTACORE_DEFAULT_CHANNELS
+	string "Meshtastic channels a companion adds by default"
+	depends on ZEPHTACORE_MESHTASTIC && ZEPHCORE_ROLE_COMPANION
+	default "SFNarrow:1,Test:2,Bots:2"
+	help
+	  Comma separated "name:psk_index": Meshtastic's default key has
+	  index 1 and index n adds n-1 to its last byte. The first boot on
+	  a firmware with a new defaults revision (CompanionMesh::
+	  MT_DEFAULTS_REV) adds the ones the node does not have yet; later
+	  boots leave the list as the user has it. "Bots" is where the ping
+	  bot answers.
 
 config ZEPHTACORE_MT_HOP_LIMIT
 	int "hop_limit of the Meshtastic frames we send (0-7)"

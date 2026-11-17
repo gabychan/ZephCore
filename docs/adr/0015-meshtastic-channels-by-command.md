@@ -1,6 +1,6 @@
 # ADR 0015 — Meshtastic channels by command, shown to the app as hashtag channels
 
-Status: proposed (2026-11-10)
+Status: accepted (2026-11-10)
 
 ## Context
 
@@ -33,8 +33,10 @@ Delivering to the right slot (`channel_idx`) is not enough: the frame is correct
 - Later, in a second step: `z.mc.channel.add #<name>` and `z.mc.channel.add <name> <key>` (base64 or 32 hex digits)
   with `remove` and `get z.mc.channels`, for MeshCore channels, and the same on the repeater. `add <name> <key>`
   refuses a key a slot already holds.
-- The defaults (`SFNarrow`, `Test`, `Bots`, `Catalunya`, `Barcelona`, and the hashtag channels `#test`, `#bot`) are
-  created by the same code at first boot. There is no migration: a node that held `MT:` slots needs a factory reset.
+- The default Meshtastic channels are `CONFIG_ZEPHTACORE_DEFAULT_CHANNELS` (`name:psk_index`, comma separated;
+  `boards/common/zephtacore.conf` sets `SFNarrow`, `Test`, `Bots`, `Catalunya`, `Barcelona`). With the hashtag
+  channels `#test` and `#bot` they are created by the same code at the first boot of a defaults revision, kept as
+  `mt.dr` in `prefs.json`. There is no migration: a node that held `MT:` slots needs a factory reset.
 
 ## Consequences
 

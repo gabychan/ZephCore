@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zephtacore · Guía de Primeros Pasos</title>
+    <meta name="description" content="Guía paso a paso para flashear, configurar y dar de alta tu primer nodo Zephtacore con canales MeshCore y Meshtastic." />
+    <link rel="icon" type="image/svg+xml" href="../logo.svg" />
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/layout.css" />
+    <link rel="stylesheet" href="../css/docs.css" />
+    <script src="../js/theme.js"></script>
+    <script src="../js/navigation-menu.js"></script>
+  </head>
+  <body>
+    <header class="site-nav">
+      <div class="nav-content">
+        <div class="nav-left">
+          <a href="../index.html" class="brand-logo">
+            <img src="../logo.svg" alt="Zephtacore" width="30" height="30" />
+            <span>Zephtacore</span>
+          </a>
+          <span class="brand-badge">GUÍAS</span>
+        </div>
+
+        <ul class="nav-center">
+          <li><a href="../index.html">Inicio</a></li>
+          <li><a href="../builder.html">Web Builder</a></li>
+          <li><a href="../flasher.html">Web Flasher</a></li>
+          <li><a href="index.html" class="active">Documentación</a></li>
+        </ul>
+
+        <div class="nav-actions">
+          <button class="btn-open-menu" type="button" aria-label="Abrir menú de navegación">
+            <span>☰ Menú</span>
+          </button>
+          <button class="theme-icon-btn" type="button" aria-label="Cambiar tema"></button>
+          <a href="../builder.html" class="nav-cta-btn">
+            <span>🚀 Abrir Builder</span>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="container container-sm" style="margin-top: 2.5rem; margin-bottom: 4rem;">
+      <a href="index.html" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; margin-bottom: 1.5rem;">
+        ← Volver al Centro de Ayuda
+      </a>
+
+      <article>
+        <span class="section-tag">Paso a Paso</span>
+        <h1 class="section-title">Primeros Pasos con Zephtacore</h1>
+        <p class="section-desc">
+          Aprende a flashear tu placa, conectarla con la app oficial de MeshCore y disfrutar de la recepción simultánea de ambas mallas.
+        </p>
+
+        <div class="card" style="margin: 2rem 0;">
+          <h2 class="card-title">1. Flashear la Placa</h2>
+          <p style="margin: 0.75rem 0; color: var(--text-secondary); line-height: 1.6;">
+            Dependiendo del microcontrolador de tu dispositivo:
+          </p>
+          <ul style="padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.7;">
+            <li><strong>Placas nRF52840 (Seeed T1000-E, Heltec T114, XIAO BLE, RAK4631):</strong> Conecta el cable USB y pulsa dos veces seguidas el botón RESET. Aparecerá una unidad de disco USB en tu explorador de archivos. Arrastra y suelta el archivo <code>.uf2</code> correspondiente. La placa se reiniciará automáticamente.</li>
+            <li><strong>Placas ESP32-S3 (Heltec V3/V4, LilyGO T3S3):</strong> Abre el <a href="../flasher.html">Web Flasher de Zephtacore</a> en Chrome o Edge, elige tu placa y pulsa "Grabar firmware por USB": se graba el archivo <code>-merged.bin</code> en el offset 0 y la placa se reinicia. Después usa "Enviar ajustes por USB".</li>
+          </ul>
+        </div>
+
+        <div class="card" style="margin: 2rem 0;">
+          <h2 class="card-title">2. Emparejar con la App MeshCore</h2>
+          <p style="margin: 0.75rem 0; color: var(--text-secondary); line-height: 1.6;">
+            Si has seleccionado el rol <strong>Companion</strong>:
+          </p>
+          <ol style="padding-left: 1.25rem; color: var(--text-secondary); line-height: 1.7;">
+            <li>Abre la aplicación oficial de <strong>MeshCore</strong> en tu smartphone (iOS o Android).</li>
+            <li>Busca dispositivos Bluetooth cercanos. Verás tu nodo anunciado con su identificador.</li>
+            <li>Introduce el código PIN BLE estándar de ZephCore: <code>123456</code>.</li>
+            <li>¡Listo! Tu teléfono ya está conectado al nodo.</li>
+          </ol>
+        </div>
+
+        <div class="card" style="margin: 2rem 0;">
+          <h2 class="card-title">3. Añadir Canales Meshtastic</h2>
+          <p style="margin: 0.75rem 0; color: var(--text-secondary); line-height: 1.6;">
+            Con el preset comunitario <code>SFNarrow</code> activo, tu nodo ya escuchará canales como <code>#mt-sfnarrow</code> o <code>#mt-catalunya</code>. Para añadir un canal personalizado, abre la consola serie (o la pestaña de administración) y ejecuta:
+          </p>
+          <div class="code-block">
+            <code>set z.mt.channel.add MiCanal AQ==</code>
+          </div>
+          <p style="margin: 0.5rem 0; color: var(--text-secondary); font-size: 0.88rem;">
+            En la app de MeshCore aparecerá de inmediato el canal con nombre <code>#mt-micanal</code>.
+          </p>
+        </div>
+
+        <div class="card" style="margin: 2rem 0;">
+          <h2 class="card-title">4. Comprobar Telemetría y Estado</h2>
+          <p style="margin: 0.75rem 0; color: var(--text-secondary); line-height: 1.6;">
+            Puedes verificar en cualquier momento el estado de tu enlace mediante el comando:
+          </p>
+          <div class="code-block">
+            <code>get z.info</code>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 0.88rem;">
+            Obtendrás en una sola línea la versión de firmware, tiempo encendido, voltaje de batería en milivoltios, memoria libre y contactos en caché.
+          </p>
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-bottom">
+          <p>© 2026 Zephtacore · Guías de Usuario.</p>
+          <a href="index.html">Volver a Documentación</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

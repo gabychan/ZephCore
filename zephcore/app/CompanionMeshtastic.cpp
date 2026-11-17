@@ -82,23 +82,16 @@ static uint32_t mtRandom32()
 
 static const mt::PkiCrypto kMtPki = {MtRelayPort::aesBlock256, mtSha256, mtRandom32};
 
-/* Meshtastic's default key has PSK index 1; index n adds n-1 to its last byte. */
-struct MtDefaultChannel {
-	const char *name;
-	uint8_t psk_index;
-};
-
-static const MtDefaultChannel kMtDefaults[] = {
-	{MT_DEFAULT_CHANNEL, 1}, {"Test", 2}, {"Bots", 2}, {"Catalunya", 1}, {"Barcelona", 1},
-};
 static const char *const kMcHashtagDefaults[] = {"#test", "#bot"};
 
 void CompanionMesh::mtAddDefaultChannels()
 {
-	for (const auto &c : kMtDefaults) {
-		const uint8_t variant = c.psk_index;
+	const char *list = CONFIG_ZEPHTACORE_DEFAULT_CHANNELS;
+	char name[mt::kChannelNameMax + 1];
+	uint8_t variant;
 
-		mt::addChannel(prefs.mt, c.name, &variant, 1); /* one already there stays */
+	while (mt::nextDefaultChannel(list, name, sizeof(name), variant)) {
+		mt::addChannel(prefs.mt, name, &variant, 1); /* one already there stays */
 	}
 	mtReconcileChannels();
 	/* A MeshCore hashtag channel's secret is the first 16 bytes of SHA256 of its name. */
@@ -480,6 +473,10 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 
 bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float rssi)
 {
+	/* Off: the receiver hears MeshCore's sync word alone, so every frame is MeshCore's. */
+	if (!prefs.mt.enable) {
+		return false;
+	}
 	/* With no Meshtastic channel nothing is opened here: only a MeshCore-shaped frame goes on. */
 	if (getNumChannels() == 0) {
 		return MtRelayPort::unopened(raw, len, 0) == mt::RX_IGNORED;
@@ -493,7 +490,6 @@ bool CompanionMesh::onRecvForeign(const uint8_t raw[], int len, float snr, float
 
 	MtRelayPort::Policy policy = MtRelayPort::policyFor(prefs.mt);
 
-	policy.yields = false; /* a companion never cancels a repeat on an echo */
 	mt::RxResult r = _mtport.onFrame(raw, len, snr, _mt_sink, policy);
 
 	if (r == mt::RX_NOT_MESHTASTIC) {
@@ -645,6 +641,12 @@ void CompanionMesh::MtSink::onNodeInfoRequest(uint8_t channel_id, uint32_t from)
 void CompanionMesh::MtSink::onUnknownKey(uint32_t from)
 {
 	/* Our NodeInfo carries our key; asking for theirs gets us theirs. */
+	m.mtSendNodeInfoLimited(from, mt::kNoChannel, true);
+}
+
+void CompanionMesh::MtSink::onPkiFailed(uint32_t from)
+{
+	/* A key that no longer opens its messages may have changed: ask for the new one. */
 	m.mtSendNodeInfoLimited(from, mt::kNoChannel, true);
 }
 
@@ -843,8 +845,8 @@ void CompanionMesh::mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rss
 	}
 }
 
-bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *text, size_t len,
-				     bool &sent, uint32_t &ack)
+bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, uint32_t timestamp, uint8_t attempt,
+				     const char *text, size_t len, bool &sent, uint32_t &ack)
 {
 	uint32_t node;
 	uint8_t key[32];
@@ -862,14 +864,20 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, const char *tex
 		return true;
 	}
 	uint8_t frame[mt::kMaxTxFrame];
-	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame), 0, true);
+	const bool retry = attempt > 0 && _mt_last_direct.id != 0 && _mt_last_direct.node == node &&
+			   _mt_last_direct.timestamp == timestamp;
+	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame), 0, true,
+				       retry ? _mt_last_direct.id : 0);
 	mt::Header h;
 
 	if (n > 0 && mt::parseHeader(frame, n, h)) {
 		/* The packet id is what the node's ACK answers: the app's ack code. */
 		sent = _mtport.send(frame, n);
 		if (sent) {
-			addPendingAck(h.id, mtContactIndex(contact));
+			if (!retry) {
+				addPendingAck(h.id, mtContactIndex(contact));
+				_mt_last_direct = {node, timestamp, h.id};
+			}
 			ack = h.id;
 		}
 	}

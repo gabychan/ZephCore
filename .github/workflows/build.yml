@@ -2,7 +2,8 @@ name: build firmware
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "zephtacore" ]
+  workflow_dispatch:
 
 # A release run deletes and re-creates a tag, then force-pushes the
 # firmware-dist branch. Two overlapping runs would race on both, and the loser
@@ -10,7 +11,8 @@ on:
 #
 # Queue rather than cancel: `create-release` deletes the existing release before
 # creating the replacement, so cancelling a run mid-flight can leave the repo
-# with no release at all for that version.
+# with no release at all for that version. A run that is still waiting is
+# replaced by a newer push (GitHub keeps one pending run per group).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -169,12 +171,12 @@ jobs:
     - name: compile-only roles
       run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/kiss_modem.conf"
 
-    # Zephtacore: the Meshtastic bridge, as companion and as repeater.
-    - name: compile-only roles (zephtacore companion)
-      run: west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/zephtacore.conf"
+    # The Meshtastic bridge (boards/common/zephtacore.conf) has a release variant on t1000_e and wio_tracker_l1; rak4631 covers the rest.
+    - name: compile-only zephtacore companion
+      run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/zephtacore.conf"
 
-    - name: compile-only roles (zephtacore repeater)
-      run: west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/repeater.conf;boards/common/zephtacore.conf"
+    - name: compile-only zephtacore repeater
+      run: west build -b rak4631 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/repeater.conf;boards/common/zephtacore.conf"
 
     # Hit rate is the entire point of the per-job ccache namespace above, but the
     # action only prints stats at SETUP time — it runs `ccache -z -s -vv`, which
@@ -403,6 +405,7 @@ jobs:
   create-release:
     needs: [build-nrf, build-esp32-companions, build-esp32-repeaters, build-linux,
             build-swd]
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     # Needs write to create the release AND to delete/replace an existing one for
     # the same version (see the "replace existing release" step below).

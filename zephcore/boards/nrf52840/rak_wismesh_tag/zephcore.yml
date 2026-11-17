@@ -2,6 +2,10 @@
 target: rak_wismesh_tag
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "RAK WisMesh Tag"
   maker: rak

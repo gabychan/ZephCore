@@ -6,6 +6,7 @@
 #include "MtBridge.h"
 #include "MtDiscriminate.h"
 
+#include <monocypher.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -132,7 +133,7 @@ Bridge::Seen *Bridge::remember(uint32_t from, uint32_t id)
 bool Bridge::eligible(const Header &h) const
 {
 	return _relay && h.id != 0 && h.hopLimit() > 0 && h.from != _self && h.to != _self &&
-	       (h.next_hop == 0 || h.next_hop == (uint8_t)_self);
+	       (h.next_hop == 0 || h.next_hop == relayByte(_self));
 }
 
 bool Bridge::heardBefore(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,
@@ -156,8 +157,13 @@ bool Bridge::heardBefore(const Header &h, const uint8_t *raw, size_t len, uint8_
 
 uint32_t Bridge::nextId()
 {
-	_id_counter = (_id_counter + 1) & 0x3FFFFFu;
-	return _id_prefix | _id_counter;
+	uint32_t id;
+
+	do {
+		_id_counter = (_id_counter + 1) & 0x3FFFFFu;
+		id = _id_prefix | _id_counter;
+	} while (id == 0);  /* 0 means "no id" to Meshtastic */
+	return id;
 }
 
 static constexpr int kSnrMin = -20;
@@ -225,7 +231,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 
 	*relay_len = 0;
 	if (relay_class) {
-		*relay_class = RelayClass::CancelOnEcho;
+		*relay_class = RelayClass::Other;
 	}
 	/* A header plus at least the two bytes of the shortest Data (portnum). */
 	if (_self == 0 || len < kHeaderLen + 2 || len > kMaxFrame || !parseHeader(raw, len, h) ||
@@ -240,14 +246,18 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 
 	/* Channel 0 to us alone is PKI; one that does not open may still be a
 	 * channel whose hash is 0. */
-	if (_pki && h.channel == 0 && h.to == _self && plen > kPkiOverhead &&
-	    openPki(h, raw, plen, sink, buf, d)) {
+	if (_pki && h.channel == 0 && h.to == _self && plen > kPkiOverhead) {
 		if (h.from == _self || findSeen(h.from, h.id)) {
 			return RX_DUPLICATE;
 		}
-		remember(h.from, h.id);
-		deliverPki(h, d, snr_x4, sink);
-		return RX_HANDLED;
+		if (openPki(h, raw, plen, sink, buf, d)) {
+			if (_screen && _screen->drops(h, d.portnum)) {
+				return RX_DROPPED;
+			}
+			remember(h.from, h.id);
+			deliverPki(h, d, snr_x4, sink);
+			return RX_HANDLED;
+		}
 	}
 
 	for (auto &c : _ch) {
@@ -255,8 +265,8 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 			continue;
 		}
 		memcpy(buf, raw + kHeaderLen, plen);
-		if (c.encrypted) {
-			ctrCrypt(_aes, c.key, h.from, h.id, buf, plen);
+		if (c.encrypted && !ctrCrypt(_aes, c.key, h.from, h.id, buf, plen)) {
+			continue;
 		}
 		if (decodeData(buf, plen, d)) {
 			match = &c;
@@ -267,19 +277,19 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		if (!_relay || !_relay_opaque || looksLikeMeshCore(raw, len, _self)) {
 			return RX_NOT_MESHTASTIC;
 		}
-		/* Channel 0 to one node is a PKI direct message or its ACK; what is in
-		 * the rest we cannot tell, so it is repeated and gives way to an echo. */
-		const RelayClass cls = h.channel == 0 && h.to != kBroadcast ? RelayClass::Always
-									    : RelayClass::Essential;
-
+		/* What is in a frame no channel of ours opens we cannot tell, so it is repeated. */
 		if (relay_class) {
-			*relay_class = cls;
+			*relay_class = RelayClass::Essential;
 		}
 		if (heardBefore(h, raw, len, relay_out, relay_len)) {
 			return RX_DUPLICATE;
 		}
 		if (_screen && _screen->drops(h, 0)) {
 			return RX_DROPPED;
+		}
+		/* A frame to us alone is not repeated, and a retry of it may open once the key is known. */
+		if (h.to == _self) {
+			return RX_OPAQUE;
 		}
 		Seen *s = remember(h.from, h.id);
 
@@ -302,6 +312,9 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 
 	uint8_t hops = h.hopStart() > h.hopLimit() ? (uint8_t)(h.hopStart() - h.hopLimit()) : 0;
 
+	if (fillRelay(h, raw, len, relay_out, relay_len)) {
+		seen_now->relayed = true;
+	}
 	if (d.portnum == PORT_TEXT) {
 		if ((h.to == kBroadcast || h.to == _self) && d.payload_len > 0) {
 			sink.onText(match->id, h.from, h.to, h.id, d.reply_id,
@@ -309,10 +322,6 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 		}
 	} else {
 		deliverData(h, d, match->id, snr_x4, sink);
-	}
-
-	if (fillRelay(h, raw, len, relay_out, relay_len)) {
-		seen_now->relayed = true;
 	}
 	return RX_HANDLED;
 }
@@ -326,7 +335,7 @@ bool Bridge::fillRelay(const Header &h, const uint8_t *raw, size_t len, uint8_t 
 	memcpy(relay_out, raw, len);
 	relay_out[12] = (uint8_t)((h.flags & ~0x07) | (h.hopLimit() - 1));
 	relay_out[14] = 0;  /* no route learned: flood on */
-	relay_out[15] = (uint8_t)_self;
+	relay_out[15] = relayByte(_self);
 	*relay_len = len;
 	return true;
 }
@@ -345,7 +354,12 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 	}
 	int n = pkiOpen(*_pki, key, h.from, h.id, raw + kHeaderLen, plen, buf, plen);
 
-	return n > 0 && decodeData(buf, (size_t)n, d);
+	crypto_wipe(key, sizeof(key));
+	if (n <= 0) {
+		sink.onPkiFailed(h.from);
+		return false;
+	}
+	return decodeData(buf, (size_t)n, d);
 }
 
 void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink)
@@ -379,7 +393,9 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int
 	} else if (d.portnum == PORT_POSITION) {
 		Position p;
 
-		if (decodePosition(d.payload, d.payload_len, p) && p.has_lat && p.has_lon) {
+		if (decodePosition(d.payload, d.payload_len, p) && p.has_lat && p.has_lon &&
+		    p.lat_i >= -900000000 && p.lat_i <= 900000000 &&
+		    p.lon_i >= -1800000000 && p.lon_i <= 1800000000) {
 			sink.onPosition(h.from, p);
 		}
 	} else if (d.portnum == PORT_ROUTING && h.to == _self && d.request_id != 0) {
@@ -393,7 +409,8 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int
 
 size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to, uint32_t port,
 			  const uint8_t *payload, size_t payload_len, uint8_t *out, size_t cap,
-			  uint32_t reply_id, uint32_t request_id, bool want_response, bool want_ack)
+			  uint32_t reply_id, uint32_t request_id, bool want_response, bool want_ack,
+			  uint32_t packet_id)
 {
 	if (_self == 0 || cap < kHeaderLen) {
 		return 0;
@@ -421,22 +438,21 @@ size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to
 
 	h.to = to;
 	h.from = _self;
-	h.id = nextId();
+	h.id = packet_id ? packet_id : nextId();
 	h.flags = (uint8_t)(_hops | (_hops << 5) | (want_ack ? 0x08 : 0));
 	h.channel = pki_key ? 0 : ch->hash;
 	h.next_hop = 0;
-	h.relay = (uint8_t)_self;
+	h.relay = relayByte(_self);
 	writeHeader(h, out);
 
-	remember(_self, h.id);
 	if (pki_key) {
 		size_t sealed = pkiSeal(*_pki, pki_key, _self, h.id, out + kHeaderLen, n,
 					out + kHeaderLen, cap - kHeaderLen);
 
 		return sealed ? kHeaderLen + sealed : 0;
 	}
-	if (ch->encrypted) {
-		ctrCrypt(_aes, ch->key, _self, h.id, out + kHeaderLen, n);
+	if (ch->encrypted && !ctrCrypt(_aes, ch->key, _self, h.id, out + kHeaderLen, n)) {
+		return 0;
 	}
 	return kHeaderLen + n;
 }
@@ -456,7 +472,7 @@ size_t Bridge::buildText(uint8_t channel_id, uint32_t to, const char *text, size
 size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)
 {
 	const Channel *ch = find(channel_id);
-	uint8_t pb[96];
+	uint8_t pb[104];
 
 	if (!ch) {
 		return 0;
@@ -470,7 +486,7 @@ size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_respon
 			       size_t cap)
 {
 	const Channel *ch = find(channel_id);
-	uint8_t pb[96];
+	uint8_t pb[104];
 
 	if (!ch) {
 		return 0;
@@ -481,15 +497,19 @@ size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_respon
 }
 
 size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const char *text,
-			       size_t len, uint8_t *out, size_t cap, uint32_t reply_id, bool want_ack)
+			       size_t len, uint8_t *out, size_t cap, uint32_t reply_id, bool want_ack,
+			       uint32_t packet_id)
 {
 	uint8_t key[32];
 
 	if (!_pki || len == 0 || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
 		return 0;
 	}
-	return buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap, reply_id,
-			  0, false, want_ack);
+	size_t n = buildFrame(nullptr, key, to, PORT_TEXT, (const uint8_t *)text, len, out, cap,
+			      reply_id, 0, false, want_ack, packet_id);
+
+	crypto_wipe(key, sizeof(key));
+	return n;
 }
 
 size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,
@@ -502,8 +522,11 @@ size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub
 	if (!_pki || !pkiSharedKey(*_pki, _pki_priv, peer_pub, key)) {
 		return 0;
 	}
-	return buildFrame(nullptr, key, to, PORT_ROUTING, kRoutingAck, sizeof(kRoutingAck), out, cap,
-			  0, request_id);
+	size_t n = buildFrame(nullptr, key, to, PORT_ROUTING, kRoutingAck, sizeof(kRoutingAck), out,
+			      cap, 0, request_id);
+
+	crypto_wipe(key, sizeof(key));
+	return n;
 }
 
 size_t Bridge::buildPosition(uint8_t channel_id, const Position &pos, uint8_t *out, size_t cap)

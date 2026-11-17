@@ -249,4 +249,46 @@ inline void format(char *out, size_t cap, const char *title, const List &list, s
 	}
 }
 
+/* "<prefix>neighbors" or "<prefix>vecinos", then in any order a page number and "recent" ("recientes"):
+ * the page is 1 without one, 0 when it is not a plain number. False when command is not that command. */
+inline bool parseArgs(const char *command, const char *prefix, size_t &page, bool &recent)
+{
+	const size_t plen = strlen(prefix);
+
+	if (strncmp(command, prefix, plen) != 0) {
+		return false;
+	}
+	const char *word = command + plen;
+	const size_t wlen = strncmp(word, "neighbors", 9) == 0 ? 9 : strncmp(word, "vecinos", 7) == 0 ? 7 : 0;
+
+	if (wlen == 0 || (word[wlen] != '\0' && word[wlen] != ' ')) {
+		return false;
+	}
+	page = 1;
+	recent = false;
+	for (const char *arg = word + wlen; *arg != '\0';) {
+		if (*arg == ' ') {
+			arg++;
+			continue;
+		}
+		const char *end = strchr(arg, ' ');
+		const size_t len = end ? (size_t)(end - arg) : strlen(arg);
+
+		if ((len == 6 && strncmp(arg, "recent", 6) == 0) || (len == 9 && strncmp(arg, "recientes", 9) == 0)) {
+			recent = true;
+		} else {
+			size_t n = 0;
+			bool plain = len <= 4;
+
+			for (size_t i = 0; plain && i < len; i++) {
+				plain = arg[i] >= '0' && arg[i] <= '9';
+				n = n * 10 + (size_t)(arg[i] - '0');
+			}
+			page = plain ? n : 0;
+		}
+		arg += len;
+	}
+	return true;
+}
+
 } /* namespace neighbours */

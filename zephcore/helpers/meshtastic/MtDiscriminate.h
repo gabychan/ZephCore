@@ -15,7 +15,9 @@
 namespace mt {
 
 /* Every encrypted MeshCore payload is a fixed part (hashes, 2-byte MAC) and
- * whole 16-byte AES blocks. Types with no such structure pass. */
+ * whole 16-byte AES blocks. The others have a minimum size: a public key, a
+ * timestamp and a signature for an advert, a checksum for an ACK, the tag, the
+ * auth code and the flags for a trace. Types with no structure pass. */
 inline bool meshcorePayloadShapeValid(uint8_t payload_type, size_t payload_len)
 {
 	constexpr size_t kMac = 2, kBlock = 16;
@@ -35,6 +37,12 @@ inline bool meshcorePayloadShapeValid(uint8_t payload_type, size_t payload_len)
 	case PAYLOAD_TYPE_GRP_DATA:
 		fixed = 1 + kMac;
 		break;
+	case PAYLOAD_TYPE_ADVERT:
+		return payload_len >= PUB_KEY_SIZE + 4 + SIGNATURE_SIZE;
+	case PAYLOAD_TYPE_ACK:
+		return payload_len >= 4;
+	case PAYLOAD_TYPE_TRACE:
+		return payload_len >= 9;
 	default:
 		return true;
 	}

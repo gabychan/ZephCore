@@ -20,7 +20,7 @@
 LOG_MODULE_REGISTER(zephcore_mt, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 
 /* The counter blocks of a frame share one key: it is imported once and kept until the next key. */
-static void aesEcb(const uint8_t *key, size_t key_len, const uint8_t in[16], uint8_t out[16])
+static bool aesEcb(const uint8_t *key, size_t key_len, const uint8_t in[16], uint8_t out[16])
 {
 	static uint8_t cached[32];
 	static size_t cached_len;
@@ -39,25 +39,22 @@ static void aesEcb(const uint8_t *key, size_t key_len, const uint8_t in[16], uin
 		psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT);
 		psa_set_key_algorithm(&attr, PSA_ALG_ECB_NO_PADDING);
 		if (psa_import_key(&attr, key, key_len, &cached_id) != PSA_SUCCESS) {
-			memset(out, 0, 16);
-			return;
+			return false;
 		}
 		memcpy(cached, key, key_len);
 		cached_len = key_len;
 	}
-	if (psa_cipher_encrypt(cached_id, PSA_ALG_ECB_NO_PADDING, in, 16, out, 16, &n) != PSA_SUCCESS) {
-		memset(out, 0, 16);
-	}
+	return psa_cipher_encrypt(cached_id, PSA_ALG_ECB_NO_PADDING, in, 16, out, 16, &n) == PSA_SUCCESS;
 }
 
-void MtRelayPort::aesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
+bool MtRelayPort::aesBlock(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
 {
-	aesEcb(key, 16, in, out);
+	return aesEcb(key, 16, in, out);
 }
 
-void MtRelayPort::aesBlock256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
+bool MtRelayPort::aesBlock256(const uint8_t key[32], const uint8_t in[16], uint8_t out[16])
 {
-	aesEcb(key, 32, in, out);
+	return aesEcb(key, 32, in, out);
 }
 
 void MtRelayPort::initSelf(mt::Bridge &bridge, const mesh::LocalIdentity &id, const char *name,
@@ -84,8 +81,8 @@ static constexpr uint32_t kFirstTelemetryMs = 60000;
 
 MtRelayPort::Policy MtRelayPort::policyFor(const mt::RepeaterPrefs &p)
 {
-	return {p.enable != 0, p.relay == mt::RELAY_ALL, mt::roleYieldsToEcho(p.role),
-		mt::roleSendsEarly(p.role), p.zerohop == mt::ZEROHOP_AUTO, p.zerohop_nodes};
+	return {p.enable != 0, p.relay == mt::RELAY_ALL, mt::roleSendsEarly(p.role),
+		p.zerohop == mt::ZEROHOP_AUTO, p.zerohop_nodes};
 }
 
 void MtRelayPort::apply(const mt::RepeaterPrefs &p)
@@ -161,9 +158,9 @@ bool MtRelayPort::nextAt(uint32_t &at_ms) const
 
 void MtRelayPort::formatStats(char *out, size_t cap) const
 {
-	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u yielded=%u dropped=%u shed=%u kept=%u",
+	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u dropped=%u shed=%u long=%u kept=%u",
 		 (unsigned)_stats.heard, (unsigned)_stats.relayed, (unsigned)_stats.opaque,
-		 (unsigned)_stats.yielded, (unsigned)_stats.dropped, (unsigned)_stats.shed,
+		 (unsigned)_stats.dropped, (unsigned)_stats.shed, (unsigned)_stats.too_long,
 		 (unsigned)_stats.kept);
 }
 
@@ -185,24 +182,13 @@ uint32_t MtRelayPort::slotMs() const
 	return mt::slotTimeMs(radio->getActiveSpreadingFactor(), radio->getActiveBandwidthKHzX10() / 10.0f);
 }
 
-bool MtRelayPort::yields(uint32_t hash) const
-{
-	for (uint32_t h : _yield) {
-		if (h == hash) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/* Queues the repeat of a heard frame with the delay of the role. A repeat that
- * may give way to an echo is remembered by hash. */
-void MtRelayPort::queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::RelayClass cls,
+/* Queues the repeat of a heard frame with the delay of the role. */
+void MtRelayPort::queue(const uint8_t *relay, size_t len, const int8_t snr_x4,
 			const Policy &policy)
 {
 	if (len > mt::kMaxTxFrame) {
 		LOG_WRN("mt: relay too long (len=%u)", (unsigned)len);
-		_stats.shed++;
+		_stats.too_long++;
 		return;
 	}
 	const uint32_t slot = slotMs();
@@ -214,30 +200,18 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, int8_t snr_x4, mt::Rel
 		return;
 	}
 	_stats.relayed++;
-	if (policy.yields && mt::yieldsOnEcho(cls)) {
-		_yield[_yield_next] = mesh::ContentionTracker::computeForeignHash32(relay, (int)len);
-		_yield_next = (uint8_t)((_yield_next + 1) % kYieldKeep);
-	}
 }
 
-/* Heard again with nothing to repeat. From a repeater, while we hold the frame: a
- * frame that yields is dropped unless that repeater named us next hop, the others
- * move out of its way. The originator sending it again leaves our copy alone. */
-void MtRelayPort::echoHeard(const uint8_t raw[], int len, bool may_yield)
+/* Heard again with nothing to repeat. From a repeater, while we hold the frame: our copy
+ * moves out of its way. The originator sending it again leaves our copy alone. */
+void MtRelayPort::echoHeard(const uint8_t raw[], int len)
 {
 	mt::Header h;
-	uint32_t hash = mesh::ContentionTracker::computeForeignHash32(raw, len);
 
 	if (!mt::parseHeader(raw, (size_t)len, h) || (h.hopStart() > 0 && h.hopStart() == h.hopLimit())) {
 		return;
 	}
-	const bool asked = h.next_hop != 0 && h.next_hop == (uint8_t)_bridge.self();
-
-	if (may_yield && !asked && yields(hash) && _mesh.cancelForeignRelay(hash)) {
-		_stats.yielded++;
-	} else {
-		_mesh.foreignDupeHeard(raw, len);
-	}
+	_mesh.foreignDupeHeard(raw, len);
 }
 
 mt::RxResult MtRelayPort::unopened(const uint8_t raw[], int len, uint32_t self)
@@ -271,13 +245,8 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 				  const Policy &policy)
 {
 	if (!policy.enabled) {
-		/* Off: what is not shaped like MeshCore is not ours to repeat as MeshCore either. */
-		mt::RxResult r = unopened(raw, len, _bridge.self());
-
-		if (r == mt::RX_IGNORED) {
-			_stats.dropped++;
-		}
-		return r;
+		/* Off: the receiver hears MeshCore's sync word alone, so every frame is MeshCore's. */
+		return mt::RX_NOT_MESHTASTIC;
 	}
 	uint8_t relay[mt::kMaxFrame];
 	size_t relay_len = 0;
@@ -302,12 +271,12 @@ mt::RxResult MtRelayPort::onFrame(const uint8_t raw[], int len, float snr, mt::S
 		_stats.opaque++;
 	}
 	if (r == mt::RX_DUPLICATE && relay_len == 0) {
-		echoHeard(raw, len, policy.yields);
+		echoHeard(raw, len);
 		return r;
 	}
 	if (relay_len > 0 && mt::repeatsInMode(policy.relay_all, cls)) {
 		keepHop(raw, len, relay, policy);
-		queue(relay, relay_len, snr_x4, cls, policy);
+		queue(relay, relay_len, snr_x4, policy);
 	}
 	return r;
 }

@@ -49,7 +49,7 @@ void writeHeader(const Header &h, uint8_t out[kHeaderLen])
 	out[15] = h.relay;
 }
 
-void ctrCrypt(AesBlockFn aes, const uint8_t key[16], uint32_t from, uint32_t id,
+bool ctrCrypt(AesBlockFn aes, const uint8_t key[16], uint32_t from, uint32_t id,
 	      uint8_t *data, size_t len)
 {
 	uint8_t ctr[16] = {0};
@@ -59,7 +59,9 @@ void ctrCrypt(AesBlockFn aes, const uint8_t key[16], uint32_t from, uint32_t id,
 	wr32(&ctr[8], from);
 
 	while (len > 0) {
-		aes(key, ctr, ks);
+		if (!aes(key, ctr, ks)) {
+			return false;
+		}
 
 		size_t n = len < 16 ? len : 16;
 
@@ -75,6 +77,7 @@ void ctrCrypt(AesBlockFn aes, const uint8_t key[16], uint32_t from, uint32_t id,
 			}
 		}
 	}
+	return true;
 }
 
 static const uint8_t kDefaultKey[16] = {
@@ -292,7 +295,7 @@ bool decodeData(const uint8_t *buf, size_t len, Data &d)
 			if (!r.varint(v)) {
 				return false;
 			}
-			d.portnum = (uint32_t)v;
+			d.portnum = v > 0xFFFFFFFFu ? 0xFFFFFFFFu : (uint32_t)v;  /* out of range stays out */
 			have_port = true;
 		} else if (num == 2 && wt == WT_LEN) {
 			if (!r.bytes(d.payload, d.payload_len)) {

@@ -2,6 +2,10 @@
 target: gat562_30s
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "GAT-IoT GAT562 30s"
   maker: gat-iot

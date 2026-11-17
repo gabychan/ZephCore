@@ -270,3 +270,22 @@ TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause w
     CHECK(mesh::formatTxStalls(buf, 8, lbt, rx, 95000) > 8);  // truncated, never overrun
     CHECK(std::strlen(buf) == 7);
 }
+TEST(dispatch_foreign_needs_radio, "UNIT-DISPATCH-024", "A radio that cannot take a second sync word is never handed a foreign frame") {
+    Fixture f; f.begin();
+    f.radio.foreign_capable = false;
+    std::vector<uint8_t> frame(40, 7);
+    CHECK(!f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 1, 0));
+    CHECK(f.pool.getFreeCount() == 32 && f.dispatcher.getForeignQueued() == 0);
+    f.dispatcher.loop();
+    CHECK(f.radio.sent.empty());
+}
+TEST(dispatch_foreign_not_logged_raw, "UNIT-DISPATCH-025", "A consumed foreign frame is not logged as a raw MeshCore packet; a MeshCore one is") {
+    Fixture f; f.begin();
+    const std::vector<uint8_t> meshcore = {9, 0, 0xAA}, other = {0xDE, 0xAD, 0xBE, 0xEF, 1, 2, 3};
+    f.radio.incoming = {other, other};
+    f.dispatcher.consume_foreign = true; f.dispatcher.loop();
+    CHECK(f.dispatcher.foreign_rx.size() == 2 && f.dispatcher.raw_logged == 0);
+    f.radio.incoming = {meshcore};
+    f.dispatcher.consume_foreign = false; f.dispatcher.loop();
+    CHECK(f.dispatcher.raw_logged == 1);
+}

@@ -2,6 +2,10 @@
 target: rak4631
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "RAK WisBlock / WisMesh (RAK 4631)"
   maker: rak

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" fill="none">
+  <defs>
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="50%" stop-color="#4facfe" />
+      <stop offset="100%" stop-color="#00c6ff" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Hexagonal Core Base -->
+  <polygon points="50,6 88,28 88,72 50,94 12,72 12,28" 
+           fill="#0f172a" 
+           stroke="url(#primaryGrad)" 
+           stroke-width="3" 
+           stroke-linejoin="round" />
+
+  <!-- Dual RF Radiations (MeshCore & Meshtastic Wavefronts) -->
+  <path d="M 34 32 C 44 26 56 26 66 32" stroke="url(#accentGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.85"/>
+  <path d="M 26 24 C 41 15 59 15 74 24" stroke="url(#primaryGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+
+  <!-- Zephyr Kite & Zephtacore Central Emblem -->
+  <g filter="url(#glow)">
+    <!-- Stylized 'Z' Node Matrix -->
+    <path d="M 33 42 L 67 42 L 35 68 L 67 68" 
+          stroke="url(#primaryGrad)" 
+          stroke-width="5" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" />
+    
+    <!-- Central Node Dots -->
+    <circle cx="50" cy="55" r="4" fill="#00f2fe" />
+    <circle cx="33" cy="42" r="3" fill="#10b981" />
+    <circle cx="67" cy="42" r="3" fill="#00f2fe" />
+    <circle cx="35" cy="68" r="3" fill="#00f2fe" />
+    <circle cx="67" cy="68" r="3" fill="#10b981" />
+  </g>
+
+  <!-- Bottom Pulse Arc -->
+  <path d="M 36 78 C 45 83 55 83 64 78" stroke="url(#accentGrad)" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.85" />
+</svg>

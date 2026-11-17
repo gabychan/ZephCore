@@ -151,6 +151,7 @@ protected:
 		def("psk_len", _p->mt.psk_len);
 		def("psk", (void *)_p->mt.psk, sizeof(_p->mt.psk));
 		def("chs", _chs);
+		def("dr", _p->mt.defaults_rev);
 	}
 
 public:

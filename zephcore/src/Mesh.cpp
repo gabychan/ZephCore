@@ -52,43 +52,34 @@ void Mesh::foreignDupeHeard(const uint8_t* raw, int len) {
   uint32_t now = (uint32_t)_ms->getMillis();
   uint32_t hash = ContentionTracker::computeForeignHash32(raw, len);
   if (!_contention.recordDupeIfTracked(hash, now)) return;
+  int i = findForeignQueued(hash);
+  if (i < 0) return;
+  uint16_t delay = _contention.getReactiveHeadroom(hash, _radio->getEstForeignAirtimeFor(_mgr->getOutboundByIdx(i)->payload_len));
+  if (delay == 0) return;
+  uint32_t at = ContentionTracker::deferredSchedule(_mgr->getOutboundSchedule(i), now, delay);
+  _mgr->rescheduleOutbound(i, at);
+  _contention.addReactiveExtension(hash, delay);
+  notifyTxQueued(at - now);
+}
+
+// ZEPHCORE: index in the outbound queue of the foreign frame with this hash, or -1.
+int Mesh::findForeignQueued(uint32_t hash32) const {
   int total = _mgr->getOutboundTotal();
   for (int i = 0; i < total; i++) {
     Packet* pkt = _mgr->getOutboundByIdx(i);
-    if (!pkt || !pkt->isForeign() || ContentionTracker::computePacketHash32(pkt) != hash) continue;
-    uint16_t delay = _contention.getReactiveHeadroom(hash, _radio->getEstForeignAirtimeFor(pkt->payload_len));
-    if (delay == 0) return;
-    uint32_t at = ContentionTracker::deferredSchedule(_mgr->getOutboundSchedule(i), now, delay);
-    _mgr->rescheduleOutbound(i, at);
-    _contention.addReactiveExtension(hash, delay);
-    notifyTxQueued(at - now);
-    return;
+    if (pkt && pkt->isForeign() && ContentionTracker::computePacketHash32(pkt) == hash32) return i;
   }
+  return -1;
 }
 
+// ZEPHCORE: see Mesh.h.
 bool Mesh::relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms) {
   uint32_t hash = ContentionTracker::computeForeignHash32(frame, (int)len);
-  int total = _mgr->getOutboundTotal();
-  for (int i = 0; i < total; i++) {
-    Packet* pkt = _mgr->getOutboundByIdx(i);
-    if (pkt && pkt->isForeign() && ContentionTracker::computePacketHash32(pkt) == hash) return true;  // already waiting
-  }
+  if (findForeignQueued(hash) >= 0) return true;  // already waiting
   if (getForeignQueued() >= FOREIGN_RELAY_MAX) return false;
-  _contention.trackRetransmit(hash, (uint32_t)_ms->getMillis());
-  return sendForeign(frame, (int)len, FOREIGN_RELAY_PRIORITY, delay_ms);
-}
-
-bool Mesh::cancelForeignRelay(uint32_t hash32) {
-  int total = _mgr->getOutboundTotal();
-  for (int i = 0; i < total; i++) {
-    Packet* pkt = _mgr->getOutboundByIdx(i);
-    if (pkt && pkt->isForeign() && ContentionTracker::computePacketHash32(pkt) == hash32) {
-      Packet* gone = _mgr->removeOutboundByIdx(i);
-      if (gone) _mgr->free(gone);
-      return true;
-    }
-  }
-  return false;
+  if (!sendForeign(frame, (int)len, FOREIGN_RELAY_PRIORITY, delay_ms)) return false;
+  _contention.trackRetransmit(hash, (uint32_t)_ms->getMillis(), true);
+  return true;
 }
 
 // Adaptive flood jitter: 5 x airtime x EMA factor, capped at 6 airtimes and

@@ -236,6 +236,10 @@ if(ZEPHCORE_PLATFORM STREQUAL "esp32")
        AND NOT "wifi_companion" IN_LIST _user_conf_names)
         zephcore_add_conf(${_zc}/wifi_companion.conf)
         message(STATUS "  WiFi companion: auto-enabled (board declares wifi)")
+        if("zephtacore" IN_LIST _user_conf_names)
+            zephcore_add_conf(${_zc}/wifi_companion_zephtacore.conf)
+            message(STATUS "  WiFi companion heap: trimmed for the Zephtacore tables")
+        endif()
     endif()
 
     # USB CDC-ACM companion transport on S3 boards whose board.overlay includes
@@ -563,6 +567,7 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
   # transport keys, and the text CLI.
   target_sources(app PRIVATE
     src/server_main_common.cpp
+    app/PowerPolicy.cpp
     app/RepeaterDataStore.cpp
     helpers/ClientACL.cpp
     helpers/RegionMap.cpp

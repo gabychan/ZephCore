@@ -2,6 +2,10 @@
 target: lilygo_timpulse_plus
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "LilyGo T-Impulse Plus"
   maker: lilygo

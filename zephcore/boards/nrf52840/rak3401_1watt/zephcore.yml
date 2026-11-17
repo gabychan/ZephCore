@@ -2,6 +2,10 @@
 target: rak3401_1watt
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "RAK WisMesh 1W Booster (3401 + 13302)"
   maker: rak

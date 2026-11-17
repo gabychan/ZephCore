@@ -1224,8 +1224,7 @@ void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDeta
 		return;
 	}
 	if (!_ping_limit[w].allow(getRTCClock()->getCurrentTime())) {
-		counters = before;
-		counters.ignored++;
+		ping::unsent(counters, before, true);
 		return;
 	}
 	const uint32_t ts = getRTCClock()->getCurrentTimeUnique();
@@ -1242,7 +1241,7 @@ void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDeta
 		sent = sendGroupMessage(ts, ch.channel, prefs.node_name, out, n);
 	}
 	if (!sent) {
-		counters = before;
+		ping::unsent(counters, before, false);
 		return;
 	}
 	char shown[sizeof(prefs.node_name) + sizeof(out) + 2];
@@ -2080,7 +2079,7 @@ bool CompanionMesh::handleCmdSendTxtMsg(const uint8_t *data, size_t len)
 		uint32_t mt_ack = 0;
 
 		if (contact && txt_type == TXT_TYPE_PLAIN &&
-		    mtSendDirectText(*contact, text, text_len, mt_sent, mt_ack)) {
+		    mtSendDirectText(*contact, msg_timestamp, attempt, text, text_len, mt_sent, mt_ack)) {
 			if (mt_sent) {
 				sendPacketSent(MSG_SEND_SENT_FLOOD, mt_ack, MT_ACK_TIMEOUT_MS);
 			} else {

@@ -1,0 +1,256 @@
+/* ==========================================================================
+   Zephtacore Docs & Command Reference Hub Styles - Refined
+   ========================================================================== */
+
+.search-container {
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.95rem 1rem 0.95rem 2.85rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: all var(--transition-fast);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--brand-cyan);
+  box-shadow: 0 0 0 4px rgba(0, 242, 254, 0.15);
+  background: var(--bg-surface-elevated);
+}
+
+.search-icon {
+  position: absolute;
+  left: 1.1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+
+/* Filter Tag Pills */
+.filter-pills {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.filter-pill:hover,
+.filter-pill.active {
+  background: var(--gradient-primary);
+  color: #050811;
+  border-color: transparent;
+  box-shadow: 0 2px 10px rgba(0, 242, 254, 0.25);
+}
+
+/* Command Cards */
+.command-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.35rem;
+  margin-bottom: 1rem;
+  transition: all var(--transition-fast);
+}
+
+.command-card:hover {
+  border-color: var(--border-card);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.command-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.65rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.command-title {
+  font-family: var(--font-mono);
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--brand-cyan);
+}
+
+.command-tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--badge-bg);
+  border: 1px solid var(--badge-border);
+  color: var(--badge-text);
+}
+
+.command-desc {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 0.85rem;
+}
+
+.command-example {
+  background: var(--code-bg);
+  padding: 0.65rem 0.95rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-copy-cmd {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-copy-cmd:hover {
+  color: var(--brand-cyan);
+  border-color: var(--brand-cyan);
+}
+
+/* Interactive Command Builder Card */
+.cmd-builder-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--brand-cyan);
+  border-radius: var(--radius-lg);
+  padding: 1.65rem;
+  margin-bottom: 2.5rem;
+  box-shadow: var(--shadow-cyan-glow);
+}
+
+.cmd-builder-grid {
+  display: grid;
+  grid-template-columns: 160px 1.2fr 1fr;
+  gap: 1.15rem;
+  margin: 1.25rem 0;
+}
+
+@media (max-width: 680px) {
+  .cmd-builder-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cmd-builder-output {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--code-bg);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 0.95rem 1.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.98rem;
+  color: var(--brand-emerald);
+}
+
+/* ==========================================================================
+   Contextual Command Explainer Box for Builder
+   ========================================================================== */
+.cb-info-box {
+  background: rgba(0, 242, 254, 0.04);
+  border: 1px solid rgba(0, 242, 254, 0.2);
+  border-left: 3px solid var(--brand-cyan);
+  border-radius: var(--radius-md);
+  padding: 0.95rem 1.15rem;
+  margin-bottom: 1.25rem;
+  transition: all var(--transition-fast);
+}
+
+.cb-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.cb-info-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cb-info-icon {
+  font-size: 1.05rem;
+}
+
+.cb-info-name {
+  font-family: var(--font-mono);
+  font-size: 0.96rem;
+  color: var(--brand-cyan);
+  font-weight: 700;
+}
+
+.cb-info-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 0.55rem 0;
+}
+
+.cb-info-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.cb-info-param-pill code {
+  font-family: var(--font-mono);
+  background: var(--bg-surface-elevated);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  color: var(--brand-cyan);
+  border: 1px solid var(--border-card);
+}
+
+.cb-info-tags {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.cb-info-tag-item {
+  font-size: 0.68rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 0.1rem 0.5rem;
+  color: var(--text-muted);
+}

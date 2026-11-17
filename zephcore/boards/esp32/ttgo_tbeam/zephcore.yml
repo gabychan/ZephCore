@@ -2,6 +2,10 @@
 target: ttgo_tbeam/esp32/procpu
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "LilyGo T-Beam (SX1262)"
   maker: lilygo

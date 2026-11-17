@@ -18,7 +18,7 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Nodes in the contact list | NodeInfo creates a contact `<long name> (MT)`. |
 | Nodes on the map | Position packets set the contact's coordinates. |
 | Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every `z.mt.nodeinfo` seconds (12 h), on the first Meshtastic channel. |
-| Repeat Meshtastic floods | `z.mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. `essential` (default on the repeater): text, direct messages, ACKs, NodeInfo, traceroute and position, on every channel including those without a key; only the first four are never dropped on an echo. `all` adds telemetry and the other ports. |
+| Repeat Meshtastic floods | `z.mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. `essential` (default on the repeater): text, direct messages, ACKs, NodeInfo, traceroute and position, on every channel including those without a key. `all` adds telemetry and the other ports. |
 
 MeshCore behaves as before. A frame that does not decrypt on one of our Meshtastic channels is handled as MeshCore.
 
@@ -42,8 +42,10 @@ The LR2021 side detectors (other SFs) use the same word as the main detector.
 
 With `CONFIG_ZEPHTACORE_MESHTASTIC` a fresh device starts on meshtacore's `custom_sfnarrow_default` preset:
 869.618 MHz, BW 62.5 kHz, SF 7, CR 4/6, 22 dBm (CR 4/5 without the feature; the rest is ZephCore's own default).
-On the first boot of a firmware with a new defaults revision (`CompanionMesh::MT_DEFAULTS_REV`, kept in the
-data store under `zt_ch_rev`) it adds the channels of meshtacore's community matrix that are missing, by name:
+On the first boot of a firmware with a new defaults revision (`CompanionMesh::MT_DEFAULTS_REV`, kept in `prefs.json` as
+`mt.dr`) it adds the channels that are missing, by name. The Meshtastic ones come from
+`CONFIG_ZEPHTACORE_DEFAULT_CHANNELS` (`name:psk_index`, comma separated; `boards/common/zephtacore.conf` sets the
+meshtacore community matrix, the Kconfig default is `SFNarrow`, `Test` and `Bots`):
 
 | Channel | Key |
 | --- | --- |
@@ -99,6 +101,8 @@ radio RX (hybrid sync 0x14B4) -> Dispatcher::checkRecv
 app message on a #mt- channel -> mt::Bridge::buildText -> Dispatcher::sendForeign
 app message to a Meshtastic contact -> mt::Bridge::buildDirectText (PKI) -> same TX queue
     -> normal TX queue (LBT, duty cycle) -> LoRaRadio writes sync 0x24B4 for the frame
+(a retry of a direct message, same timestamp and attempt > 0, keeps the first try's packet id, so the node's ACK
+ still answers the code the app holds and a node that has the frame drops the copy)
 ```
 
 | Piece | File |
@@ -129,14 +133,14 @@ Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI
 | Piece | Where |
 | --- | --- |
 | Repeater glue (RX hook, NodeInfo, position, telemetry, `z.mt.` commands) | `zephcore/app/RepeaterMeshtastic.cpp` |
-| What companion and repeater share: hearing a frame, repeating it with the role's timing, giving way to an echo, our own frames, AES, self identity | `zephcore/app/MtRelayPort.h/.cpp` |
+| What companion and repeater share: hearing a frame, repeating it with the role's timing, backing off on an echo, our own frames, AES, self identity | `zephcore/app/MtRelayPort.h/.cpp` |
 | Settings, command parser, defaults | `zephcore/helpers/meshtastic/MtConfig.h/.cpp` |
-| What gives way to an echo, and what `essential` repeats | `mt::relayClassOf` in `MtPolicy.h` |
+| What `essential` repeats | `mt::relayClassOf` in `MtPolicy.h` |
 | Receive limits `z.mc.fw.*` and `z.mt.fw.*`: types dropped, one advert or NodeInfo per node per window, a ceiling of frames a minute per neighbouring repeater | `zephcore/helpers/McFirewall.h` (shared core and commands); MeshCore: `RepeaterMesh::filterRecvFloodPacket`; Meshtastic: `mt::Screen` in `MtBridge.h`, `mt::FwScreen` in `MtFirewall.h` |
 | Reception statistics `z.mc.hopstats`, `z.mt.hopstats`, `z.mc.relays`, `z.mt.relays` | `zephcore/helpers/RxStats.h`; fed by `RepeaterMesh::onRecvPacket` and `onRecvForeign` |
 | Zero hop: when a repeat keeps its `hop_limit` (ADR 0016) | `mt::ZeroHop` in `MtZeroHop.h`, applied in `MtRelayPort::onFrame` |
-| MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. A frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser, whatever the `z.mt.*` settings (`MtRelayPort::unopened`) |
-| Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard`, `cancelForeignRelay` |
+| MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. While `z.mt.enable` is on, a frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser (`MtRelayPort::unopened`); with it off every frame is MeshCore's |
+| Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard` |
 
 The receiver is hybrid while `z.mt.enable` is on (`LoRaRadio::setMtListen`); with it off, and on every role without Meshtastic, it listens with MeshCore's sync word alone, as upstream does. A hybrid receiver does not report the sync word a frame came in on. A frame that none of our channels opens is told
 from MeshCore by its shape: it must parse as MeshCore, its payload must be whole 16-byte AES blocks after the fixed part,
@@ -168,9 +172,10 @@ Not run on air.
 
 | Check | Result |
 | --- | --- |
-| Host tests (`python3 tests/run.py run --profile quick`) | 144 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX |
+| Host tests (`python3 tests/run.py run --profile quick`) | 275 pass: AES against FIPS-197, channel hash (LongFast = 0x08, SFNarrow = 0x20), CTR keystream layout, protobuf golden bytes, bridge round trips, relay, rebroadcast timing, relay hash, false-positive bound, Dispatcher RX hook and foreign TX, PKI frames, foreign repeats in `Mesh` |
 | Field numbers and nonce layout | Read against `mesh.proto` and `CryptoEngine.cpp` of the Meshtastic firmware |
 | Firmware build `wio_tracker_l1` (SX1262) | OK. Flash +4.6 KB (476724 vs 472084 B), RAM +1.3 KB (227168 vs 225824 B) |
+| Firmware builds `rak4631` (SX1262), companion and repeater with Meshtastic, and `wio_tracker_l1` companion | OK. Companion flash 449444 B and RAM 220264 B on `rak4631`; repeater flash 304360 B and RAM 86948 B; `wio_tracker_l1` companion flash 508264 B and RAM 230056 B. Run in CI as compile-only steps |
 | Firmware build `t1000_e` (LR1110) | OK. Flash 377388 B |
 | Firmware build `promicro_lr2021` (LR2021) | OK. Flash 383532 B |
 | Firmware build `wio_tracker_l1` repeater, feature off | OK |

@@ -26,6 +26,7 @@
 #include <ZephyrFsUtil.h>
 
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/comparator.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/regulator.h>
 #include <zephyr/sys/poweroff.h>
@@ -114,6 +115,23 @@ static void power_regulators_off(void)
 
 	if (buzz_reg && device_is_ready(buzz_reg)) {
 		regulator_disable(buzz_reg);
+	}
+#endif
+}
+
+void zephcore_arm_battery_wake(void)
+{
+#if DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+	const struct device *lpcomp =
+		DEVICE_DT_GET(DT_COMPAT_GET_ANY_STATUS_OKAY(nordic_nrf_lpcomp));
+
+	/* The comparator keeps running through System OFF and its rising edge
+	 * wakes the SoC (a reset, reported as LOWPOWER). */
+	if (device_is_ready(lpcomp) &&
+	    comparator_set_trigger(lpcomp, COMPARATOR_TRIGGER_RISING_EDGE) == 0) {
+		LOG_INF("Battery wake armed");
+	} else {
+		LOG_ERR("Battery wake not armed");
 	}
 #endif
 }

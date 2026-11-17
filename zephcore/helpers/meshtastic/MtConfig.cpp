@@ -7,6 +7,7 @@
 
 #include "ZCommand.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,6 +87,11 @@ bool parseNode(const char *s, uint32_t &out)
 
 	if (*s == '!') {
 		s++;
+	}
+	for (int i = 0; i < 8; i++) {
+		if (!isxdigit((unsigned char)s[i])) {
+			return false;
+		}
 	}
 	unsigned long v = strtoul(s, &end, 16);
 
@@ -194,7 +200,13 @@ int base64Decode(const char *s, uint8_t *out, size_t cap)
 			out[n++] = (uint8_t)(acc >> bits);
 		}
 	}
-	return (int)n;
+	/* Only padding may follow, and the bits left over carry no data. */
+	for (int pad = 0; *s; s++, pad++) {
+		if (*s != '=' || pad >= 2) {
+			return -1;
+		}
+	}
+	return (acc & ((1u << bits) - 1)) == 0 ? (int)n : -1;
 }
 
 void slotName(const char *name, char out[kSlotNameMax])
@@ -367,7 +379,7 @@ static void channelRemove(RepeaterPrefs &p, const char *args, char *reply, size_
 		return;
 	}
 	slotName(name, slot);
-	ChannelEntry *e = findChannel(p, slot);
+	ChannelEntry *e = strlen(name) > kChannelNameMax ? nullptr : findChannel(p, slot);
 
 	if (!e) {
 		snprintf(reply, cap, "Error: no such channel");

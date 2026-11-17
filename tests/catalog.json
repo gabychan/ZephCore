@@ -353,6 +353,16 @@
       "source": "tests/unit/telemetry_text_tests.cpp"
     },
     {
+      "id": "UNIT-POLICY-AUTOSHUTDOWN-001",
+      "name": "get|set autoshutdown on the prefs alone: parse, bounds, changed flag",
+      "source": "tests/unit/policy_tests.cpp"
+    },
+    {
+      "id": "UNIT-POLICY-AUTOSHUTDOWN-002",
+      "name": "get|set z.autoshutdown: the same setting in the z. replies",
+      "source": "tests/unit/policy_tests.cpp"
+    },
+    {
       "id": "UNIT-POLICY-001",
       "name": "Reply routing and scope truth tables",
       "source": "tests/unit/policy_tests.cpp"
@@ -744,12 +754,12 @@
     },
     {
       "id": "UNIT-MT-030",
-      "name": "Text, ACK, NodeInfo and traceroute survive an echo; position is repeated but yields; the rest only in all",
+      "name": "Text, ACK, NodeInfo, traceroute and position are essential; the rest is repeated only in all",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
       "id": "UNIT-MT-054",
-      "name": "Repeat and echo decision for every port in off, essential and all, held or opaque channel",
+      "name": "Repeat decision for every port in essential and all, held or opaque channel",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
@@ -934,7 +944,7 @@
     },
     {
       "id": "UNIT-FW-005",
-      "name": "Sixteen keys are remembered; the seventeenth takes the oldest slot",
+      "name": "Forty-eight keys are remembered; the forty-ninth takes the slot written longest ago",
       "source": "tests/unit/fw_tests.cpp"
     },
     {
@@ -944,12 +954,12 @@
     },
     {
       "id": "UNIT-FW-007",
-      "name": "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash names none",
+      "name": "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash is counted too",
       "source": "tests/unit/fw_tests.cpp"
     },
     {
       "id": "UNIT-FW-008",
-      "name": "Eight repeaters are counted; the ninth takes the oldest slot and starts a fresh count",
+      "name": "Sixteen repeaters are counted; the seventeenth takes the window opened longest ago and starts a fresh count",
       "source": "tests/unit/fw_tests.cpp"
     },
     {
@@ -1231,6 +1241,101 @@
       "id": "UNIT-NEIGH-011",
       "name": "The short name of a node heard before it is entered is kept for its entry",
       "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-056",
+      "name": "A PKI direct text from a node with no key is not lost when its retry arrives with the key known",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-057",
+      "name": "A PKI direct text goes through the firewall screen like a channel text",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-058",
+      "name": "A node whose number ends in 00 puts 0xFF in the relay byte, and a next hop naming it is repeated",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-059",
+      "name": "When the AES block fails nothing is sent in clear, and nothing is opened",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-060",
+      "name": "A packet id is never 0, and our own sends do not use up the duplicate table",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-061",
+      "name": "Node numbers, channel names, keys, ports and positions are checked in full",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-062",
+      "name": "An advert, ACK or trace shorter than its fixed part is not MeshCore",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-063",
+      "name": "A key we hold that no longer opens a PKI frame is reported, an unknown key is not",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-024",
+      "name": "A radio that cannot take a second sync word is never handed a foreign frame",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-025",
+      "name": "A consumed foreign frame is not logged as a raw MeshCore packet; a MeshCore one is",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-001",
+      "name": "A foreign repeat is queued once, at most 8 wait, and a radio that cannot send it queues none",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-002",
+      "name": "A copy heard from another node pushes our repeat back from its own slot, never earlier; another frame leaves it alone",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-003",
+      "name": "The dupes of a foreign repeat never reach the flood delay of MeshCore",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-006",
+      "name": "set <key> help on a key that takes any text is that value; get help still gives the usage; a refusal leaves the reply alone",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-NEIGH-012",
+      "name": "The command takes neighbors or vecinos, a plain page number and recent or recientes in any order; anything else is page 0",
+      "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-PING-015",
+      "name": "An answer that was not sent leaves the counters as they were; one the limit turned away is counted ignored, saturating",
+      "source": "tests/unit/ping_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-064",
+      "name": "A direct text sent with the id of the first try carries that id; without one it takes a new id each time",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-065",
+      "name": "The default channel list gives name and key index in order, and stops at an entry that is not one",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-004",
+      "name": "A dupe of a MeshCore flood we hold pushes it back by 0.2 x its airtime from its own slot, never earlier, within the cap; a flood not tracked stays",
+      "source": "tests/unit/foreign_relay_tests.cpp"
     }
   ]
 }

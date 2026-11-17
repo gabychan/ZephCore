@@ -7,6 +7,10 @@ capabilities:
   light_sleep_companion: true
 release:
   roles: [companion, repeater]
+  variants:
+    - id: zephtacore
+      conf: ../../common/zephtacore.conf
+      subtitle: Zephtacore
 catalog:
   device: "Heltec Wireless Tracker"
   maker: heltec

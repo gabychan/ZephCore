@@ -9,6 +9,8 @@
 #include "buzzer_gate.h"
 #include "pm_sleep_guard.h"
 #include <helpers/ui/ui_task.h>
+#include <app/PowerPolicy.h>
+#include <zephyr/devicetree.h>
 #if IS_ENABLED(CONFIG_ZEPHCORE_UI_DISPLAY)
 #include <helpers/ui/display.h>
 #endif
@@ -16,6 +18,7 @@
 #include <helpers/meshtastic/MtConfig.h>
 #include <helpers/meshtastic/MtFirewall.h>
 #include <helpers/OffgridPolicy.h>
+#include <helpers/NeighbourList.h>
 #include <helpers/ZCommand.h>
 #include <helpers/ZInfo.h>
 #include <helpers/HeapStats.h>
@@ -369,33 +372,6 @@ bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char
 #endif
 }
 
-/* "<prefix>neighbors" or "<prefix>vecinos", then in any order a page number and "recent" ("recientes"):
- * the page is 1 without one, 0 when it is not a number. */
-static bool neighbourArgs(const char* command, const char* prefix, size_t& page, bool& recent) {
-	const size_t plen = strlen(prefix);
-
-	if (strncmp(command, prefix, plen) != 0) return false;
-	const char* word = command + plen;
-	const size_t wlen = strncmp(word, "neighbors", 9) == 0 ? 9 : strncmp(word, "vecinos", 7) == 0 ? 7 : 0;
-
-	if (wlen == 0 || (word[wlen] != '\0' && word[wlen] != ' ')) return false;
-	page = 1;
-	recent = false;
-	for (const char* arg = word + wlen; *arg != '\0';) {
-		if (*arg == ' ') { arg++; continue; }
-		const char* end = strchr(arg, ' ');
-		const size_t len = end ? (size_t)(end - arg) : strlen(arg);
-
-		if ((len == 6 && strncmp(arg, "recent", 6) == 0) || (len == 9 && strncmp(arg, "recientes", 9) == 0)) {
-			recent = true;
-		} else {
-			page = (size_t)atoi(arg);
-		}
-		arg += len;
-	}
-	return true;
-}
-
 /* "get z.info": version, uptime, battery, flash, heap and contacts in one line. */
 void CommonCLI::replyZInfo(size_t cap, char* reply) {
 	zinfo::Info info = {};
@@ -415,7 +391,7 @@ void CommonCLI::replyZInfo(size_t cap, char* reply) {
 /* "get z.stats": the MeshCore counters and, where built, the Meshtastic ones. */
 void CommonCLI::replyZStats(size_t cap, char* reply) {
 	zinfo::Stats stats = {};
-	char mt[96];
+	char mt[160];  /* the 7 counters of get z.mt.stats at 10 digits each */
 
 	_callbacks->fillZStats(stats);
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
@@ -438,11 +414,11 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 	size_t page;
 	bool recent;
 
-	if (neighbourArgs(command, "get z.mc.", page, recent)) {
+	if (neighbours::parseArgs(command, "get z.mc.", page, recent)) {
 		_callbacks->formatMcNeighbours(reply, replyCap(sender_timestamp), page, recent);
 		return;
 	}
-	if (neighbourArgs(command, "get z.mt.", page, recent)) {
+	if (neighbours::parseArgs(command, "get z.mt.", page, recent)) {
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
 		_callbacks->formatMtNeighbours(reply, replyCap(sender_timestamp), page, recent);
 #else
@@ -515,6 +491,21 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 	// hook for variant-specific CLI processing
 	if (_board->handleCommand(command, sender_timestamp, reply)) {
 		return;
+	}
+	// ZEPHCORE: low-battery auto-shutdown, on a board that wakes itself again.
+	{
+		bool changed = false;
+
+		if (PowerPolicy::zAutoShutdownCommand(*_prefs, command, reply, replyCap(sender_timestamp), &changed)) {
+#if DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+			if (changed) {
+				savePrefs();
+			}
+#else
+			snprintf(reply, replyCap(sender_timestamp), "Error: not available on this board");
+#endif
+			return;
+		}
 	}
 
 	if (strcmp(command, "start dfu") == 0) {
