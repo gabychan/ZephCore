@@ -13,6 +13,7 @@
 #include <helpers/RegionMap.h>
 #include <helpers/SensorManager.h>
 #include <helpers/ZInfo.h>
+#include <helpers/RxStats.h>
 #include "NodePrefs.h"
 
 class MeshTimeSync;
