@@ -53,12 +53,11 @@ env:
 # what ubuntu-latest resolves to today, so this pin changes nothing now and
 # makes the move to 26 a deliberate, testable commit later.
 #
-# uses: the two third-party actions are pinned to full commit SHAs with the
-# version in a trailing comment. A floating major tag can be repointed
-# upstream, and action-gh-release runs in a contents: write job holding
-# GITHUB_TOKEN. This is also how the Node 20 runtime warning used to appear and
-# vanish with no change on our side. Bump a pin by editing the SHA and the
-# comment together. First-party actions/* are left on major tags.
+# uses: every action is pinned to a full commit SHA with the version in a
+# trailing comment. A floating major tag can be repointed upstream, and
+# action-gh-release runs in a contents: write job holding GITHUB_TOKEN. This is
+# also how the Node 20 runtime warning used to appear and vanish with no change
+# on our side. Bump a pin by editing the SHA and the comment together.
 
 jobs:
   # Populates the west-modules cache once so the five build jobs do not each pay
@@ -76,9 +75,9 @@ jobs:
       cancel-in-progress: true
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:
         python-version: '${{ env.python_version }}'
         cache: 'pip'
@@ -97,7 +96,7 @@ jobs:
     # Restored BEFORE the Zephyr setup so a hit makes `west update` a no-op. The
     # matching save runs as this job's post-step, i.e. after the blob fetches
     # below, so the cached tree carries the blobs with it.
-    - uses: actions/cache@v5
+    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: modules
         key: zephyr-modules-${{ runner.os }}-${{ hashFiles('zephcore/west.yml') }}
@@ -128,9 +127,9 @@ jobs:
       cancel-in-progress: true
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:
         python-version: '${{ env.python_version }}'
         cache: 'pip'
@@ -140,7 +139,7 @@ jobs:
     # next step just does the work itself. Contrast with the firmware handoff at
     # the end of this job, which is NOT self-healing and therefore uses an
     # artifact.
-    - uses: actions/cache/restore@v5
+    - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: modules
         key: zephyr-modules-${{ runner.os }}-${{ hashFiles('zephcore/west.yml') }}
@@ -195,7 +194,7 @@ jobs:
     # set — and publish-catalog force-push a matching incomplete catalog.json to
     # the live Mesh America configurator feed. Artifacts are scoped to the run,
     # cannot be evicted mid-run, and if-no-files-found: error fails loudly.
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: firmware-part-${{ github.job }}
         path: firmware
@@ -214,15 +213,15 @@ jobs:
       cancel-in-progress: true
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:
         python-version: '${{ env.python_version }}'
         cache: 'pip'
     - run: pip install -r requirements.txt
 
-    - uses: actions/cache/restore@v5
+    - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: modules
         key: zephyr-modules-${{ runner.os }}-${{ hashFiles('zephcore/west.yml') }}
@@ -247,7 +246,7 @@ jobs:
       if: always()
       run: ccache -s -vv
 
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: firmware-part-${{ github.job }}
         path: firmware
@@ -268,15 +267,15 @@ jobs:
       cancel-in-progress: true
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:
         python-version: '${{ env.python_version }}'
         cache: 'pip'
     - run: pip install -r requirements.txt
 
-    - uses: actions/cache/restore@v5
+    - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: modules
         key: zephyr-modules-${{ runner.os }}-${{ hashFiles('zephcore/west.yml') }}
@@ -304,7 +303,7 @@ jobs:
       if: always()
       run: ccache -s -vv
 
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: firmware-part-${{ github.job }}
         path: firmware
@@ -320,15 +319,15 @@ jobs:
       cancel-in-progress: true
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:
         python-version: '${{ env.python_version }}'
         cache: 'pip'
     - run: pip install -r requirements.txt
 
-    - uses: actions/cache/restore@v5
+    - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
       with:
         path: modules
         key: zephyr-modules-${{ runner.os }}-${{ hashFiles('zephcore/west.yml') }}
@@ -355,7 +354,7 @@ jobs:
       if: always()
       run: ccache -s -vv
 
-    - uses: actions/upload-artifact@v7
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: firmware-part-${{ github.job }}
         path: firmware
@@ -383,7 +382,7 @@ jobs:
       prerelease: ${{ env.prerelease }}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
     # Tag the release with the firmware version string itself (the single source
     # of truth in zephcore/CMakeLists.txt), NOT a build timestamp. The same value
@@ -408,7 +407,7 @@ jobs:
     # Pull every build job's output back into a single firmware/ directory.
     # merge-multiple flattens all five parts into that one path, which is what
     # the release upload and gen_provider_catalog.py both expect.
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       with:
         pattern: firmware-part-*
         merge-multiple: true
@@ -425,7 +424,7 @@ jobs:
         ls -la firmware
 
     - name: upload firmware artifacts
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: firmware-${{ steps.tag.outputs.release_tag }}
         path: firmware
@@ -508,9 +507,9 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
       with:
         python-version: '${{ env.python_version }}'
 
@@ -521,7 +520,7 @@ jobs:
     # branch is force-pushed, so an incomplete set here silently DELETES boards
     # from the live configurator feed — which is exactly why this handoff must
     # not be a cache that can be evicted between jobs.
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       with:
         pattern: firmware-part-*
         merge-multiple: true
