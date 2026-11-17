@@ -1658,3 +1658,25 @@ TEST(mt_aes_failure, "UNIT-MT-059", "When the AES block fails nothing is sent in
     CHECK(pkiOpen(broken, key, 1, 2, buf, 15, out, sizeof(out)) == -1);
     CHECK(pkiOpen(kPki, key, 1, 2, buf, 15, out, sizeof(out)) == 3);
 }
+
+TEST(mt_ids_and_own_frames, "UNIT-MT-060", "A packet id is never 0, and our own sends do not use up the duplicate table") {
+    // Seed 0xFFFFFC00 gives prefix 0 and a counter at its top: the next id would be 0.
+    Bridge z(refAes);
+    z.setSelf(0xA1A1A1A1u, "z", "Z", 0xFFFFFC00u);
+    const uint8_t psk = 1;
+    CHECK(z.setChannel(3, "LongFast", &psk, 1));
+    uint8_t frame[kMaxFrame];
+    Header h;
+    size_t n = z.buildText(3, kBroadcast, "x", 1, frame, sizeof(frame));
+    CHECK(n > 0 && parseHeader(frame, n, h) && h.id != 0);
+
+    Bridge a = makeNode(0xA1A1A1A1u, "alpha", 7), b = makeNode(0xB2B2B2B2u, "beta", 9);
+    uint8_t first[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    Capture cap;
+    size_t first_n = a.buildText(3, kBroadcast, "uno", 3, first, sizeof(first));
+    CHECK(b.handleFrame(first, first_n, 0, cap, relay, &relay_len) == RX_HANDLED);
+    // More own sends than the table holds must not push the heard frame out.
+    for (int i = 0; i < kDedupSize + 8; i++) b.buildText(3, kBroadcast, "yo", 2, frame, sizeof(frame));
+    CHECK(b.handleFrame(first, first_n, 0, cap, relay, &relay_len) == RX_DUPLICATE && cap.texts.size() == 1);
+}

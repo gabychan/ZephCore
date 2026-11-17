@@ -156,8 +156,13 @@ bool Bridge::heardBefore(const Header &h, const uint8_t *raw, size_t len, uint8_
 
 uint32_t Bridge::nextId()
 {
-	_id_counter = (_id_counter + 1) & 0x3FFFFFu;
-	return _id_prefix | _id_counter;
+	uint32_t id;
+
+	do {
+		_id_counter = (_id_counter + 1) & 0x3FFFFFu;
+		id = _id_prefix | _id_counter;
+	} while (id == 0);  /* 0 means "no id" to Meshtastic */
+	return id;
 }
 
 static constexpr int kSnrMin = -20;
@@ -436,7 +441,6 @@ size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to
 	h.relay = relayByte(_self);
 	writeHeader(h, out);
 
-	remember(_self, h.id);
 	if (pki_key) {
 		size_t sealed = pkiSeal(*_pki, pki_key, _self, h.id, out + kHeaderLen, n,
 					out + kHeaderLen, cap - kHeaderLen);

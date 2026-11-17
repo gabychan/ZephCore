@@ -1251,6 +1251,11 @@
       "id": "UNIT-MT-059",
       "name": "When the AES block fails nothing is sent in clear, and nothing is opened",
       "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-060",
+      "name": "A packet id is never 0, and our own sends do not use up the duplicate table",
+      "source": "tests/unit/meshtastic_tests.cpp"
     }
   ]
 }
