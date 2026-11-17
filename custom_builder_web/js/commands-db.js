@@ -77,7 +77,7 @@ window.ZEPHTACORE_COMMANDS = [
     name: "z.mt.hops",
     category: "meshtastic",
     type: "get|set",
-    params: "<1-7>",
+    params: "<0-7>",
     default: "7",
     desc: "Número de saltos (hop_limit) asignado a los mensajes originados en este nodo hacia Meshtastic.",
     example: "set z.mt.hops 7",
