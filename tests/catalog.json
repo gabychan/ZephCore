@@ -1044,7 +1044,7 @@
     },
     {
       "id": "UNIT-UIDASH-001",
-      "name": "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M",
+      "name": "a count is at most 4 characters: 999, 1.2k, 12k, 345k, 1M, 4.2G",
       "source": "tests/unit/uidash_tests.cpp"
     },
     {

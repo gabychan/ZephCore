@@ -907,7 +907,7 @@ TEST(mt_relay_table, "UNIT-MT-054", "Repeat decision for every port in essential
     CHECK(a.setChannel(1, "private", psk, 16));
     uint8_t frame[kMaxFrame], relay[kMaxFrame];
     size_t n = a.buildText(1, kBroadcast, "secreto", 7, frame, sizeof(frame));
-    while (looksLikeMeshCore(frame, n, 0)) { frame[0] ^= 0x40; }
+    CHECK(!looksLikeMeshCore(frame, n, 0));
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);
     Capture cap;
     size_t relay_len = 0;
@@ -929,8 +929,7 @@ TEST(mt_opaque_relay, "UNIT-MT-031", "A frame of a channel we hold no key for is
     CHECK(a.setChannel(1, "private", psk, 16));
     uint8_t frame[kMaxFrame], relay[kMaxFrame];
     size_t n = a.buildText(1, kBroadcast, "secreto", 7, frame, sizeof(frame));
-    // Force a payload that cannot pass for MeshCore: 16-byte blocks never end at 7.
-    while (looksLikeMeshCore(frame, n, 0)) { frame[0] ^= 0x40; }
+    CHECK(!looksLikeMeshCore(frame, n, 0));     // a broadcast starts 0xFF: protocol version 3, never MeshCore
 
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);  // holds LongFast only
     Capture cap;

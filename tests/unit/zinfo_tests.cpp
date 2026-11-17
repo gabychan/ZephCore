@@ -52,11 +52,12 @@ TEST(zinfo_uptime, "UNIT-ZINFO-003", "uptime is days and hours, hours and minute
 }
 
 TEST(zinfo_cap, "UNIT-ZINFO-004", "a small reply buffer is cut, never overrun, and stays terminated") {
-    char out[20];
+    char out[32];                                          // the reply gets the first 20; the rest is a guard
     std::fill(out, out + sizeof(out), 'x');
-    zinfo::formatInfo(out, sizeof(out), full());
-    CHECK(out[sizeof(out) - 1] == '\0' || std::string(out).size() < sizeof(out));
-    CHECK(std::string(out).size() < sizeof(out));
+    zinfo::formatInfo(out, 20, full());
+    CHECK(std::string(out, 20).find('\0') != std::string::npos);   // terminated inside its 20 bytes
+    CHECK(std::string(out).size() == 19);                          // cut to fit: the long reply does not fit in 19
+    for (size_t i = 20; i < sizeof(out); i++) CHECK(out[i] == 'x');  // nothing written past it
 }
 
 TEST(zinfo_stats, "UNIT-ZINFO-005", "z.stats gives the MeshCore counters, then the Meshtastic ones when there are any") {
