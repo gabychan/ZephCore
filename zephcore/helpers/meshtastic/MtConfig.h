@@ -203,6 +203,17 @@ inline void shortName(const char *name, char out[5])
 }
 
 /* A router sends early; a late router has the client's delay. */
+/* A node number's share of the fingerprint of a set of nodes: the fingerprint is the sum of the
+ * shares, so it does not depend on order and changes when one node replaces another. */
+inline uint32_t nodeSetShare(uint32_t node)
+{
+	node ^= node >> 16;
+	node *= 0x7feb352du;
+	node ^= node >> 15;
+	node *= 0x846ca68bu;
+	return node ^ (node >> 16);
+}
+
 inline bool roleSendsEarly(uint8_t role) { return role == ROLE_ROUTER; }
 /* A muted client repeats nothing, whatever z.mt.relay says. */
 inline bool roleRepeats(uint8_t role) { return role != ROLE_CLIENT_MUTE; }

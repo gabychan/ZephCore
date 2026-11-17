@@ -409,6 +409,7 @@ private:
 			      const char *text, size_t len, bool &sent, uint32_t &ack);
 	void mtStoreKey(uint32_t node, const uint8_t key[32]);
 	bool mtKeyInUse(uint32_t node);
+	uint32_t mtKeyUsers();
 	void mtSendAck(uint32_t to, uint32_t request_id);
 	/* Our NodeInfo to a node on a channel (kNoChannel: the first one), asking for
 	 * its own (name and public key) when want_response. */

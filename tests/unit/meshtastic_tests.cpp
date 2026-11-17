@@ -1903,3 +1903,11 @@ TEST(mt_contact_seed, "UNIT-MT-069", "A node's contact key seed is SHA-256 of th
     mt::contactSeed(refSha256, secret, 0xa1b2c3d5u, again);
     CHECK(memcmp(seed, again, 32) != 0);
 }
+
+TEST(mt_node_set_share, "UNIT-MT-070", "The fingerprint of the contacts' node numbers ignores their order and changes when one node replaces another") {
+    using mt::nodeSetShare;
+    const uint32_t ab = nodeSetShare(0x1111u) + nodeSetShare(0x2222u);
+    CHECK(ab == nodeSetShare(0x2222u) + nodeSetShare(0x1111u));
+    CHECK(ab != nodeSetShare(0x1111u) + nodeSetShare(0x3333u));    // removed one, added another: same count
+    CHECK(ab != nodeSetShare(0x1111u) + nodeSetShare(0x1111u));
+}

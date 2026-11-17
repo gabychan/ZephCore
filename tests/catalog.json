@@ -1393,6 +1393,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-070",
+      "name": "The fingerprint of the contacts' node numbers ignores their order and changes when one node replaces another",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-NEIGH-020",
       "name": "A row takes the name the node announced, else its number in hex",
       "source": "tests/unit/neighbour_tests.cpp"

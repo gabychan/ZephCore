@@ -926,6 +926,20 @@ bool CompanionMesh::mtKeyInUse(uint32_t node)
 	return false;
 }
 
+/* Fingerprint of the node numbers the contacts hold: what mtKeyInUse() answers from. */
+uint32_t CompanionMesh::mtKeyUsers()
+{
+	ContactInfo c;
+	uint32_t sum = 0;
+
+	for (int i = 0; i < getNumContacts(); i++) {
+		if (getContactByIdx((uint32_t)i, c)) {
+			sum += mt::nodeSetShare(c.sync_since);
+		}
+	}
+	return sum;
+}
+
 void CompanionMesh::mtStoreKey(uint32_t node, const uint8_t key[32])
 {
 	if (!_store) {
@@ -939,7 +953,7 @@ void CompanionMesh::mtStoreKey(uint32_t node, const uint8_t key[32])
 		}
 	}
 	const ZephyrDataStore::MtKeyResult r =
-		_store->putMtKey(node, key, MAX_CONTACTS, in_use, this, (uint32_t)getNumContacts());
+		_store->putMtKey(node, key, MAX_CONTACTS, in_use, this, mtKeyUsers());
 
 	if (r == ZephyrDataStore::MTKEY_STORED || r == ZephyrDataStore::MTKEY_SAME) {
 		_mt_key_stored[_mt_key_stored_next] = node;
