@@ -279,8 +279,8 @@ Drop rules and two limits on what the repeater accepts, MeshCore as `z.mc.fw.*` 
 | Command | Description |
 |---------|-------------|
 | `get z.mc.fw.drop` / `set z.mc.fw.drop <rule> on\|off\|1\|0` / `set z.mc.fw.drop none` | Payload types of flood frames that are dropped. Rules: `advert`, `request` (request, response, anonymous request), `text`, `group` (group text and data), `ack` (ack, multipart), `path`, `trace`; control frames (neighbour discovery) are never dropped. `get` lists the rules on with the frames each dropped: `> advert 12 trace 0`, or `> none`. Direct frames are not covered. `advert` on stops the repeater learning neighbours from adverts. |
-| `get z.mc.fw.gap` / `set z.mc.fw.gap <0-255>` | Minutes between two adverts of one key that are kept; `0` no limit. A key's gap opens when an advert of it passes the signature check, so a forged advert cannot silence the real node. 16 keys are remembered. A dropped advert does not refresh `neighbors`. |
-| `get z.mc.fw.rate` / `set z.mc.fw.rate <0-255>` | Flood frames a minute accepted from one neighbouring repeater, named by the last hash of the path; `0` no limit. Only 2- and 3-byte path hashes name a repeater (`path.hash.mode` 1 and 2). 8 repeaters are counted. |
+| `get z.mc.fw.gap` / `set z.mc.fw.gap <0-255>` | Minutes between two adverts of one key that are kept; `0` no limit. A key's gap opens when an advert of it passes the signature check, so a forged advert cannot silence the real node. 48 keys are remembered; when the table is full the key written longest ago is forgotten, and its gap with it. A dropped advert does not refresh `neighbors`. |
+| `get z.mc.fw.rate` / `set z.mc.fw.rate <0-255>` | Flood frames a minute accepted from one neighbouring repeater, named by the last hash of the path; `0` no limit. A 1-byte path hash (`path.hash.mode` 0) is counted too, but every repeater whose key starts with that byte shares the count, so a busy neighbour can use up another's allowance. 16 repeaters are counted; the one whose window was opened longest ago is forgotten when the table is full, and starts a new count if it comes back. |
 | `get z.mc.fw.stats` | `> gap 3, rate 12, drop 5`: adverts dropped by the gap, frames dropped by the rate and frames dropped by the drop rules, since boot. |
 
 
@@ -290,7 +290,7 @@ The same four commands, `get|set z.mt.fw.drop`, `.gap`, `.rate` and `get z.mt.fw
 
 - `drop` rules are ports: `text`, `position`, `nodeinfo`, `telemetry`, `traceroute`, `other` (any port not named, admin and store-and-forward among them). Routing (ACK and NAK) is never dropped. A frame of a channel this node holds no key for has no readable port, so no rule reaches it.
 - `gap` is minutes between two NodeInfo of one node that are kept, by node number. A NodeInfo on a channel carries no signature, so anyone with the channel key can send one; the gap opens only for a frame that passed every other check.
-- `rate` is frames a minute accepted from one neighbouring repeater, named by the relay byte of the header (the last byte of a node number; `0` means unknown and is not counted). Opaque frames count too. 8 repeaters are counted.
+- `rate` is frames a minute accepted from one neighbouring repeater, named by the relay byte of the header (the last byte of a node number; `0` means unknown and is not counted). Opaque frames count too. 16 repeaters are counted; the one whose window was opened longest ago is forgotten when the table is full.
 
 ## Reception statistics (*ZephCore only*, repeater)
 

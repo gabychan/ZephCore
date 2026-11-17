@@ -18,8 +18,8 @@
 
 namespace fw {
 
-static constexpr size_t kAdvertSlots = 16;  /* nodes remembered */
-static constexpr size_t kHopSlots = 8;      /* neighbouring repeaters counted */
+static constexpr size_t kAdvertSlots = 48;  /* nodes remembered */
+static constexpr size_t kHopSlots = 16;     /* neighbouring repeaters counted */
 static constexpr uint32_t kRateWindowMs = 60000;
 static constexpr size_t kHopMax = 3;        /* bytes of a relay name: a MeshCore path hash is up to 3 */
 static constexpr size_t kVerdicts = 32;     /* frames whose verdict is remembered */
@@ -94,6 +94,7 @@ class Firewall {
 		uint8_t prefix[kHopMax];
 		uint8_t size;
 		uint8_t count;
+		bool used;
 		uint32_t window_ms;
 	};
 	uint32_t _verdict_hash[kVerdicts] = {};
@@ -101,9 +102,23 @@ class Firewall {
 	uint8_t _verdict_next = 0;
 	AdvertSeen _adverts[kAdvertSlots] = {};
 	HopRate _hops[kHopSlots] = {};
-	uint8_t _advert_next = 0;
-	uint8_t _hop_next = 0;
 	Counters _counters = {};
+
+	/* The slot of a table that was written longest ago, an unused one first. */
+	template <typename T> static T *oldest(T *slots, size_t n, uint32_t now, uint32_t T::*at)
+	{
+		T *pick = &slots[0];
+
+		for (size_t i = 0; i < n; i++) {
+			if (!slots[i].used) {
+				return &slots[i];
+			}
+			if ((uint32_t)(now - slots[i].*at) > (uint32_t)(now - pick->*at)) {
+				pick = &slots[i];
+			}
+		}
+		return pick;
+	}
 
 public:
 	const Counters &counters() const { return _counters; }
@@ -175,8 +190,7 @@ public:
 			}
 		}
 		if (!slot) {
-			slot = &_adverts[_advert_next];
-			_advert_next = (uint8_t)((_advert_next + 1) % kAdvertSlots);
+			slot = oldest(_adverts, kAdvertSlots, now, &AdvertSeen::at_ms);
 			slot->key = key;
 			slot->used = true;
 		}
@@ -193,14 +207,14 @@ public:
 		HopRate *slot = nullptr;
 
 		for (HopRate &h : _hops) {
-			if (h.size == size && memcmp(h.prefix, relay, size) == 0) {
+			if (h.used && h.size == size && memcmp(h.prefix, relay, size) == 0) {
 				slot = &h;
 				break;
 			}
 		}
 		if (!slot) {
-			slot = &_hops[_hop_next];
-			_hop_next = (uint8_t)((_hop_next + 1) % kHopSlots);
+			slot = oldest(_hops, kHopSlots, now, &HopRate::window_ms);
+			slot->used = true;
 			slot->size = (uint8_t)size;
 			memcpy(slot->prefix, relay, size);
 			slot->window_ms = now;
@@ -218,10 +232,11 @@ public:
 		return false;
 	}
 
-	/* MeshCore: a 1-byte path hash names no repeater, so it is not counted. */
+	/* MeshCore: the last hop of the path names the repeater. A 1-byte hash is shared by every
+	 * repeater with that byte, so its count can include another one's frames. */
 	bool hopOverRate(const Prefs &p, const uint8_t *last_hop, size_t size, uint32_t now)
 	{
-		return size >= 2 && relayOverRate(p, last_hop, size, now);
+		return relayOverRate(p, last_hop, size, now);
 	}
 };
 

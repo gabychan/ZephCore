@@ -934,7 +934,7 @@
     },
     {
       "id": "UNIT-FW-005",
-      "name": "Sixteen keys are remembered; the seventeenth takes the oldest slot",
+      "name": "Forty-eight keys are remembered; the forty-ninth takes the slot written longest ago",
       "source": "tests/unit/fw_tests.cpp"
     },
     {
@@ -944,12 +944,12 @@
     },
     {
       "id": "UNIT-FW-007",
-      "name": "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash names none",
+      "name": "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash is counted too",
       "source": "tests/unit/fw_tests.cpp"
     },
     {
       "id": "UNIT-FW-008",
-      "name": "Eight repeaters are counted; the ninth takes the oldest slot and starts a fresh count",
+      "name": "Sixteen repeaters are counted; the seventeenth takes the window opened longest ago and starts a fresh count",
       "source": "tests/unit/fw_tests.cpp"
     },
     {

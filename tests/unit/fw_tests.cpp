@@ -62,14 +62,17 @@ TEST(fw_advert_wrap, "UNIT-FW-004", "The gap survives the 32-bit millisecond wra
     CHECK(!f.advertInGap(p, 7, t0 + 60000));
 }
 
-TEST(fw_advert_slots, "UNIT-FW-005", "Sixteen keys are remembered; the seventeenth takes the oldest slot") {
+TEST(fw_advert_slots, "UNIT-FW-005", "Forty-eight keys are remembered; the forty-ninth takes the slot written longest ago") {
     fw::Prefs p = {};
     p.advert_gap_min = 10;
     fw::Firewall f;
-    for (uint32_t k = 1; k <= 17; k++) f.advertKept(p, k, 0);
-    CHECK(!f.advertInGap(p, 1, 1000));
-    CHECK(f.advertInGap(p, 2, 1000));
-    CHECK(f.advertInGap(p, 17, 1000));
+    for (uint32_t k = 1; k <= 48; k++) f.advertKept(p, k, k);
+    f.advertKept(p, 1, 100);                      // key 1 is heard again: key 2 is now the oldest
+    f.advertKept(p, 49, 101);
+    CHECK(!f.advertInGap(p, 2, 1000));
+    CHECK(f.advertInGap(p, 1, 1000));
+    CHECK(f.advertInGap(p, 3, 1000));
+    CHECK(f.advertInGap(p, 49, 1000));
 }
 
 TEST(fw_rate, "UNIT-FW-006", "A repeater gets hop_rate frames a minute through, then none until the window passes") {
@@ -83,7 +86,7 @@ TEST(fw_rate, "UNIT-FW-006", "A repeater gets hop_rate frames a minute through, 
     CHECK(f.counters().rate == 2);
 }
 
-TEST(fw_rate_per_repeater, "UNIT-FW-007", "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash names none") {
+TEST(fw_rate_per_repeater, "UNIT-FW-007", "Each repeater is counted on its own; a hash of another size is another repeater; a 1-byte hash is counted too") {
     fw::Prefs p = {};
     p.hop_rate = 1;
     fw::Firewall f;
@@ -91,19 +94,21 @@ TEST(fw_rate_per_repeater, "UNIT-FW-007", "Each repeater is counted on its own; 
     CHECK(f.hopOverRate(p, kA, 2, 1));
     CHECK(!f.hopOverRate(p, kB, 2, 1));
     CHECK(!f.hopOverRate(p, kA, 3, 1));
-    for (int i = 0; i < 5; i++) CHECK(!f.hopOverRate(p, kA, 1, i));
+    CHECK(!f.hopOverRate(p, kA, 1, 2));
+    CHECK(f.hopOverRate(p, kA, 1, 3));
+    CHECK(!f.hopOverRate(p, kB, 1, 3));
 }
 
-TEST(fw_rate_slots, "UNIT-FW-008", "Eight repeaters are counted; the ninth takes the oldest slot and starts a fresh count") {
+TEST(fw_rate_slots, "UNIT-FW-008", "Sixteen repeaters are counted; the seventeenth takes the window opened longest ago and starts a fresh count") {
     fw::Prefs p = {};
     p.hop_rate = 1;
     fw::Firewall f;
-    for (uint8_t i = 1; i <= 8; i++) { const uint8_t h[2] = {i, i}; CHECK(!f.hopOverRate(p, h, 2, 0)); }
-    const uint8_t n[2] = {9, 9};
-    CHECK(!f.hopOverRate(p, n, 2, 1));
+    for (uint8_t i = 1; i <= 16; i++) { const uint8_t h[2] = {i, i}; CHECK(!f.hopOverRate(p, h, 2, i)); }
+    const uint8_t n[2] = {17, 17};
+    CHECK(!f.hopOverRate(p, n, 2, 20));
     const uint8_t evicted[2] = {1, 1}, kept[2] = {3, 3};
-    CHECK(!f.hopOverRate(p, evicted, 2, 2));
-    CHECK(f.hopOverRate(p, kept, 2, 2));
+    CHECK(!f.hopOverRate(p, evicted, 2, 21));
+    CHECK(f.hopOverRate(p, kept, 2, 21));
 }
 
 TEST(fw_commands, "UNIT-FW-009", "z.mc.fw.gap and z.mc.fw.rate get and set 0 to 255; anything else is refused; stats is read only") {
