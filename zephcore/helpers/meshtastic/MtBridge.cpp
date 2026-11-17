@@ -147,7 +147,7 @@ bool Bridge::heardBefore(const Header &h, const uint8_t *raw, size_t len, uint8_
 	if (!s) {
 		return false;
 	}
-	const bool originator = h.hopStart() > 0 && h.hopStart() == h.hopLimit();
+	const bool originator = h.fromOrigin();
 
 	if ((!s->relayed || originator) && fillRelay(h, raw, len, relay_out, relay_len)) {
 		s->relayed = true;
@@ -209,7 +209,7 @@ uint32_t originDelayMs(uint32_t slot_ms, uint32_t r)
 
 uint32_t earlyDelayMs(uint32_t slot_ms, uint32_t r)
 {
-	return r * slot_ms;
+	return originDelayMs(slot_ms, r);
 }
 
 uint32_t relayWindow(int8_t snr_x4, bool early)
@@ -310,7 +310,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 	}
 	Seen *seen_now = remember(h.from, h.id);
 
-	uint8_t hops = h.hopStart() > h.hopLimit() ? (uint8_t)(h.hopStart() - h.hopLimit()) : 0;
+	uint8_t hops = h.hopsAway();
 
 	if (fillRelay(h, raw, len, relay_out, relay_len)) {
 		seen_now->relayed = true;
@@ -365,7 +365,7 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink)
 {
 	if (d.portnum == PORT_TEXT) {
-		uint8_t hops = h.hopStart() > h.hopLimit() ? (uint8_t)(h.hopStart() - h.hopLimit()) : 0;
+		uint8_t hops = h.hopsAway();
 
 		if (d.payload_len > 0) {
 			sink.onDirectText(h.from, h.id, d.reply_id, h.wantAck(),

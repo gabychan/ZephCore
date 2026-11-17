@@ -208,7 +208,7 @@ void MtRelayPort::echoHeard(const uint8_t raw[], int len)
 {
 	mt::Header h;
 
-	if (!mt::parseHeader(raw, (size_t)len, h) || (h.hopStart() > 0 && h.hopStart() == h.hopLimit())) {
+	if (!mt::parseHeader(raw, (size_t)len, h) || h.fromOrigin()) {
 		return;
 	}
 	_mesh.foreignDupeHeard(raw, len);
@@ -223,8 +223,7 @@ void MtRelayPort::noteDirect(const uint8_t raw[], int len, int8_t snr_x4)
 {
 	mt::Header h;
 
-	if (mt::parseHeader(raw, (size_t)len, h) && h.from != _bridge.self() && h.hopStart() > 0 &&
-	    h.hopStart() == h.hopLimit()) {
+	if (mt::parseHeader(raw, (size_t)len, h) && h.from != _bridge.self() && h.fromOrigin()) {
 		_neighbours.note(h.from, snr_x4, (uint32_t)(k_uptime_get() / 1000));
 	}
 }

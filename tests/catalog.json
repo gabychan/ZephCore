@@ -1371,6 +1371,11 @@
       "id": "UNIT-RX-007",
       "name": "A full table drops a relay not heard for over an hour before the one with fewest frames",
       "source": "tests/unit/rxstats_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-068",
+      "name": "hopsAway counts the hops spent and is 0 without hop_start; fromOrigin needs hop_start and none spent",
+      "source": "tests/unit/meshtastic_tests.cpp"
     }
   ]
 }

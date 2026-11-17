@@ -1869,3 +1869,15 @@ TEST(mt_looks_like_meshcore_bound, "UNIT-MT-067", "Random Meshtastic-sized frame
     uint8_t ack[1 + 1 + 4] = {(uint8_t)((PAYLOAD_TYPE_ACK << PH_TYPE_SHIFT) | ROUTE_TYPE_FLOOD), 0, 1, 2, 3, 4};
     CHECK(looksLikeMeshCore(ack, sizeof(ack), 0) && !looksLikeMeshCore(ack, sizeof(ack) - 1, 0));
 }
+
+TEST(mt_header_hops, "UNIT-MT-068", "hopsAway counts the hops spent and is 0 without hop_start; fromOrigin needs hop_start and none spent") {
+    Header h = {};
+    h.flags = 0;
+    CHECK(h.hopsAway() == 0 && !h.fromOrigin());          // the sender set no hop_start
+    h.flags = (uint8_t)(3 | (3 << 5));
+    CHECK(h.hopsAway() == 0 && h.fromOrigin());
+    h.flags = (uint8_t)(1 | (3 << 5));
+    CHECK(h.hopsAway() == 2 && !h.fromOrigin());
+    h.flags = (uint8_t)(4 | (3 << 5));                    // more left than it started with: a broken header
+    CHECK(h.hopsAway() == 0 && !h.fromOrigin());
+}
