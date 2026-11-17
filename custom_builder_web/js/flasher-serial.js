@@ -226,6 +226,7 @@ window.ZephtacoreSerial = (function () {
     setup,
     sendCommand,
     sendCommandAndWait,
+    log: logToTerminal,
     connect,
     disconnect,
     isConnected: () => isConnected

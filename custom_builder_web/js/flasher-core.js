@@ -106,7 +106,7 @@ function initFlasherCore() {
         previewFlashTag.style.color = "#f59e0b";
         previewFlashTag.style.borderColor = "rgba(245, 158, 11, 0.3)";
       } else {
-        previewFlashTag.textContent = `Grabado con esptool (offset ${board.defaultOffset || "0x00"})`;
+        previewFlashTag.textContent = "Grabado por USB (esptool-js, 0x0)";
         previewFlashTag.style.background = "rgba(0, 242, 254, 0.1)";
         previewFlashTag.style.color = "var(--brand-cyan)";
         previewFlashTag.style.borderColor = "rgba(0, 242, 254, 0.3)";
@@ -308,7 +308,10 @@ function initFlasherCore() {
       ? "Catálogo no disponible"
       : available ? "Build Zephtacore publicado" : "Sin build Zephtacore: compílalo con west";
     previewBuildTag.style.color = available ? "var(--brand-emerald)" : "var(--text-muted)";
-    if (btnUnifiedFlash) btnUnifiedFlash.disabled = !available;
+    if (btnUnifiedFlash) {
+      btnUnifiedFlash.disabled = !available;
+      btnUnifiedFlash.textContent = board.flashType === "bin" ? "⚡ Grabar firmware por USB" : "⬇️ Descargar firmware";
+    }
   }
 
   function setProgress(percent, text) {
@@ -317,27 +320,82 @@ function initFlasherCore() {
     if (progressPercent) progressPercent.textContent = `${percent}%`;
   }
 
-  // Downloads the catalog binary for the board and role. Throws when there is none.
-  async function downloadFirmware(board, role) {
+  // Fetches the catalog binary for the board and role. Throws when there is none.
+  async function fetchFirmware(board, role) {
     const url = await resolveFirmwareUrl(board, role);
     if (!url) throw new Error(`No hay build Zephtacore publicado para ${board.name} (${role}). Compílalo con west desde el Builder.`);
 
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`La descarga de ${url.split("/").pop()} falló (HTTP ${resp.status}).`);
+    return { name: url.split("/").pop(), bytes: new Uint8Array(await resp.arrayBuffer()) };
+  }
 
-    const name = url.split("/").pop();
+  async function downloadFirmware(board, role) {
+    const { name, bytes } = await fetchFirmware(board, role);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(await resp.blob());
+    a.href = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
     a.download = name;
     a.click();
     return name;
+  }
+
+  // ESP32: writes the merged image at 0x0 with esptool-js. The chip must answer and be the
+  // board's own family before anything is written.
+  async function flashEsp32(board, role) {
+    if (!("serial" in navigator)) {
+      alert("Web Serial no está soportado en este navegador. Por favor usa Google Chrome o Microsoft Edge en tu ordenador.");
+      return;
+    }
+    const serial = window.ZephtacoreSerial;
+    let transport = null;
+    try {
+      // requestPort needs a recent user gesture: ask for it before the download.
+      setProgress(5, "Elige el puerto de la placa (si no aparece, mantén BOOT y pulsa RESET).");
+      const port = await navigator.serial.requestPort();
+
+      setProgress(10, `Descargando el firmware de ${board.name}...`);
+      const { name, bytes } = await fetchFirmware(board, role);
+      const { ESPLoader, Transport } = window.ZephtacoreEsptool || (await import("../vendor/esptool-js.bundle.js"));
+      transport = new Transport(port, false);
+      const terminal = {
+        clean() {},
+        write: (text) => serial.log(text, "info"),
+        writeLine: (text) => serial.log(`${text}\n`, "info")
+      };
+      const loader = new ESPLoader({ transport, baudrate: 460800, romBaudrate: 115200, terminal });
+
+      setProgress(15, "Conectando con el chip...");
+      const chipDescription = await loader.main();
+      if (loader.chip.CHIP_NAME.toUpperCase() !== board.mcu.toUpperCase()) {
+        throw new Error(`El chip detectado (${chipDescription}) no es un ${board.mcu}. No se ha escrito nada.`);
+      }
+
+      setProgress(20, `Grabando ${name} en 0x0...`);
+      await loader.writeFlash({
+        fileArray: [{ data: bytes, address: 0 }],
+        flashSize: "keep",
+        flashMode: "keep",
+        flashFreq: "keep",
+        eraseAll: false,
+        compress: true,
+        reportProgress: (_file, written, total) => setProgress(20 + Math.round((written / total) * 75), `Grabando ${name}...`)
+      });
+
+      await loader.after("hard_reset");
+      setProgress(100, 'Firmware grabado y placa reiniciada. Cuando arranque, pulsa "Enviar ajustes por USB".');
+    } catch (err) {
+      console.error("ESP32 flash error:", err);
+      setProgress(0, `Error: ${err.message}`);
+    } finally {
+      if (transport) await transport.disconnect().catch(() => {});
+    }
   }
 
   function afterDownloadHint(board, fileName) {
     const next = 'Cuando la placa arranque con el firmware nuevo, pulsa "Enviar ajustes por USB".';
     if (board.flashType === "uf2") return `Descargado "${fileName}". Cópialo al disco UF2 de la placa. ${next}`;
     if (board.flashType === "hex") return `Descargado "${fileName}". Prográmalo con west flash o una sonda SWD. ${next}`;
-    return `Descargado "${fileName}". Esta web no graba ESP32: grábalo en 0x0 con esptool. ${next}`;
+    return `Descargado "${fileName}". ${next}`;
   }
 
   function selectedBoard() {
@@ -358,6 +416,11 @@ function initFlasherCore() {
     if (progressCard) {
       progressCard.style.display = "block";
       progressCard.scrollIntoView({ behavior: "smooth" });
+    }
+
+    if (board.flashType === "bin") {
+      await flashEsp32(board, targetRole);
+      return;
     }
 
     try {
@@ -395,7 +458,7 @@ function initFlasherCore() {
         setProgress(0, "Selecciona primero un archivo de firmware.");
         return;
       }
-      setProgress(0, `Esta web no graba archivos locales. Copia "${activeFile.name}" al disco UF2 de la placa o grábalo con esptool (ESP32, en 0x0), y después usa "Enviar ajustes por USB".`);
+      setProgress(0, `Esta web graba solo el firmware del catálogo, no archivos locales. Copia "${activeFile.name}" al disco UF2 de la placa o grábalo con esptool (ESP32, en 0x0), y después usa "Enviar ajustes por USB".`);
     });
   }
 
