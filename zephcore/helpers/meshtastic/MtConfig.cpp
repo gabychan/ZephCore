@@ -330,25 +330,41 @@ AddResult addChannel(RepeaterPrefs &p, const char *name, const uint8_t *psk, siz
 	return ADD_OK;
 }
 
+/* "<name> [default|<base64 key>]" of a channel command; psk and len are the default key when none is given.
+ * False, with the error in reply, when it is not that. */
+static bool parseNameAndKey(const char *args, const char *command, char name[kChannelNameMax + 2],
+			    uint8_t psk[kPskMax], int &len, bool &has_key, char *reply, size_t cap)
+{
+	char key[40] = "";
+	const int n = sscanf(args, "%12s %39s", name, key);
+
+	psk[0] = 1;
+	len = 1;
+	has_key = n == 2;
+	if (n < 1 || !validName(name)) {
+		snprintf(reply, cap, "Error: %s <name up to %u chars> [default|<base64 key>]", command,
+			 (unsigned)kChannelNameMax);
+		return false;
+	}
+	if (has_key && strcmp(key, "default") != 0) {
+		len = base64Decode(key, psk, kPskMax);
+		if (len != 1 && len != 16) {
+			snprintf(reply, cap, "Error: key is 1 or 16 bytes in base64");
+			return false;
+		}
+	}
+	return true;
+}
+
 static void channelAdd(RepeaterPrefs &p, const char *args, char *reply, size_t cap, CmdResult &r)
 {
 	char name[kChannelNameMax + 2];
-	char key[40] = "";
-	uint8_t psk[kPskMax] = {1};
-	int len = 1;
-	int n = sscanf(args, "%12s %39s", name, key);
+	uint8_t psk[kPskMax];
+	int len;
+	bool has_key;
 
-	if (n < 1 || !validName(name)) {
-		snprintf(reply, cap, "Error: set z.mt.channel.add <name up to %u chars> [default|<base64 key>]",
-			 (unsigned)kChannelNameMax);
+	if (!parseNameAndKey(args, "set z.mt.channel.add", name, psk, len, has_key, reply, cap)) {
 		return;
-	}
-	if (n == 2 && strcmp(key, "default") != 0) {
-		len = base64Decode(key, psk, sizeof(psk));
-		if (len != 1 && len != 16) {
-			snprintf(reply, cap, "Error: key is 1 or 16 bytes in base64");
-			return;
-		}
 	}
 	switch (addChannel(p, name, psk, (size_t)len)) {
 	case ADD_OK:
@@ -413,29 +429,17 @@ static void channelList(const RepeaterPrefs &p, char *reply, size_t cap)
 static void setChannel(RepeaterPrefs &p, const char *args, char *reply, size_t cap, bool &changed)
 {
 	char name[kChannelNameMax + 2];
-	char key[40] = "";
+	uint8_t psk[kPskMax];
+	int len;
+	bool has_key;
 
-	int n = sscanf(args, "%12s %39s", name, key);
-
-	if (n < 1 || !validName(name)) {
-		snprintf(reply, cap, "Error: set z.mt.channel <name up to %u chars> [default|<base64 key>]",
-			 (unsigned)kChannelNameMax);
+	if (!parseNameAndKey(args, "set z.mt.channel", name, psk, len, has_key, reply, cap)) {
 		return;
-	}
-	uint8_t psk[kPskMax] = {1};
-	int len = 1;
-
-	if (n == 2 && strcmp(key, "default") != 0) {
-		len = base64Decode(key, psk, sizeof(psk));
-		if (len != 1 && len != 16) {
-			snprintf(reply, cap, "Error: key is 1 or 16 bytes in base64");
-			return;
-		}
 	}
 	/* One name alone keeps the key. */
 	changed = strcmp(p.channel, name) != 0;
 	strcpy(p.channel, name);
-	if (n == 2) {
+	if (has_key) {
 		changed = changed || p.psk_len != len || memcmp(p.psk, psk, (size_t)len) != 0;
 		p.psk_len = (uint8_t)len;
 		memset(p.psk, 0, sizeof(p.psk));
