@@ -25,7 +25,7 @@ public:
 		const uint32_t *zerohop_nodes;  /* mt::kZeroHopNodesMax nodes listed by hand */
 	};
 	struct Stats {
-		uint32_t heard, relayed, opaque, dropped, shed, kept;
+		uint32_t heard, relayed, opaque, dropped, shed, too_long, kept;
 	};
 	/* What a role adds to the NodeInfo: its position and its metrics, if it has them. */
 	struct Source {

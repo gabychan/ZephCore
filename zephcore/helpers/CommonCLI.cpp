@@ -389,7 +389,7 @@ void CommonCLI::replyZInfo(size_t cap, char* reply) {
 /* "get z.stats": the MeshCore counters and, where built, the Meshtastic ones. */
 void CommonCLI::replyZStats(size_t cap, char* reply) {
 	zinfo::Stats stats = {};
-	char mt[96];
+	char mt[160];  /* the 7 counters of get z.mt.stats at 10 digits each */
 
 	_callbacks->fillZStats(stats);
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)

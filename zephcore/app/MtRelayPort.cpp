@@ -158,9 +158,10 @@ bool MtRelayPort::nextAt(uint32_t &at_ms) const
 
 void MtRelayPort::formatStats(char *out, size_t cap) const
 {
-	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u dropped=%u shed=%u kept=%u",
+	snprintf(out, cap, "> heard=%u relayed=%u opaque=%u dropped=%u shed=%u long=%u kept=%u",
 		 (unsigned)_stats.heard, (unsigned)_stats.relayed, (unsigned)_stats.opaque,
-		 (unsigned)_stats.dropped, (unsigned)_stats.shed, (unsigned)_stats.kept);
+		 (unsigned)_stats.dropped, (unsigned)_stats.shed, (unsigned)_stats.too_long,
+		 (unsigned)_stats.kept);
 }
 
 bool MtRelayPort::send(const uint8_t *frame, size_t len)
@@ -187,7 +188,7 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, const int8_t snr_x4,
 {
 	if (len > mt::kMaxTxFrame) {
 		LOG_WRN("mt: relay too long (len=%u)", (unsigned)len);
-		_stats.shed++;
+		_stats.too_long++;
 		return;
 	}
 	const uint32_t slot = slotMs();
