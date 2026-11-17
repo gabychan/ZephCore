@@ -132,7 +132,7 @@ Bridge::Seen *Bridge::remember(uint32_t from, uint32_t id)
 bool Bridge::eligible(const Header &h) const
 {
 	return _relay && h.id != 0 && h.hopLimit() > 0 && h.from != _self && h.to != _self &&
-	       (h.next_hop == 0 || h.next_hop == (uint8_t)_self);
+	       (h.next_hop == 0 || h.next_hop == relayByte(_self));
 }
 
 bool Bridge::heardBefore(const Header &h, const uint8_t *raw, size_t len, uint8_t *relay_out,
@@ -334,7 +334,7 @@ bool Bridge::fillRelay(const Header &h, const uint8_t *raw, size_t len, uint8_t 
 	memcpy(relay_out, raw, len);
 	relay_out[12] = (uint8_t)((h.flags & ~0x07) | (h.hopLimit() - 1));
 	relay_out[14] = 0;  /* no route learned: flood on */
-	relay_out[15] = (uint8_t)_self;
+	relay_out[15] = relayByte(_self);
 	*relay_len = len;
 	return true;
 }
@@ -433,7 +433,7 @@ size_t Bridge::buildFrame(const Channel *ch, const uint8_t *pki_key, uint32_t to
 	h.flags = (uint8_t)(_hops | (_hops << 5) | (want_ack ? 0x08 : 0));
 	h.channel = pki_key ? 0 : ch->hash;
 	h.next_hop = 0;
-	h.relay = (uint8_t)_self;
+	h.relay = relayByte(_self);
 	writeHeader(h, out);
 
 	remember(_self, h.id);

@@ -231,7 +231,7 @@ void MtRelayPort::echoHeard(const uint8_t raw[], int len, bool may_yield)
 	if (!mt::parseHeader(raw, (size_t)len, h) || (h.hopStart() > 0 && h.hopStart() == h.hopLimit())) {
 		return;
 	}
-	const bool asked = h.next_hop != 0 && h.next_hop == (uint8_t)_bridge.self();
+	const bool asked = h.next_hop != 0 && h.next_hop == mt::relayByte(_bridge.self());
 
 	if (may_yield && !asked && yields(hash) && _mesh.cancelForeignRelay(hash)) {
 		_stats.yielded++;

@@ -1608,3 +1608,26 @@ TEST(mt_pki_screen, "UNIT-MT-057", "A PKI direct text goes through the firewall 
     CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_DROPPED);
     CHECK(screen.asked == 1 && screen.last_port == PORT_TEXT && t.cb.directs.empty());
 }
+
+TEST(mt_relay_byte_zero, "UNIT-MT-058", "A node whose number ends in 00 puts 0xFF in the relay byte, and a next hop naming it is repeated") {
+    Bridge a = makeNode(0xA1A1A100u, "alpha", 7);
+    Bridge c = makeNode(0xC3C3C300u, "gamma", 11);
+    c.setRelay(true);
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    size_t n = a.buildText(3, kBroadcast, "hola", 4, frame, sizeof(frame));
+    Header h;
+    CHECK(parseHeader(frame, n, h) && h.relay == 0xFF);
+    Capture cap;
+    CHECK(c.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == n);
+    CHECK(parseHeader(relay, relay_len, h) && h.relay == 0xFF && h.hopLimit() == 2);
+    // A next hop of 0xFF names a node ending in 00; another byte names someone else.
+    frame[14] = 0xFF;
+    Bridge c2 = makeNode(0xC3C3C300u, "gamma", 11);
+    c2.setRelay(true);
+    CHECK(c2.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == n);
+    frame[14] = 0x41;
+    Bridge c3 = makeNode(0xC3C3C300u, "gamma", 11);
+    c3.setRelay(true);
+    CHECK(c3.handleFrame(frame, n, 0, cap, relay, &relay_len) == RX_HANDLED && relay_len == 0);
+}

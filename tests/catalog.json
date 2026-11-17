@@ -1241,6 +1241,11 @@
       "id": "UNIT-MT-057",
       "name": "A PKI direct text goes through the firewall screen like a channel text",
       "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-058",
+      "name": "A node whose number ends in 00 puts 0xFF in the relay byte, and a next hop naming it is repeated",
+      "source": "tests/unit/meshtastic_tests.cpp"
     }
   ]
 }

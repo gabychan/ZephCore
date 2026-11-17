@@ -16,6 +16,12 @@ static constexpr uint32_t kBroadcast = 0xFFFFFFFFu;
 static constexpr size_t kHeaderLen = 16;
 static constexpr size_t kMaxFrame = 255;
 
+/* The byte a node puts in the header when it repeats and names as next hop: never 0. */
+inline uint8_t relayByte(uint32_t node)
+{
+	return (uint8_t)node ? (uint8_t)node : 0xFF;
+}
+
 /* Data.portnum values the bridge handles. */
 enum : uint32_t {
 	PORT_TEXT = 1,
