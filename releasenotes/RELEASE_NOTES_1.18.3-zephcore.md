@@ -21,6 +21,10 @@ default channels and node name in order.
   while writing. On nRF52 it loads the SoftDevice's formatter package first, which erases the file system and returns the
   board to the bootloader, and then the firmware. The formatter is the one the catalog names for the board. A clean
   install gives the node a new identity.
+- The companion of a board whose USB-C is a USB-UART bridge (Heltec V3, ThinkNode M9) now serves the app and the
+  text CLI over that UART, as the boards with native USB already do, so the Builder can send its settings by USB and
+  observers and bots can use the port. On the Heltec V3 the system heap is 68 KB, 63 KB with
+  Zephtacore (`wifi_companion_uart.conf`, `wifi_companion_zephtacore_uart.conf`).
 - A push to a branch other than `master` still builds, but no longer replaces the release or `firmware-dist`.
 
 ---

@@ -49,6 +49,9 @@ west build -b <board> zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/<f
 | `wifi_ota.conf` | WiFi AP + HTTP firmware update | ESP32 repeaters; needs MCUboot, so `--sysbuild` |
 | `wifi_companion.conf` | App over TCP on your WiFi | Added automatically for boards whose manifest declares `wifi: true` |
 | `wifi_companion_zephtacore.conf` | 3 KB less system heap for the Zephtacore tables | Added automatically with `wifi_companion.conf` when `zephtacore.conf` is also given |
+| `serial_companion.conf` | Companion and text CLI over the board's UART | Added automatically to ESP32 companions whose `board.overlay` names a `zephcore,companion-uart` and has no USB OTG node (USB-C through a USB-UART bridge); not in debug builds |
+| `wifi_companion_uart.conf` | 4 KB less system heap, for the UART companion | Added automatically with `serial_companion.conf` on a WiFi board |
+| `wifi_companion_zephtacore_uart.conf` | System heap of 63 KB for both together | Added automatically after the one above when `zephtacore.conf` is also given |
 | `ble_ota.conf` | Firmware update over BLE (MCUmgr, nRF Connect Device Manager) | Added automatically to ESP32 S3/C-series companions built with `--sysbuild`, unless the manifest says `ble_ota: false` |
 
 Board strings are in [supported_boards.md](supported_boards.md). Examples:

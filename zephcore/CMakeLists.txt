@@ -251,6 +251,9 @@ if(ZEPHCORE_PLATFORM STREQUAL "esp32")
     # console to uart0, which would strand a server role's CLI on GPIO43/44. Not
     # with serial_companion (COMPANION_SERIAL depends on !COMPANION_USB) and not in
     # debug builds (ESP32 has no RTT; the port must stay the log console).
+    # A board whose USB-C is a USB-UART bridge has no OTG node and declares the
+    # `zephcore,companion-uart` chosen node instead: serial_companion.conf gives
+    # its companion and text CLI the same wired link.
     if(ZEPHCORE_BUILD_ROLE STREQUAL "companion" AND NOT ZEPHCORE_BUILD_DEBUG
        AND NOT "serial_companion" IN_LIST _user_conf_names
        AND NOT "esp32s3_usb" IN_LIST _user_conf_names
@@ -259,6 +262,16 @@ if(ZEPHCORE_PLATFORM STREQUAL "esp32")
         if(_board_overlay_text MATCHES "esp32s3_usb_otg\\.dtsi")
             zephcore_add_conf(${_zc}/esp32s3_usb.conf)
             message(STATUS "  USB CDC companion: auto-enabled (board declares USB OTG CDC-ACM)")
+        elseif(_board_overlay_text MATCHES "zephcore,companion-uart")
+            zephcore_add_conf(${_zc}/serial_companion.conf)
+            message(STATUS "  UART companion: auto-enabled (board declares zephcore,companion-uart)")
+            if(ZEPHCORE_BOARD_WIFI)
+                zephcore_add_conf(${_zc}/wifi_companion_uart.conf)
+                message(STATUS "  WiFi companion heap: trimmed for the UART companion")
+                if("zephtacore" IN_LIST _user_conf_names)
+                    zephcore_add_conf(${_zc}/wifi_companion_zephtacore_uart.conf)
+                endif()
+            endif()
         endif()
     endif()
 endif()

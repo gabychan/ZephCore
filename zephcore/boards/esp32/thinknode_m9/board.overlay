@@ -34,6 +34,7 @@
 
 	chosen {
 		zephyr,display = &mono_tft;
+		zephcore,companion-uart = &uart0;
 	};
 
 	/*
@@ -245,6 +246,6 @@
  * into UART0 (GPIO43/44), verified on hardware. No USB OTG transport on this
  * board: the S3's native D+/D- pads (GPIO19/20) are not bonded to the
  * connector, and GPIO20/21 carry the STC8H keypad I2C bus — enabling the OTG
- * or USB Serial/JTAG PHY would claim the keypad's SDA pin. BLE is the
- * companion transport. */
+ * or USB Serial/JTAG PHY would claim the keypad's SDA pin. The companion
+ * runs over BLE and over uart0. */
 #include "../../common/esp32s3_console_uart0.dtsi"
