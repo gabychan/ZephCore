@@ -18,6 +18,9 @@ on:
           - gat562_30s
           - promicro_sx1262
           - promicro_lr2021
+          - rak3401_1watt
+          - rak_wismesh_tag
+          - thinknode_m3
       role:
         description: "Rol"
         required: true

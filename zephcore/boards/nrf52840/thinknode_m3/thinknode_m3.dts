@@ -22,6 +22,7 @@
 #include <nordic/nrf52840_qiaa.dtsi>
 #include <nordic/nrf52840_partition.dtsi>
 #include <zephyr/dt-bindings/adc/nrf-saadc.h>
+#include <zephyr/dt-bindings/comparator/nrf-comp.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
 #include "thinknode_m3-pinctrl.dtsi"
@@ -131,6 +132,18 @@
 
 &reg1 {
 	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+/* Wake from a low-battery System OFF: LPCOMP on the same divider as the ADC
+ * (AIN3, Vpin = VBAT / 2) against 9/16 of VDD (3.3 V). Rising past it is
+ * VBAT ~3.7 V with hysteresis; keep `autoshutdown` below that.
+ * UNMEASURED on this board: threshold computed from the divider ratio only. */
+&comp {
+	compatible = "nordic,nrf-lpcomp";
+	status = "okay";
+	psel = <NRF_COMP_AIN3>;
+	refsel = "VDD_9_16";
+	enable-hyst;
 };
 
 &adc {

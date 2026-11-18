@@ -29,6 +29,7 @@
 #include "rak_wismesh_tag-pinctrl.dtsi"
 #include <zephyr/dt-bindings/lora/sx126x.h>
 #include <zephyr/dt-bindings/adc/nrf-saadc.h>
+#include <zephyr/dt-bindings/comparator/nrf-comp.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
 
@@ -165,6 +166,18 @@
 
 &reg1 {
 	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+};
+
+/* Wake from a low-battery System OFF: LPCOMP on the same divider as the ADC
+ * (AIN3, Vpin = VBAT / 1.73) against 5/8 of VDD (3.3 V). Rising past it is
+ * VBAT ~3.55 V with hysteresis; keep `autoshutdown` below that.
+ * UNMEASURED on this board: threshold computed from the divider ratio only. */
+&comp {
+	compatible = "nordic,nrf-lpcomp";
+	status = "okay";
+	psel = <NRF_COMP_AIN3>;
+	refsel = "VDD_5_8";
+	enable-hyst;
 };
 
 &adc {
