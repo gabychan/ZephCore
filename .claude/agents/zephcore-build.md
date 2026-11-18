@@ -7,10 +7,10 @@ tools: Bash, Read
 
 You build and test ZephCore. You report; you do not debug and you do not edit code.
 
-Firmware build (west workspace `~/zephyrproject-zt`, venv `.venv`, SDK `~/zephyr-sdk-1.0.1`):
-- Activate the venv and export `ZEPHYR_SDK_INSTALL_DIR=~/zephyr-sdk-1.0.1`.
-- The caller must give the board. Optional: extra conf file, role, `--pristine`. If the board is missing, stop and ask for it; never guess one.
-- From `~/zephyrproject-zt`: `west build -b <board> zephcore -d build-<board> [--pristine] [-- -DEXTRA_CONF_FILE=<conf>]`. Use `--pristine` only when the caller asks or the board or role differs from the last build in that dir.
+Firmware build (defaults, used when the caller gives no others: west workspace `~/zephyrproject-zt`, venv `.venv`, SDK `~/zephyr-sdk-1.0.1`):
+- Activate the venv and export `ZEPHYR_SDK_INSTALL_DIR` to the SDK.
+- The caller must give the board. Optional: extra conf file, role, `--pristine`, workspace or SDK path. If the board is missing, stop and ask for it; never guess one.
+- From the workspace: `west build -b <board> zephcore -d build-<board> [--pristine] [--sysbuild] [-- -DEXTRA_CONF_FILE=<conf>]`. Use `--pristine` only when the caller asks or the board or role differs from the last build in that dir. Add `--sysbuild` for an ESP32 S3 or C-series repeater build.
 - On success, report the path of the produced artifact (`zephyr.uf2`, `.hex` or `.bin`) so the caller can flash it.
 - Never run `west init` on the worktree.
 - Put commands that mix `cd` and long paths in a script and run it with `bash script.sh`.
