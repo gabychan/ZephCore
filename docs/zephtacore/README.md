@@ -149,7 +149,7 @@ Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI
 | What `essential` repeats | `mt::relayClassOf` in `MtPolicy.h` |
 | Receive limits `z.mc.fw.*` and `z.mt.fw.*`: types dropped, one advert or NodeInfo per node per window, a ceiling of frames a minute per neighbouring repeater | `zephcore/helpers/McFirewall.h` (shared core and commands); MeshCore: `RepeaterMesh::filterRecvFloodPacket`; Meshtastic: `mt::Screen` in `MtBridge.h`, `mt::FwScreen` in `MtFirewall.h` |
 | Reception statistics `z.mc.hopstats`, `z.mt.hopstats`, `z.mc.relays`, `z.mt.relays` | `zephcore/helpers/RxStats.h`; fed by `RepeaterMesh::onRecvPacket` and `onRecvForeign` |
-| Zero hop: when a repeat keeps its `hop_limit` (ADR 0016) | `mt::ZeroHop` in `MtZeroHop.h`, applied in `MtRelayPort::onFrame` |
+| Zero hop: when a repeat keeps its `hop_limit` (ADR 0016); in a ring of fixed nodes only the 64-frame duplicate table stops a frame | `mt::ZeroHop` in `MtZeroHop.h`, applied in `MtRelayPort::onFrame` |
 | MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. While `z.mt.enable` is on, a frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser (`MtRelayPort::unopened`); with it off every frame is MeshCore's |
 | Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard` |
 

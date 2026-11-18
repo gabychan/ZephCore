@@ -36,6 +36,10 @@ companion announced `client` too although it repeats nothing by default.
 - Only the last byte of the node number travels in a frame. A node that only repeats, shares the byte of a fixed neighbour and
   was never heard directly gets its hop kept too; the cost is one hop, not a loop: the `(from, id)` table stops a frame
   that comes back.
+- In a ring of fixed nodes that all keep the hop, `hop_limit` no longer ends a frame's trip: only the `(from, id)` table
+  does, and it holds the last 64 frames, not a time. A frame that comes back after 64 others were heard is repeated again.
+  Upstream's `PacketHistory` is bounded by count the same way. Accepted; a cap on the hops kept or a time in the table
+  would bound it, if it is ever seen.
 - A fixed neighbour whose NodeInfo we cannot read is not learned; it goes on the list.
 - A repeat is never cancelled because another node sent the frame first, in any role. The copy only pushes our repeat back
   (`backoff.multiplier` x airtime, capped as for MeshCore floods), as MeshCore does, so a lone repeater still carries the frame
