@@ -229,6 +229,16 @@
 	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
 };
 
+/* Wake from a low-battery System OFF: LPCOMP on the same divider as the ADC
+ * (AIN2, Vpin = VBAT / 2) against 9/16 of VDD (3.3 V). Rising past it is VBAT
+ * ~3.7 V with hysteresis. Keep `autoshutdown` below that. */
+&comp {
+	compatible = "nordic,nrf-lpcomp";
+	status = "okay";
+	psel = <NRF_COMP_AIN2>;
+	refsel = "VDD_9_16";
+	enable-hyst;
+};
 
 &adc {
 	status = "okay";
