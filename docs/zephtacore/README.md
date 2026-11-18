@@ -15,7 +15,7 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Direct messages | A message to a Meshtastic contact leaves as a Meshtastic PKI message (X25519 with the node's key, AES-256-CCM, channel 0), as Meshtastic 2.5+ nodes expect. It needs the node's public key, learned from its NodeInfo; without it the app gets an error. A PKI message addressed to us reaches the app as a message of that contact, and is answered with an ACK when it asks for one. Our messages ask for an ACK: when the node answers (by PKI or on a shared channel, from that node only), the app gets the confirmation, and times out after 20 s otherwise. |
 | Node keys | The public key of a node is kept in the `mtkeys` file (36 bytes per node, next to `contacts3`: `/ext` when there is external flash, `/lfs` otherwise), written once per node. A node that later sends another key keeps the first, as Meshtastic does; removing the contact in the app drops its key. Our own key is derived from the node identity and goes out in our NodeInfo. |
 | Exchanging keys | Marking a Meshtastic contact as favourite, when it still has no name or no key, sends it our NodeInfo with `want_response`, once. We also send our NodeInfo, at most once per node per hour: when a node asks for ours (a unicast NodeInfo with `want_response`), when a node answers `PKI_UNKNOWN_PUBKEY`, and (asking for theirs too) when a PKI message for us arrives from a node whose key we do not hold. |
-| Nodes in the contact list | A NodeInfo with a name and a public key creates a contact `<long name> (MT)`; a Position or a direct text does not. |
+| Nodes in the contact list | A NodeInfo with a name and a public key creates a contact `<long name> (MT)`, and so does a direct text we can open (`!<node number> (MT)`); a Position does not. |
 | Nodes on the map | Position packets set the coordinates of a node that is already a contact. |
 | Our name on Meshtastic | A NodeInfo is broadcast 30 s after boot, then every `z.mt.nodeinfo` seconds (12 h), on the first Meshtastic channel. |
 | Repeat Meshtastic floods | `z.mt.relay off\|essential\|all` (default `off` on the companion): repeats frames with `hop_limit` lowered, with the role's timing; same settings and code as the repeater. `essential` (default on the repeater): text, direct messages, ACKs, NodeInfo, traceroute and position, on every channel including those without a key. `all` adds telemetry and the other ports. |
@@ -76,7 +76,7 @@ only when a firmware raises the revision. Existing channels and radio settings a
    Channels that share a key no longer merge in the app, because each slot has its own secret. 32 byte (AES-256)
    keys are not supported.
 3. Send and receive on that channel. A Meshtastic node appears as a contact when its NodeInfo carries a name
-   and a public key; a Position or a text heard before that does not take a contact slot.
+   and a public key, or when it sends us a direct text; a Position heard before that does not take a contact slot.
 
 ## Limits
 
@@ -93,7 +93,7 @@ only when a firmware raises the revision. Existing channels and radio settings a
 - Frames we send to Meshtastic carry Meshtastic's 16-symbol preamble whatever the SF (SX126x, LR11xx, LR20xx).
 - The ping bot (`z.mc.ping.*`, `z.mt.ping.*`, off until a command is chosen) is in the companion and the repeater, on the fixed channels `#bot` (MeshCore) and `Bots` (Meshtastic). It reports hops, SNR and the route: all of it in MeshCore, only the last relay in Meshtastic, which carries just that. The frequency error meshtacore's `PPING` adds is not available per packet in ZephCore's radio drivers yet. See [CLI_commands.md](../CLI_commands.md).
 - The contact list holds Meshtastic nodes as ordinary contacts, so they count against `CONFIG_ZEPHCORE_MAX_CONTACTS`.
-  Only a NodeInfo with a name and a key adds one: the table is not spent on nodes heard only through a position.
+  Only a NodeInfo with a name and a key, or a direct text we can open, adds one: the table is not spent on nodes heard only through a position.
   A node whose firmware predates Meshtastic 2.5 sends no key, so it stays out of the contact list (and out of the
   map) and its channel texts show as `!<node number>`.
 

@@ -753,13 +753,8 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
-      "id": "UNIT-MT-072",
-      "name": "A direct text the sink did not take is not remembered, so its retransmission comes again",
-      "source": "tests/unit/meshtastic_tests.cpp"
-    },
-    {
       "id": "UNIT-MT-055",
-      "name": "Only a NodeInfo with a name and a key makes a contact; a position or a text alone does not",
+      "name": "A NodeInfo makes a contact only with a name and a key",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {

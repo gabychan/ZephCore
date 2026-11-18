@@ -326,7 +326,7 @@ private:
 			    uint8_t hops, uint8_t relay) override;
 		void onNodeInfo(uint32_t from, const mt::User &user) override;
 		void onPosition(uint32_t from, const mt::Position &pos) override;
-		bool onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
+		void onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
 				  const char *text, size_t len, int8_t snr_x4, uint8_t hops) override;
 		bool peerKey(uint32_t node, uint8_t key[32]) override;
 		void onAck(uint32_t from, uint32_t request_id, uint32_t error_reason) override;
@@ -395,7 +395,7 @@ private:
 	/* Contacts that are Meshtastic nodes whose number ends in relay: the first one's name in out, how many. */
 	int mtNameOfRelay(uint8_t relay, char *out, size_t cap);
 	bool mtNodeOf(const ContactInfo &contact, uint32_t &node);
-	void mtUpsertContact(uint32_t node, const char *name, bool has_key, bool has_pos, int32_t lat_i,
+	void mtUpsertContact(uint32_t node, const char *name, bool creates, bool has_pos, int32_t lat_i,
 			     int32_t lon_i);
 	int mtFirstChannel() const;
 	void mtNodeInfoTick();
