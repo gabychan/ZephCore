@@ -106,8 +106,8 @@ struct lr11xx_data {
 	/* LoRa sync words of RX and TX; 0 derives them from public_network. */
 	uint8_t rx_sync_word;
 	uint8_t tx_sync_word;
-	/* rx_sync_word changed after the running receiver was programmed. */
-	bool rx_sync_stale;
+	/* The sync word or the modem settings changed after the running receiver was programmed. */
+	bool rx_params_stale;
 	/* Preamble of the next TX in symbols; 0 uses modem_cfg.preamble_len. */
 	uint16_t tx_preamble_len;
 	bool rx_boost_applied;  /* RX boost register written to hardware */
@@ -343,7 +343,7 @@ static void lr11xx_apply_modem_config(struct lr11xx_data *data,
 
 	lr11xx_radio_set_lora_sync_word(ctx, sync ? sync : mc->public_network ? 0x34 : 0x12);
 	if (!tx_mode) {
-		data->rx_sync_stale = false;
+		data->rx_params_stale = false;
 	}
 
 	if (tx_mode) {
@@ -933,15 +933,12 @@ static int lr11xx_lora_config(const struct device *dev,
 		}
 	}
 
-	memcpy(&data->modem_cfg, config, sizeof(*config));
-	data->configured = true;
-
 	/* Tight ±2 MHz image calibration for the configured frequency */
 	k_mutex_lock(&data->spi_mutex, K_FOREVER);
-	/* Standby first: on reconfigure the chip may still be in RX. Out of RX, the
-	 * next recv entry must not take its fast path and keep the old settings. */
-	lr11xx_system_set_standby(&data->hal_ctx, LR11XX_SYSTEM_STANDBY_CFG_RC);
-	data->in_rx_mode = false;
+	memcpy(&data->modem_cfg, config, sizeof(*config));
+	data->configured = true;
+	/* A receiver already running keeps the old settings until it is restarted. */
+	data->rx_params_stale = true;
 	uint16_t freq_mhz = config->frequency / 1000000;
 	lr11xx_system_calibrate_image_in_mhz(&data->hal_ctx,
 					      freq_mhz - 2, freq_mhz + 2);
@@ -1155,7 +1152,7 @@ static int lr11xx_lora_recv_async(const struct device *dev,
 	 * and stay on air. The usual callers come right after the driver itself
 	 * restarted RX: LoRaRadio::startSendRaw()'s failure path after the LBT
 	 * branch restored it on CAD-busy, and the TX wait thread after TX done. */
-	if (data->in_rx_mode && !data->rx_duty_cycle_enabled && !data->rx_sync_stale) {
+	if (data->in_rx_mode && !data->rx_duty_cycle_enabled && !data->rx_params_stale) {
 		data->async_rx_cb = cb;
 		data->async_rx_user_data = user_data;
 		k_mutex_unlock(&data->spi_mutex);
@@ -1215,7 +1212,7 @@ static int lr11xx_lora_recv_duty_cycle(const struct device *dev,
 
 	/* A cycle already armed on these periods and sync word: refresh the
 	 * callback and stay on air, as recv_async does. */
-	if (data->in_rx_mode && data->rx_duty_cycle_enabled && !data->rx_sync_stale &&
+	if (data->in_rx_mode && data->rx_duty_cycle_enabled && !data->rx_params_stale &&
 	    data->dc_rx_ms == rx_ms && data->dc_sleep_ms == slp_ms) {
 		data->async_rx_cb = cb;
 		data->async_rx_user_data = user_data;
@@ -1628,7 +1625,7 @@ void lr11xx_set_sync_words(const struct device *dev, uint8_t rx, uint8_t tx)
 
 	/* Applied by the next modem configuration, which every RX and TX start runs. */
 	k_mutex_lock(&data->spi_mutex, K_FOREVER);
-	data->rx_sync_stale |= data->rx_sync_word != rx;
+	data->rx_params_stale |= data->rx_sync_word != rx;
 	data->rx_sync_word = rx;
 	data->tx_sync_word = tx;
 	k_mutex_unlock(&data->spi_mutex);
