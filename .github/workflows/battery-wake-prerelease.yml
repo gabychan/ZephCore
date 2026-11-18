@@ -22,9 +22,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Only boards whose devicetree has the LPCOMP node, i.e. where the
-        # threshold was measured on the bench. Add a board here once it is.
-        board: [ promicro_sx1262 ]
+        # Boards whose devicetree has the LPCOMP node. Only promicro_sx1262 has
+        # the wake threshold measured on the bench; the others use a computed
+        # reference and are for bench testing.
+        board: [ promicro_sx1262, promicro_lr2021, gat562_30s, thinknode_m1, rak4631, xiao_nrf52840 ]
     steps:
       - uses: actions/checkout@v6
 
@@ -62,6 +63,7 @@ jobs:
 
   release:
     needs: build
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -82,4 +84,4 @@ jobs:
             --target "$GITHUB_SHA" \
             --prerelease \
             --title "battery-wake (ZephCore) ${SHORT}" \
-            --notes "Pre-release for beta testers: ZephCore repeater with low-battery auto-shutdown and LPCOMP battery wake. Only the ProMicro SX1262 is validated on the bench. Commands: get|set autoshutdown <mV>."
+            --notes "Pre-release for beta testers: ZephCore repeater with low-battery auto-shutdown and LPCOMP battery wake. Only the ProMicro SX1262 is validated on the bench. The other boards use a computed wake threshold and are for bench testing only: do not leave them unattended. Commands: get|set autoshutdown <mV>."
