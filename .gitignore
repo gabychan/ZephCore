@@ -80,7 +80,9 @@ core
 .venv/
 __pycache__/
 *.pyc
-.claude/
+!.claude/
+.claude/*
+!.claude/agents/
 .vscode/
 .idea/
 *.swp
