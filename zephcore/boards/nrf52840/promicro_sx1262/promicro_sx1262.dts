@@ -92,6 +92,7 @@
 	zephyr,user {
 		io-channels = <&adc 7>;
 		vbat-mv-multiplier = <7236>;  /* 2:1 divider, 3.6V ref; +0.5% for nRF SAADC gain error */
+		battery-wake-mv = <3600>;     /* lowest wake measured with &comp below */
 	};
 };
 
@@ -119,11 +120,10 @@
 	status = "okay";
 };
 
-/* Wake from a low-battery System OFF: LPCOMP on the same divider as the ADC
- * (AIN7, Vpin = VBAT / 2) against 9/16 of VDD (3.3 V). Rising past it is
- * VBAT = 2 * 9/16 * 3.3 V ~ 3.7 V, plus a little hysteresis. 5/8 would be
- * ~4.1 V, too high to ever reach on a battery. Keep `autoshutdown` below
- * that. */
+/* Battery wake from a low-battery System OFF: the ADC's divider (AIN7,
+ * VBAT / 2) against 9/16 of VDD, so it trips at VBAT = 2 * 9/16 * VDD, about
+ * 3.7 V at VDD = 3.3 V. The reference follows VDD and the divider's tolerance:
+ * measured 3.60 to 3.87 V across units (battery-wake-mv above). */
 &comp {
 	compatible = "nordic,nrf-lpcomp";
 	status = "okay";

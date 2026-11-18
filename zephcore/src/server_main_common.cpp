@@ -316,9 +316,16 @@ static void maintenance_timer_fn(struct k_timer *timer)
 	k_event_post(&mesh_events, MESH_EVENT_MAINTENANCE);
 }
 
-/* Ask the mesh for its soonest pending deadline and arm the one-shot for it,
- * after every loop pass. The backstop is a ceiling on the wait, so it must
- * stay well above the shortest recurring deadline. */
+#if defined(ZEPHCORE_LORA) && IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
+#define SERVER_POWER_POLICY 1
+static PowerPolicy &power_policy(void);
+#else
+#define SERVER_POWER_POLICY 0
+#endif
+
+/* Ask the mesh (and the battery check) for the soonest pending deadline and
+ * arm the one-shot for it, after every loop pass. The backstop is a ceiling on
+ * the wait, so it must stay well above the shortest recurring deadline. */
 static void arm_maintenance_wake(void)
 {
 	uint32_t delay = MAINTENANCE_BACKSTOP_MS;
@@ -327,6 +334,9 @@ static void arm_maintenance_wake(void)
 #ifdef ZEPHCORE_LORA
 	if (server_role) {
 		next = server_role->mesh->msUntilNextMaintenance();
+#if SERVER_POWER_POLICY
+		next = MIN(next, power_policy().msUntilNextCheck());
+#endif
 
 		if (next < delay) {
 			delay = next;
@@ -483,29 +493,16 @@ static void refresh_ui_radio_state(void)
 }
 #endif
 
-#if defined(ZEPHCORE_LORA) && DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+#if SERVER_POWER_POLICY
 /* Low-battery auto-shutdown, as on the companion, only where the board wakes
  * itself when the battery recovers (a node with no button in reach would stay
- * off). No app to notify and no v-contact. */
-struct PowerPolicySlot {
-	alignas(PowerPolicy) uint8_t mem[sizeof(PowerPolicy)];
-};
-
-inline void *operator new(size_t, PowerPolicySlot *slot) noexcept
+ * off). No app to notify and no v-contact. Built on first use, once
+ * server_main() has bound the role's prefs. */
+static PowerPolicy &power_policy(void)
 {
-	return slot->mem;
-}
+	static PowerPolicy policy(zephyr_board, *server_role->prefs, {});
 
-static void power_policy_tick(void)
-{
-	static PowerPolicySlot slot;
-	static PowerPolicy *policy;
-
-	if (!policy) {
-		policy = new (&slot) PowerPolicy(zephyr_board, *server_role->prefs, {});
-	}
-
-	policy->tick();
+	return policy;
 }
 #endif
 
@@ -579,9 +576,9 @@ static void server_event_loop(void)
 
 		/* A maintenance deadline came due — run the time-based work too. */
 		if (events & MESH_EVENT_MAINTENANCE) {
-#if defined(ZEPHCORE_LORA) && DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+#if SERVER_POWER_POLICY
 			if (server_role) {
-				power_policy_tick();
+				power_policy().tick();
 			}
 #endif
 #ifdef ZEPHCORE_LORA

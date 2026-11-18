@@ -739,7 +739,22 @@ external power, and treat anything under 2000 mV as "no battery" (a board withou
 a cell reads 0). A shutdown with an app connected sends a v-contact notice and
 waits 1 s; otherwise it stores the reason (`Low Voltage`) for the next boot. The
 UI only draws the warning (`ui_show_low_battery()`). A stored 3300 mV (the old
-default) is migrated to 3200 once (`zc.aoff_set`).
+default) is migrated to 3200 once (`zc.aoff_set`). The threshold is 0 or 2900
+mV up to a ceiling, 4200 mV or, with a battery wake, 300 mV under the board's
+wake voltage; the CLI refuses what `sanitizeNodePrefs()` would drop at boot
+(`helpers/AutoShutdownCli.h`).
+
+**Battery wake** (`CONFIG_ZEPHCORE_BATTERY_WAKE`: a `nordic,nrf-lpcomp` node on
+the battery divider and a measured `battery-wake-mv` in `zephyr,user`; today the
+ProMicro SX1262): the LPCOMP is set to its rising edge at boot
+(`board/zephyr_poweroff.c`) and keeps running through System OFF, so a
+low-battery power-off (`zephcore_power_off_low_battery()`) wakes again once the
+battery rises past `battery-wake-mv`; every other power-off suspends it first and
+stays off until the button. The reference is a fraction of VDD, so the wake
+voltage follows the regulator and divider tolerance and is measured per board.
+With it, repeaters and room servers run the same policy (no app, no v-contact),
+its 30 s reading a deadline of the maintenance wake, and persist the threshold as
+`zc.auto_off_mv`.
 
 ### 6.3 RepeaterMesh
 
@@ -933,7 +948,7 @@ Repeaters and room servers default to `CONFIG_ZEPHCORE_REPEATER_GPS_INTERVAL_SEC
 - TX LED bracketing for LoRa transmissions (gated by the LED master switch below)
 - Bootloader version detection via flash memory scan
 - Battery reading cached 10 s for every caller (UI, telemetry, stats, alerts), under a mutex
-- `powerOff()` (CLI `poweroff`/`shutdown`, UI power-off, low-battery shutdown all end in `zephcore_power_off()`, `board/zephyr_poweroff.c`): UI hook (heartbeat, display), GPS/sensor/buzzer rails off, LoRa held in reset, sw0 SENSE armed (nRF), power latch released, System OFF
+- `powerOff()` (CLI `poweroff`/`shutdown`, UI power-off, low-battery shutdown all end in `zephcore_power_off()`, `board/zephyr_poweroff.c`; the low-battery one through `zephcore_power_off_low_battery()`, which keeps the battery wake): battery wake suspended unless kept, UI hook (heartbeat, display), GPS/sensor/buzzer rails off, LoRa held in reset, sw0 SENSE armed (nRF), power latch released, System OFF
 - Upstream's pwrmgt getters: reset cause from `boot_info`, the last fatal error from `fatal_reboot.c`'s `__noinit` record (reason, pc, lr, thread; resolve pc with `addr2line` on the same build), shutdown reason from the `/lfs/shutdn` marker, battery voltage at boot
 
 **Telemetry** (`REQ_TYPE_GET_TELEMETRY_DATA`, every role, upstream's shape): battery on channel 1, then `sensors.querySensors()` (`adapters/sensors/ZephyrSensorManager.cpp`): GPS position on channel 1 while the GPS is on and has a fix, each environment sensor and power-monitor channel found at boot on its own channel from 2 up (probe order), board-local analog sensors (T1000-E) on channel 1; then the MCU temperature on channel 1 (the SoC's die sensor: the `die-temp0` alias, which is `coretemp` on ESP32-S3/C3/C6, else the Nordic nodelabel `temp`; omitted where there is none: classic ESP32, STM32WL, MG24). Servers give guests battery + MCU temperature only and honour the requester's inverse permission mask, as upstream. Encoded by `helpers/compat/CayenneLPP.h`: upstream's library API and wire format, but values round to the nearest step where the library truncates.

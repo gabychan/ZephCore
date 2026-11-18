@@ -567,7 +567,6 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
   # transport keys, and the text CLI.
   target_sources(app PRIVATE
     src/server_main_common.cpp
-    app/PowerPolicy.cpp
     app/RepeaterDataStore.cpp
     helpers/ClientACL.cpp
     helpers/RegionMap.cpp
@@ -576,6 +575,10 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
     helpers/compat/ZephyrFS.cpp
     helpers/CommonCLI.cpp
   )
+  # Low-battery auto-shutdown, where the board wakes itself again.
+  if(CONFIG_ZEPHCORE_BATTERY_WAKE)
+    target_sources(app PRIVATE app/PowerPolicy.cpp)
+  endif()
   # Headless build (e.g. native-Linux SBC): no display/buttons/buzzer, so the
   # real ui_* implementation (helpers/ui-button or helpers/ui-joystick) isn't
   # compiled, but the server mains call ui_* unconditionally — the weak no-op
