@@ -73,11 +73,6 @@ config POWEROFF
 	depends on HAS_POWEROFF
 	default y
 
-# The comparator API, wherever the board describes an LPCOMP (the battery wake in
-# zephyr_poweroff.c). Repeats the driver's own `depends on`.
-config COMPARATOR
-	default y if DT_HAS_NORDIC_NRF_LPCOMP_ENABLED
-
 source "$(ZEPHYR_BASE)/Kconfig.zephyr"
 
 # DT-driven PSRAM auto-enable for ESP32 boards (see Kconfig.psram).
@@ -1238,9 +1233,8 @@ config ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
 	default 3200 if SOC_SERIES_NRF52
 	default 0
 	help
-	  Companion, and repeater / room server on a board whose devicetree has
-	  an LPCOMP node (`nordic,nrf-lpcomp`): the node wakes itself when the
-	  battery recovers. When the battery falls below this voltage the device
+	  Companion, and repeater / room server with ZEPHCORE_BATTERY_WAKE.
+	  When the battery falls below this voltage the device
 	  shows a brief "Low Battery / Shutting Down" notice (3 s on OLED;
 	  e-paper persists without delay) and enters System OFF to protect the
 	  cell from over-discharge. The check piggybacks the existing periodic
@@ -1253,13 +1247,26 @@ config ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
 
 	  This is only the boot DEFAULT: the value is copied into prefs and is
 	  tunable at runtime over the USB CLI ("set autoshutdown <mv>" /
-	  "get autoshutdown", 0 = off or 1-5000 mV), persisted to flash.
+	  "get autoshutdown", 0 = off or 2900-4200 mV, lower with a battery
+	  wake), persisted to flash.
 
 	  Defaults ON (3300) for nRF52 only: that is where isExternalPowered()
 	  reads VBUS, so the "plugged in" gate actually works. ESP32 / MG24 /
 	  nRF54L stay at 0 (off) — isExternalPowered() is a stub there, so a
 	  USB/mains-powered node could otherwise self-shutdown on a low ADC
 	  reading. Set explicitly per board to enable once VBUS detect exists.
+
+config ZEPHCORE_BATTERY_WAKE
+	bool
+	default y if DT_HAS_NORDIC_NRF_LPCOMP_ENABLED && ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS > 0
+	select COMPARATOR
+	select PM_DEVICE
+	help
+	  The board's LPCOMP (a `nordic,nrf-lpcomp` node on the battery divider)
+	  wakes the node from a low-battery power-off once the battery recovers
+	  above `battery-wake-mv` in `zephyr,user`, the lowest voltage measured
+	  to wake that board. Every role then runs auto-shutdown, with its
+	  threshold capped 300 mV below that voltage.
 
 config ZEPHCORE_UI_CONFIRM_WINDOW_MS
 	int "Double-press confirmation window (ms)"

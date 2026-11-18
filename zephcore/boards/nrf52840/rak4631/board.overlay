@@ -21,7 +21,6 @@
   */
 
 #include <zephyr/dt-bindings/adc/nrf-saadc.h>
-#include <zephyr/dt-bindings/comparator/nrf-comp.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
 /delete-node/ &boot_partition;
@@ -95,7 +94,6 @@
 		vbat-mv-multiplier = <6161>;  /* matches RAK4631 divider + SAADC ref */
 	};
 };
-
 
 &adc {
 	#address-cells = <1>;

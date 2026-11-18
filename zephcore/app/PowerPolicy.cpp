@@ -6,19 +6,21 @@
 #include "PowerPolicy.h"
 
 #include <adapters/board/zephyr_poweroff.h>
+#include <helpers/AutoShutdownCli.h>
 #include <helpers/ui/ui_task.h>
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 LOG_MODULE_REGISTER(zephcore_power_policy, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 
 #if defined(CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS) && \
 	CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS > 0
 #define HAS_AUTO_SHUTDOWN 1
+/* initNodePrefs() and sanitizeNodePrefs() fall back to the default. */
+static_assert(auto_shutdown_mv_valid(CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS,
+				     AUTO_SHUTDOWN_CEILING_MV),
+	      "CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS outside the auto-shutdown range");
 #else
 #define HAS_AUTO_SHUTDOWN 0
 #endif
@@ -35,11 +37,23 @@ LOG_MODULE_REGISTER(zephcore_power_policy, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 static void shutdown_work_fn(struct k_work *work)
 {
 	ARG_UNUSED(work);
-	zephcore_arm_battery_wake();
-	zephcore_power_off();
+	zephcore_power_off_low_battery();
 }
 static K_WORK_DELAYABLE_DEFINE(s_shutdown_work, shutdown_work_fn);
 #endif
+
+uint32_t PowerPolicy::msUntilNextCheck() const
+{
+	if (_shutting_down) {
+		return UINT32_MAX;
+	}
+	if (!_checked) {
+		return 0;
+	}
+	uint32_t since = k_uptime_get_32() - _next_check_ms;
+
+	return since >= CHECK_INTERVAL_MS ? 0 : CHECK_INTERVAL_MS - since;
+}
 
 void PowerPolicy::tick()
 {
@@ -141,8 +155,7 @@ void PowerPolicy::checkShutdown(uint16_t mv, bool on_battery)
 		return;
 	}
 	ui_show_low_battery(true);
-	zephcore_arm_battery_wake();
-	zephcore_power_off();
+	zephcore_power_off_low_battery();
 #else
 	ui_show_low_battery(true);
 	LOG_WRN("auto-shutdown: CONFIG_POWEROFF not enabled, cannot power off");
@@ -158,7 +171,7 @@ bool PowerPolicy::handleCommand(const char *line, char *reply, size_t cap)
 #if HAS_AUTO_SHUTDOWN
 	bool changed = false;
 
-	if (!autoShutdownCommand(_prefs, line, reply, cap, &changed)) {
+	if (!autoshutdown::command(_prefs, line, AUTO_SHUTDOWN_CEILING_MV, reply, cap, &changed)) {
 		return false;
 	}
 	if (changed) {

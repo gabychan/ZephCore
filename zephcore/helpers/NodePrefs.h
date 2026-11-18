@@ -250,6 +250,26 @@ static inline void auto_shutdown_upgrade(NodePrefs *p) {
 	p->auto_shutdown_set = 1;
 }
 
+/* auto_shutdown_mv: 0 = off, else MIN to the build's ceiling. Outside the cell
+ * range it either never fires or powers the node off the moment it boots. With
+ * a battery wake the ceiling stays AUTO_SHUTDOWN_WAKE_MARGIN_MV under the
+ * board's wake voltage: a node cut above it, or whose resting cell climbs back
+ * over it, would never wake or would wake and cut again. */
+#define AUTO_SHUTDOWN_MIN_MV         2900
+#define AUTO_SHUTDOWN_MAX_MV         4200
+#define AUTO_SHUTDOWN_WAKE_MARGIN_MV 300
+#if defined(CONFIG_ZEPHCORE_BATTERY_WAKE)
+#include <zephyr/devicetree.h>
+#define AUTO_SHUTDOWN_CEILING_MV \
+	(DT_PROP(DT_PATH(zephyr_user), battery_wake_mv) - AUTO_SHUTDOWN_WAKE_MARGIN_MV)
+#else
+#define AUTO_SHUTDOWN_CEILING_MV AUTO_SHUTDOWN_MAX_MV
+#endif
+
+static constexpr bool auto_shutdown_mv_valid(uint16_t mv, uint16_t ceiling_mv) {
+	return mv == 0 || (mv >= AUTO_SHUTDOWN_MIN_MV && mv <= ceiling_mv);
+}
+
 /* `powersaving` gates ESP32 light sleep (helpers/pm_esp32_wake.c).  On a
  * light-sleep repeater or room server the default is on: those builds slept
  * unconditionally before the switch existed, and the stored 0 carried no
@@ -382,10 +402,7 @@ static inline void sanitizeNodePrefs(NodePrefs* p) {
 	/* 0 = board/Kconfig default on both, else the range the UI offers. */
 	if (p->display_brightness != 0) p->display_brightness = clampPref<uint8_t>(p->display_brightness, 10, 100);
 	if (p->screen_off_secs != 0) p->screen_off_secs = clampPref<uint16_t>(p->screen_off_secs, 5, 300);
-	/* 0 = off.  Outside the cell range it either never fires or powers the
-	 * node off the moment it boots — the one that looks like a dead device. */
-	if (p->auto_shutdown_mv != 0 &&
-	    (p->auto_shutdown_mv < 2900 || p->auto_shutdown_mv > 4200)) {
+	if (!auto_shutdown_mv_valid(p->auto_shutdown_mv, AUTO_SHUTDOWN_CEILING_MV)) {
 #ifdef CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
 		p->auto_shutdown_mv = CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS;
 #else
