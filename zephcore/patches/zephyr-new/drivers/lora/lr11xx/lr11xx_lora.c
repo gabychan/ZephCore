@@ -938,6 +938,10 @@ static int lr11xx_lora_config(const struct device *dev,
 
 	/* Tight ±2 MHz image calibration for the configured frequency */
 	k_mutex_lock(&data->spi_mutex, K_FOREVER);
+	/* Standby first: on reconfigure the chip may still be in RX. Out of RX, the
+	 * next recv entry must not take its fast path and keep the old settings. */
+	lr11xx_system_set_standby(&data->hal_ctx, LR11XX_SYSTEM_STANDBY_CFG_RC);
+	data->in_rx_mode = false;
 	uint16_t freq_mhz = config->frequency / 1000000;
 	lr11xx_system_calibrate_image_in_mhz(&data->hal_ctx,
 					      freq_mhz - 2, freq_mhz + 2);
