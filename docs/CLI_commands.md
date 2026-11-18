@@ -15,7 +15,7 @@ The text CLI of every ZephCore role. Commands are sent over USB serial (CDC-ACM)
 - `helpers/CommonCLI.cpp` `handleRegionCmd()` — the `region` sub-CLI (as upstream); the `region load` line reader stays in each role
 - `app/RepeaterUplink.cpp` — `get`/`set uplink.*` (ESP32 uplink builds only)
 - `app/RoomServerMesh.cpp` — room-server-specific commands (`room.post`)
-- `src/main_companion.cpp`, `app/PowerPolicy.cpp`, `app/CompanionWifi.cpp` — companion-only commands (`v.*`, `autoshutdown`, `help`, `wifi.*`)
+- `src/main_companion.cpp`, `app/PowerPolicy.cpp` with `helpers/AutoShutdownCli.h`, `app/CompanionWifi.cpp` — companion-only commands (`v.*`, `autoshutdown`, `help`, `wifi.*`)
 - `app/ObserverMesh.cpp` `handleCLI()`, `app/main_observer.cpp` — the observer's CLI and its `help` banner
 
 > **Commands are case-sensitive**, matching Arduino MeshCore. Nothing is lower-cased before matching.
@@ -289,7 +289,7 @@ Companion builds only. Local only: they run from USB and the app's CLI, and a re
 | `get v.batteryalert` | Low-battery alert threshold: `v.batteryalert: <mV> mV`, `default (<mV> mV)` or `off` |
 | `set v.batteryalert <mv\|0\|default>` | `0` = off, else 1–5000 mV. `default` is the auto-shutdown threshold + 200 mV, or 3500 mV on a build without auto-shutdown. The alert is a v-contact notice, so it needs `v.contact on`; it fires on the third low reading in a row (30 s apart), never on external power, and once per discharge — it re-arms on external power, on recovery to 150 mV above the threshold, or when the threshold is changed |
 | `get autoshutdown` | Low-battery power-off threshold: `autoshutdown: <mV> mV` or `autoshutdown: off` |
-| `set autoshutdown <mv>` | `0` = off, else 1–5000 mV, digits only. Below it the node powers off to protect the cell, on the third low reading in a row (30 s apart) and never while externally powered. Only on builds with `CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS` above 0, which is the default: 3200 on nRF52, 0 elsewhere, where both `autoshutdown` commands are absent. The node-wide form is `get|set z.autoshutdown`, below |
+| `set autoshutdown <mv>` | `0` = off, else 2900–4200 mV (on a board with a battery wake, up to 300 mV under its wake voltage: 3300 mV on the ProMicro SX1262), digits only; anything else is refused, so the value survives a reboot. Below it the node powers off to protect the cell, on the third low reading in a row (30 s apart) and never while externally powered. Only on builds with `CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS` above 0, which is the default: 3200 on nRF52, 0 elsewhere, where both `autoshutdown` commands are absent. The node-wide form is `get|set z.autoshutdown`, below |
 
 ---
 

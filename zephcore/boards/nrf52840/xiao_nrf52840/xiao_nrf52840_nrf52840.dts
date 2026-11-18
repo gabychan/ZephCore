@@ -18,7 +18,6 @@
 #include <nordic/nrf52840_partition.dtsi>
 #include <zephyr/dt-bindings/lora/sx126x.h>
 #include <zephyr/dt-bindings/adc/nrf-saadc.h>
-#include <zephyr/dt-bindings/comparator/nrf-comp.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "xiao_nrf52840_nrf52840-pinctrl.dtsi"
 
@@ -128,7 +127,6 @@
 &reg1 {
 	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
 };
-
 
 &adc {
 	status = "okay";

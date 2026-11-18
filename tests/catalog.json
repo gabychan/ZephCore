@@ -349,12 +349,17 @@
     },
     {
       "id": "UNIT-POLICY-AUTOSHUTDOWN-001",
-      "name": "get|set autoshutdown on the prefs alone: parse, bounds, changed flag",
+      "name": "get|set autoshutdown: 0 or 2900 to the ceiling, digits only, changed flag",
       "source": "tests/unit/policy_tests.cpp"
     },
     {
       "id": "UNIT-POLICY-AUTOSHUTDOWN-002",
-      "name": "get|set z.autoshutdown: the same setting in the z. replies",
+      "name": "get|set z.autoshutdown: the same setting in the z. replies, capped under the wake",
+      "source": "tests/unit/policy_tests.cpp"
+    },
+    {
+      "id": "UNIT-POLICY-AUTOSHUTDOWN-003",
+      "name": "What the CLI accepts is exactly what sanitizeNodePrefs keeps",
       "source": "tests/unit/policy_tests.cpp"
     },
     {

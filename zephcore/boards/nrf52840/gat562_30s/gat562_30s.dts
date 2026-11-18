@@ -24,7 +24,6 @@
 #include <nordic/nrf52840_qiaa.dtsi>
 #include "gat562_30s-pinctrl.dtsi"
 #include <zephyr/dt-bindings/adc/nrf-saadc.h>
-#include <zephyr/dt-bindings/comparator/nrf-comp.h>
 #include <zephyr/dt-bindings/lora/sx126x.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
@@ -203,7 +202,6 @@
 	 * on-off-gpios (see &uart0) so ZephyrGPSManager can power the receiver
 	 * down for low-power operation. */
 };
-
 
 &adc {
 	status = "okay";
