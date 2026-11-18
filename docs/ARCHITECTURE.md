@@ -741,6 +741,15 @@ waits 1 s; otherwise it stores the reason (`Low Voltage`) for the next boot. The
 UI only draws the warning (`ui_show_low_battery()`). A stored 3300 mV (the old
 default) is migrated to 3200 once (`zc.aoff_set`).
 
+A repeater or room server runs the same auto-shutdown, with no app and no
+v-contact, only on a board whose devicetree has an LPCOMP node (`nordic,nrf-lpcomp`,
+today the ProMicro SX1262): before a low-battery power-off `zephcore_arm_battery_wake()`
+arms the comparator, and its rising edge wakes the SoC when the battery recovers
+above the node's reference. The threshold is `get|set z.autoshutdown` (0 or
+2900-4200 mV, `auto_off_mv` / `aoff_set` in the repeater's `prefs.json`). It is
+checked on the maintenance tick, so the three readings are 60-600 s apart. A user's
+`poweroff` does not arm the wake.
+
 ### 6.3 RepeaterMesh
 
 Autonomous operation features:

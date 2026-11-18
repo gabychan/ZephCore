@@ -92,6 +92,10 @@ default channels and node name in order.
 - `help` at the end of a `z.` command (`get z.mt.relay help`) tells its usage, and on a group (`get z.mt help`) lists its keys;
   `set` of a key that takes text (a ping command, a channel) sets that text even when it is `help`.
   Every on/off `z.` setting (`z.mt.enable`, `z.mt.relay.opaque`, `z.ping.*`, `z.mc.ping.enable`, `z.mt.ping.enable`) also takes `1` and `0`.
+- New `get|set z.autoshutdown` for the repeater and room server: below the threshold (0 = off, else 2900-4200 mV, kept in
+  `prefs.json`) the node powers off to protect the cell and wakes itself when the battery recovers. Only on a board whose
+  devicetree has an LPCOMP node, today the ProMicro SX1262. `set autoshutdown` on the companion now takes the same
+  2900-4200 mV range (a value outside it used to be accepted and reset to the default at the next boot).
 
 ## Radio
 

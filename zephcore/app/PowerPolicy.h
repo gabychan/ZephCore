@@ -3,8 +3,9 @@
  *
  * The low-battery policy: the companion on every build that reads a battery,
  * with or without a UI, and a repeater or room server whose board wakes itself
- * when the battery recovers (an LPCOMP node in the devicetree): auto-shutdown (prefs.auto_shutdown_mv, `get|set
- * autoshutdown`) and the v-contact low-battery alert (prefs.v_battery_alert_mv).
+ * when the battery recovers (an LPCOMP node in the devicetree): auto-shutdown
+ * (prefs.auto_shutdown_mv, `get|set autoshutdown`) and the v-contact low-battery
+ * alert (prefs.v_battery_alert_mv).
  * Driven by the housekeeping tick, main thread only.
  *
  * Both sample the battery every 30 s and need three low readings in a row, so
@@ -47,7 +48,8 @@ public:
 	/* Every housekeeping tick; self-throttled to one reading per 30 s. */
 	void tick();
 
-	/* The <mv> of a set: 0 = a value in *v, 1 = not digits, 2 = over 5000. */
+	/* The <mv> of a set: 0 = a value in *v, 1 = not digits, 2 = not 0 or 2900-4200
+	 * (the range sanitizeNodePrefs keeps; anything else would revert on reboot). */
 	static int parseShutdownMv(const char *arg, long *v)
 	{
 		while (*arg == ' ') {
@@ -63,7 +65,7 @@ public:
 		if (arg[0] < '0' || arg[0] > '9' || *end != '\0') {
 			return 1;
 		}
-		return *v > 5000 ? 2 : 0;
+		return (*v != 0 && (*v < 2900 || *v > 4200)) ? 2 : 0;
 	}
 
 	/* `get|set autoshutdown` on the prefs alone; true if the line was one.
@@ -86,11 +88,11 @@ public:
 		const int bad = parseShutdownMv(line + 17, &v);
 
 		if (bad == 1) {
-			snprintf(reply, cap, "ERROR: numbers only (0 = off, 1-5000 mV)");
+			snprintf(reply, cap, "ERROR: numbers only (0 = off, 2900-4200 mV)");
 			return true;
 		}
 		if (bad == 2) {
-			snprintf(reply, cap, "ERROR: must be 0 (off) or 1-5000 mV");
+			snprintf(reply, cap, "ERROR: must be 0 (off) or 2900-4200 mV");
 			return true;
 		}
 		prefs.auto_shutdown_mv = (uint16_t)v;
@@ -123,7 +125,7 @@ public:
 		long v;
 
 		if (parseShutdownMv(line + 19, &v) != 0) {
-			snprintf(reply, cap, "Error: 0 (off) or 1-5000 mV");
+			snprintf(reply, cap, "Error: 0 (off) or 2900-4200 mV");
 			return true;
 		}
 		prefs.auto_shutdown_mv = (uint16_t)v;

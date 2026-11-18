@@ -166,13 +166,15 @@ TEST(autoshutdown_cli, "UNIT-POLICY-AUTOSHUTDOWN-001", "get|set autoshutdown on 
     p.auto_shutdown_mv = 3200;
     changed = false;
     for (const char *bad : {"set autoshutdown abc", "set autoshutdown 3.4", "set autoshutdown -5",
-                            "set autoshutdown 5001", "set autoshutdown 3400x", "set autoshutdown "}) {
+                            "set autoshutdown 4201", "set autoshutdown 2899", "set autoshutdown 1", "set autoshutdown 3400x", "set autoshutdown "}) {
         CHECK(PowerPolicy::autoShutdownCommand(p, bad, reply, sizeof(reply), &changed));
         CHECK(strncmp(reply, "ERROR", 5) == 0);
         CHECK(!changed && p.auto_shutdown_mv == 3200);
     }
-    CHECK(PowerPolicy::autoShutdownCommand(p, "set autoshutdown 5000  ", reply, sizeof(reply), &changed));
-    CHECK(changed && p.auto_shutdown_mv == 5000);
+    CHECK(PowerPolicy::autoShutdownCommand(p, "set autoshutdown 4200  ", reply, sizeof(reply), &changed));
+    CHECK(changed && p.auto_shutdown_mv == 4200);
+    CHECK(PowerPolicy::autoShutdownCommand(p, "set autoshutdown 2900", reply, sizeof(reply), &changed));
+    CHECK(p.auto_shutdown_mv == 2900);
 
     // Not ours: left for the other handlers.
     CHECK(!PowerPolicy::autoShutdownCommand(p, "get power", reply, sizeof(reply), &changed));
@@ -192,7 +194,7 @@ TEST(z_autoshutdown_cli, "UNIT-POLICY-AUTOSHUTDOWN-002", "get|set z.autoshutdown
     CHECK(strcmp(reply, "> 3400 mV") == 0);
 
     changed = false;
-    for (const char *bad : {"set z.autoshutdown abc", "set z.autoshutdown 5001", "set z.autoshutdown -1", "set z.autoshutdown "}) {
+    for (const char *bad : {"set z.autoshutdown abc", "set z.autoshutdown 4201", "set z.autoshutdown 2500", "set z.autoshutdown -1", "set z.autoshutdown "}) {
         CHECK(PowerPolicy::zAutoShutdownCommand(p, bad, reply, sizeof(reply), &changed));
         CHECK(strncmp(reply, "Error", 5) == 0 && !changed && p.auto_shutdown_mv == 3400);
     }
