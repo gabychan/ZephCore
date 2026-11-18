@@ -1,0 +1,46 @@
+name: Publish battery-wake-test4 (one-off)
+
+on:
+  push:
+    branches: [ publish-test4 ]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: battery-wake-test4
+      TARGET: c0b51e03be223edf5995e2c6061c84122e878098
+    steps:
+      - name: Download artifacts from the ten builds
+        run: |
+          set -e
+          mkdir dist
+          for r in 44270268412 44272210324 44270274077 44270279285 44270284851 \
+                   44270289326 44273608418 44273613318 44273618000 44273622431; do
+            gh run download "$r" --repo "$GITHUB_REPOSITORY" --dir "dl/$r"
+          done
+          find dl -type f \( -name '*.uf2' -o -name '*.zip' \) -exec cp {} dist/ \;
+          ls -l dist
+          test "$(ls dist/*.uf2 | wc -l)" -eq 10
+          test "$(ls dist/*.zip | wc -l)" -eq 10
+
+      - name: Create pre-release
+        run: |
+          cat > notes.md <<'NOTES'
+          **battery-wake-test4 (PRE-RELEASE, solo para pruebas)**
+
+          Repetidores nRF52 con despertar por bateria (LPCOMP): el nodo se apaga con bateria baja y despierta solo cuando la bateria se recupera.
+
+          - **Validada en banco:** solo ProMicro SX1262 (9/16, espera de 2,5 s).
+          - **Sin medir:** ProMicro LR2021, GAT562, ThinkNode M1, RAK4631, XIAO nRF52840, RAK3401 1 W, WisMesh Tag, T-Echo y ThinkNode M3. El umbral sale del divisor de cada placa, sin probarlo.
+          - Ajusta autoshutdown por debajo del voltaje de despertar (~3,55 V en divisor 1,73:1, ~3,7 V en 2:1).
+          - ThinkNode M3: no se ha comprobado que el rail de bateria (P0.17) se mantenga en System OFF.
+          - Codigo: rama battery-wake-more. Las compilaciones de SX1262, GAT562, M1, RAK4631 y XIAO salieron de zephtacore @ 6f1b8fb; el codigo es el mismo.
+          NOTES
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$TARGET" \
+            --prerelease --title "battery-wake-test4 (pre-release, solo pruebas)" --notes-file notes.md
