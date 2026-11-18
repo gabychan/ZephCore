@@ -498,7 +498,6 @@ static void refresh_ui_radio_state(void)
  * itself when the battery recovers (a node with no button in reach would stay
  * off). No app to notify and no v-contact. Built on first use, once
  * server_main() has bound the role's prefs. */
-static PowerPolicy &power_policy(void)
 struct PowerPolicySlot {
 	alignas(PowerPolicy) uint8_t mem[sizeof(PowerPolicy)];
 };
