@@ -499,10 +499,26 @@ static void refresh_ui_radio_state(void)
  * off). No app to notify and no v-contact. Built on first use, once
  * server_main() has bound the role's prefs. */
 static PowerPolicy &power_policy(void)
-{
-	static PowerPolicy policy(zephyr_board, *server_role->prefs, {});
+struct PowerPolicySlot {
+	alignas(PowerPolicy) uint8_t mem[sizeof(PowerPolicy)];
+};
 
-	return policy;
+/* Placement new into a static slot: a function-local static object would need
+ * __cxa_guard_acquire, which this firmware does not link. */
+inline void *operator new(size_t, PowerPolicySlot *slot) noexcept
+{
+	return slot->mem;
+}
+
+static PowerPolicy &power_policy(void)
+{
+	static PowerPolicySlot slot;
+	static PowerPolicy *policy;
+
+	if (!policy) {
+		policy = new (&slot) PowerPolicy(zephyr_board, *server_role->prefs, {});
+	}
+	return *policy;
 }
 #endif
 
