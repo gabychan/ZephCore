@@ -24,6 +24,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __ZEPHYR__
+#include <zephyr/devicetree.h>
+/* A repeater or room server acts on auto-shutdown only where the board has an
+ * LPCOMP node to wake it again and the option is on. */
+#if DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp) && \
+	defined(CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS) && \
+	CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS > 0
+#define ZEPHCORE_SERVER_AUTO_SHUTDOWN 1
+#endif
+#endif
+
 class PowerPolicy {
 public:
 	/* Below this no Li-ion cell is running the node: no battery, not a low one. */

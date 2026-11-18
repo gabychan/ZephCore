@@ -483,7 +483,7 @@ static void refresh_ui_radio_state(void)
 }
 #endif
 
-#if defined(ZEPHCORE_LORA) && DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+#if defined(ZEPHCORE_LORA) && defined(ZEPHCORE_SERVER_AUTO_SHUTDOWN)
 /* Low-battery auto-shutdown, as on the companion, only where the board wakes
  * itself when the battery recovers (a node with no button in reach would stay
  * off). No app to notify and no v-contact. */
@@ -579,7 +579,7 @@ static void server_event_loop(void)
 
 		/* A maintenance deadline came due — run the time-based work too. */
 		if (events & MESH_EVENT_MAINTENANCE) {
-#if defined(ZEPHCORE_LORA) && DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+#if defined(ZEPHCORE_LORA) && defined(ZEPHCORE_SERVER_AUTO_SHUTDOWN)
 			if (server_role) {
 				power_policy_tick();
 			}

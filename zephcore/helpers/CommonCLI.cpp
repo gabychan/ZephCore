@@ -497,7 +497,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		bool changed = false;
 
 		if (PowerPolicy::zAutoShutdownCommand(*_prefs, command, reply, replyCap(sender_timestamp), &changed)) {
-#if DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_lpcomp)
+#ifdef ZEPHCORE_SERVER_AUTO_SHUTDOWN
 			if (changed) {
 				savePrefs();
 			}
