@@ -17,6 +17,7 @@ on:
           - thinknode_m1
           - gat562_30s
           - promicro_sx1262
+          - promicro_lr2021
       role:
         description: "Rol"
         required: true
