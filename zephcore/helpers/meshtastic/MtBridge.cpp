@@ -254,8 +254,11 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 			if (_screen && _screen->drops(h, d.portnum)) {
 				return RX_DROPPED;
 			}
-			remember(h.from, h.id);
-			deliverPki(h, d, snr_x4, sink);
+			Seen *s = remember(h.from, h.id);
+
+			if (!deliverPki(h, d, snr_x4, sink)) {
+				*s = {0, 0, false};
+			}
 			return RX_HANDLED;
 		}
 	}
@@ -362,18 +365,19 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 	return decodeData(buf, (size_t)n, d);
 }
 
-void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink)
+bool Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink)
 {
 	if (d.portnum == PORT_TEXT) {
 		uint8_t hops = h.hopsAway();
 
 		if (d.payload_len > 0) {
-			sink.onDirectText(h.from, h.id, d.reply_id, h.wantAck(),
-					  (const char *)d.payload, d.payload_len, snr_x4, hops);
+			return sink.onDirectText(h.from, h.id, d.reply_id, h.wantAck(),
+						 (const char *)d.payload, d.payload_len, snr_x4, hops);
 		}
-		return;
+		return true;
 	}
 	deliverData(h, d, kNoChannel, sink);
+	return true;
 }
 
 /* What a decrypted Data carries besides text: NodeInfo, Position, ACKs. */

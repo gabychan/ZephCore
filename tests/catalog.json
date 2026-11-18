@@ -753,6 +753,16 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-056",
+      "name": "A direct text the sink did not take is not remembered, so its retransmission comes again",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-055",
+      "name": "Only a NodeInfo with a name and a key makes a contact; a position or a text alone does not",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-031",
       "name": "A frame of a channel we hold no key for is repeated only when asked, and never as MeshCore",
       "source": "tests/unit/meshtastic_tests.cpp"

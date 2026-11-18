@@ -6,9 +6,11 @@
  *     with that name and key, shown to the app as the hashtag channel
  *     "#mt-<name>". Text the app sends on it leaves as a Meshtastic frame;
  *     text heard on it reaches the app as a channel message.
- *   - Meshtastic nodes heard on those channels (NodeInfo, Position) become
- *     contacts named "<long name> (MT)", keyed by an Ed25519 key derived from the
- *     node number, so they appear in the contact list and on the map.
+ *   - Meshtastic nodes heard on those channels become contacts named
+ *     "<long name> (MT)" only when their NodeInfo carries a name and a public
+ *     key, keyed by an Ed25519 key derived from the node number, so they appear
+ *     in the contact list and on the map. A Position or a text from a node not
+ *     heard before does not take a contact slot.
  *   - A direct message to such a contact goes out as a Meshtastic PKI message
  *     (X25519 with the key from the node's NodeInfo, AES-256-CCM); a PKI
  *     message addressed to us reaches the app as a message of that contact.
@@ -417,8 +419,8 @@ bool CompanionMesh::mtNodeOf(const ContactInfo &contact, uint32_t &node)
 	return true;
 }
 
-void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_pos, int32_t lat_i,
-				    int32_t lon_i)
+void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_key, bool has_pos,
+				    int32_t lat_i, int32_t lon_i)
 {
 	uint8_t key[PUB_KEY_SIZE];
 
@@ -427,6 +429,11 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 	}
 	uint32_t now = (uint32_t)getRTCClock()->getCurrentTime();
 	ContactInfo *c = lookupContactByPubKey(key, PUB_KEY_SIZE);
+
+	/* An unknown node is created only by a NodeInfo with a name and a key. */
+	if (!c && !mt::createsContact(name && name[0] != '\0', has_key)) {
+		return;
+	}
 	bool is_new = (c == nullptr);
 
 	if (is_new) {
@@ -438,20 +445,13 @@ void CompanionMesh::mtUpsertContact(uint32_t node, const char *name, bool has_po
 		fresh.out_path_len = OUT_PATH_UNKNOWN;
 		fresh.shared_secret_valid = false;
 		memset(fresh.out_path, 0, sizeof(fresh.out_path));
-		snprintf(fresh.name, sizeof(fresh.name), "!%08x%s", (unsigned)node, kMtSuffix);
+		mtContactName(fresh.name, sizeof(fresh.name), name);
 		fresh.gps_lat = 0;
 		fresh.gps_lon = 0;
 		fresh.sync_since = node;
 		fresh.last_advert_timestamp = now;
 		fresh.lastmod = now;
 		if (!shouldAutoAddContactType(fresh.type)) {
-			if (name && name[0]) {
-				mtContactName(fresh.name, sizeof(fresh.name), name);
-			}
-			if (has_pos) {
-				fresh.gps_lat = lat_i / 10;
-				fresh.gps_lon = lon_i / 10;
-			}
 			onDiscoveredContact(fresh, true, 0, nullptr);
 			return;
 		}
@@ -612,8 +612,8 @@ void CompanionMesh::MtSink::onNodeInfo(uint32_t from, const mt::User &user)
 
 	m._mtport.neighbours().setName(from, user.short_name);
 	m._mtport.noteRole(from, user.role);
-	m.mtUpsertContact(from, name, false, 0, 0);
-	if (user.has_public_key) {
+	m.mtUpsertContact(from, name, user.has_public_key, false, 0, 0);
+	if (mt::createsContact(name[0] != '\0', user.has_public_key)) {
 		m.mtStoreKey(from, user.public_key);
 	}
 }
@@ -666,7 +666,7 @@ bool CompanionMesh::MtSink::peerKey(uint32_t node, uint8_t key[32])
 	return m._store && m._store->getMtKey(node, key);
 }
 
-void CompanionMesh::MtSink::onDirectText(uint32_t from, uint32_t id, uint32_t reply_id,
+bool CompanionMesh::MtSink::onDirectText(uint32_t from, uint32_t id, uint32_t reply_id,
 					 bool want_ack, const char *text, size_t len,
 					 int8_t snr_x4, uint8_t hops)
 {
@@ -675,15 +675,14 @@ void CompanionMesh::MtSink::onDirectText(uint32_t from, uint32_t id, uint32_t re
 	uint8_t key[PUB_KEY_SIZE];
 
 	if (!m.mtKeyFor(from, key)) {
-		return;
-	}
-	if (!m.lookupContactByPubKey(key, PUB_KEY_SIZE)) {
-		m.mtUpsertContact(from, nullptr, false, 0, 0);
+		return true;
 	}
 	ContactInfo *c = m.lookupContactByPubKey(key, PUB_KEY_SIZE);
 
 	if (!c) {
-		return;
+		/* Not taken and not acknowledged: the sender's retry finds the contact. */
+		m.mtSendNodeInfoLimited(from, mt::kNoChannel, true);
+		return false;
 	}
 	char line[MAX_TEXT_LEN + 1];
 
@@ -707,11 +706,13 @@ void CompanionMesh::MtSink::onDirectText(uint32_t from, uint32_t id, uint32_t re
 	if (want_ack) {
 		m.mtSendAck(from, id);
 	}
+	return true;
 }
 
 void CompanionMesh::MtSink::onPosition(uint32_t from, const mt::Position &pos)
 {
-	m.mtUpsertContact(from, nullptr, true, pos.lat_i, pos.lon_i);
+	/* A Position updates a contact; it never creates one. */
+	m.mtUpsertContact(from, nullptr, false, true, pos.lat_i, pos.lon_i);
 }
 
 /* ── TX ───────────────────────────────────────────────────────────────── */

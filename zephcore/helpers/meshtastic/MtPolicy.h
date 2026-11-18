@@ -58,6 +58,14 @@ inline bool favouriteAsksNodeInfo(bool was_favourite, bool is_favourite, bool ha
 	return !was_favourite && is_favourite && !(has_name && has_key);
 }
 
+/* A Meshtastic node becomes a contact only when its NodeInfo arrived complete:
+ * a name and the public key a direct message needs. A Position or a text from a
+ * node not heard before leaves its slot free; the NodeInfo comes later. */
+inline bool createsContact(bool has_name, bool has_key)
+{
+	return has_name && has_key;
+}
+
 /* A one-shot deadline in milliseconds that may wrap: the NodeInfo and the
  * telemetry we send now and then. */
 class Timer {

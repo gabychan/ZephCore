@@ -57,12 +57,14 @@ public:
 			    uint8_t hops, uint8_t relay) = 0;
 	virtual void onNodeInfo(uint32_t from, const User &user) = 0;
 	virtual void onPosition(uint32_t from, const Position &pos) = 0;
-	/* A PKI direct message for us. want_ack: the sender asks for an ACK. */
-	virtual void onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
+	/* A PKI direct message for us. want_ack: the sender asks for an ACK. False when it
+	 * was not taken: the frame is then not remembered, so its retransmission comes here again. */
+	virtual bool onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
 				  const char *text, size_t len, int8_t snr_x4, uint8_t hops)
 	{
 		(void)from; (void)id; (void)reply_id; (void)want_ack;
 		(void)text; (void)len; (void)snr_x4; (void)hops;
+		return true;
 	}
 	/* An ACK (error_reason 0) or NAK for a packet of ours, from a node. */
 	virtual void onAck(uint32_t from, uint32_t request_id, uint32_t error_reason)
@@ -227,7 +229,7 @@ private:
 	void deliverData(const Header &h, const Data &d, uint8_t channel_id, Sink &sink);
 	bool openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,
 		     Data &d);
-	void deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink);
+	bool deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink);
 };
 
 } /* namespace mt */

@@ -86,6 +86,10 @@ default channels and node name in order.
 - Meshtastic frames up to 255 bytes are repeated: the bytes past the 184th of a queued frame wait in a tail slot (`CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS`, 4 slots of 71 bytes by default). `get z.mt.stats` counts `long` the frames a build without slots cannot repeat, apart from `shed`.
 - A Meshtastic node heard for the first time is added as a contact only as your auto-add settings
   allow; with manual adding it shows up as a discovered contact instead.
+- A Meshtastic node becomes a contact only when its NodeInfo carries a name and a public key. A Position or a direct
+  text from an unknown node no longer takes a contact slot, and a node whose firmware predates Meshtastic 2.5 (no
+  key) stays out of the contact list and the map. A direct text from a node with no contact is not delivered until
+  its NodeInfo arrives; the node is asked for it and the sender's retry is delivered.
 - Renaming the node changes the name in its Meshtastic NodeInfo too, without a restart.
 - The contact key of a Meshtastic node is now derived with a secret of the companion, so nobody else can sign MeshCore
   adverts or messages as that contact. Meshtastic contacts saved by an earlier build are no longer recognised: delete

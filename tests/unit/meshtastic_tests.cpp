@@ -140,8 +140,10 @@ struct Capture : Sink {
     struct Direct { uint32_t from, id, reply; bool want_ack; std::string text; };
     std::vector<Direct> directs;
     std::vector<std::pair<uint32_t, std::vector<uint8_t>>> keys;  // known peer keys
-    void onDirectText(uint32_t from, uint32_t id, uint32_t reply, bool want_ack, const char* t, size_t n, int8_t, uint8_t) override {
+    bool take_directs = true;
+    bool onDirectText(uint32_t from, uint32_t id, uint32_t reply, bool want_ack, const char* t, size_t n, int8_t, uint8_t) override {
         directs.push_back({from, id, reply, want_ack, std::string(t, n)});
+        return take_directs;
     }
     struct Ack { uint32_t from, id, reason; };
     std::vector<Ack> acks;
@@ -834,6 +836,30 @@ TEST(mt_favourite_asks, "UNIT-MT-028", "Marking a favourite asks only on the cha
     CHECK(!favouriteAsksNodeInfo(true, true, false, false));   // already a favourite
     CHECK(!favouriteAsksNodeInfo(false, false, false, false)); // not marked
     CHECK(!favouriteAsksNodeInfo(true, false, false, false));  // unmarked
+}
+
+TEST(mt_contact_needs_nodeinfo, "UNIT-MT-055", "Only a NodeInfo with a name and a key makes a contact; a position or a text alone does not") {
+    CHECK(!createsContact(false, false));   // a Position from an unknown node
+    CHECK(!createsContact(false, true));    // a text, key known and no name yet
+    CHECK(!createsContact(true, false));    // NodeInfo before Meshtastic 2.5: no key
+    CHECK(createsContact(true, true));      // a complete NodeInfo
+}
+
+TEST(mt_direct_refused_retries, "UNIT-MT-056", "A direct text the sink did not take is not remembered, so its retransmission comes again") {
+    uint8_t pa[32], qa[32], pb[32], qb[32], frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    ownKey(7, pa, qa);
+    ownKey(9, pb, qb);
+    Bridge a = makePkiNode(0xA1A1A1A1u, "alpha", 1, 7), b = makePkiNode(0xB2B2B2B2u, "beta", 2, 9);
+    Capture cb;
+    cb.keys.push_back({0xA1A1A1A1u, std::vector<uint8_t>(qa, qa + 32)});
+    size_t n = a.buildDirectText(0xB2B2B2B2u, qb, "hola", 4, frame, sizeof(frame));
+
+    cb.take_directs = false;
+    CHECK(b.handleFrame(frame, n, 0, cb, relay, &relay_len) == RX_HANDLED && cb.directs.size() == 1);
+    cb.take_directs = true;
+    CHECK(b.handleFrame(frame, n, 0, cb, relay, &relay_len) == RX_HANDLED && cb.directs.size() == 2);
+    CHECK(b.handleFrame(frame, n, 0, cb, relay, &relay_len) == RX_DUPLICATE && cb.directs.size() == 2);
 }
 
 TEST(contact_change, "UNIT-MT-029", "Only a new record or a changed name, type or position is worth writing") {
