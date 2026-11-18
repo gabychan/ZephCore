@@ -845,7 +845,7 @@ TEST(mt_contact_needs_nodeinfo, "UNIT-MT-055", "Only a NodeInfo with a name and 
     CHECK(createsContact(true, true));      // a complete NodeInfo
 }
 
-TEST(mt_direct_refused_retries, "UNIT-MT-056", "A direct text the sink did not take is not remembered, so its retransmission comes again") {
+TEST(mt_direct_refused_retries, "UNIT-MT-072", "A direct text the sink did not take is not remembered, so its retransmission comes again") {
     uint8_t pa[32], qa[32], pb[32], qb[32], frame[kMaxFrame], relay[kMaxFrame];
     size_t relay_len;
     ownKey(7, pa, qa);
