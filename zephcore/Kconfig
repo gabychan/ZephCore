@@ -1243,7 +1243,10 @@ config ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
 	default 3200 if SOC_SERIES_NRF52
 	default 0
 	help
-	  Companion, and repeater / room server with ZEPHCORE_BATTERY_WAKE.
+	  Companion, and repeater / room server with ZEPHCORE_BATTERY_WAKE. A
+	  companion boots with this threshold; a repeater or room server boots
+	  with auto-shutdown off, whatever the value here, until
+	  "set z.autoshutdown <mv>".
 	  When the battery falls below this voltage the device
 	  shows a brief "Low Battery / Shutting Down" notice (3 s on OLED;
 	  e-paper persists without delay) and enters System OFF to protect the

@@ -25,9 +25,10 @@ stranger in radio range could keep guessing as fast as the airtime allowed.
 ## Low-battery power-off that wakes again (ProMicro SX1262)
 
 - On the ProMicro SX1262 a node that powers off on a low battery now wakes by itself once the battery recovers to
-  about 3.6 to 3.9 V, so a solar repeater no longer needs a manual restart. Repeaters and room servers on that board
-  now power off below 3200 mV by default (three readings 30 s apart, never on external power); change it with
-  `set autoshutdown <mV>` (0 = off, at most 3300 mV there) and it survives a reboot. The companion wakes the same way.
+  about 3.6 to 3.9 V, so a solar repeater no longer needs a manual restart. For repeaters and room servers it is off
+  until you set it: `set autoshutdown <mV>` (0 = off, at most 3300 mV there; three readings 30 s apart, never on
+  external power), and it survives a reboot. Without a battery protection board, set it. The companion, which already
+  powered off below 3200 mV, now wakes the same way.
 - A `poweroff` or a power-off from the UI stays off until the button, also when the battery crosses that voltage.
 - `set autoshutdown` now takes 0 or 2900 to 4200 mV (lower on a board with a battery wake): before, a value outside
   that range was answered OK and then lost at the next reboot. See `docs/CLI_commands.md`.

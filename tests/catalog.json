@@ -363,6 +363,11 @@
       "source": "tests/unit/policy_tests.cpp"
     },
     {
+      "id": "UNIT-POLICY-AUTOSHUTDOWN-004",
+      "name": "Auto-shutdown starts off on a role that is not a companion, whatever the Kconfig threshold",
+      "source": "tests/unit/policy_tests.cpp"
+    },
+    {
       "id": "UNIT-POLICY-001",
       "name": "Reply routing and scope truth tables",
       "source": "tests/unit/policy_tests.cpp"

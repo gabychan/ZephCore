@@ -229,7 +229,7 @@ TEST(autoshutdown_sane, "UNIT-POLICY-AUTOSHUTDOWN-003", "What the CLI accepts is
         }
     }
 
-    // A stored value outside the range falls back to the build's default (0 here, no Kconfig).
+    // A stored value outside the range falls back to the role's default (0 here: not a companion).
     NodePrefs p = {};
     p.auto_shutdown_mv = 5000;
     sanitizeNodePrefs(&p);
@@ -237,4 +237,15 @@ TEST(autoshutdown_sane, "UNIT-POLICY-AUTOSHUTDOWN-003", "What the CLI accepts is
     p.auto_shutdown_mv = 3300;
     sanitizeNodePrefs(&p);
     CHECK(p.auto_shutdown_mv == 3300);
+}
+
+TEST(autoshutdown_default, "UNIT-POLICY-AUTOSHUTDOWN-004", "Auto-shutdown starts off on a role that is not a companion, whatever the Kconfig threshold") {
+    static_assert(CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS == 3200, "the test build sets a Kconfig threshold");
+    NodePrefs p;
+    initNodePrefs(&p);
+    CHECK(p.auto_shutdown_mv == 0);
+
+    p.auto_shutdown_mv = 4500;
+    sanitizeNodePrefs(&p);
+    CHECK(p.auto_shutdown_mv == 0);
 }

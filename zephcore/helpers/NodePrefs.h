@@ -258,6 +258,14 @@ static constexpr bool auto_shutdown_mv_valid(uint16_t mv, uint16_t ceiling_mv) {
 	return mv == 0 || (mv >= AUTO_SHUTDOWN_MIN_MV && mv <= ceiling_mv);
 }
 
+/* The boot default: a companion takes the Kconfig threshold, every other role
+ * starts with auto-shutdown off. */
+#if defined(CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS) && defined(CONFIG_ZEPHCORE_ROLE_COMPANION)
+#define AUTO_SHUTDOWN_DEFAULT_MV CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
+#else
+#define AUTO_SHUTDOWN_DEFAULT_MV 0
+#endif
+
 /* `powersaving` gates ESP32 light sleep (helpers/pm_esp32_wake.c).  On a
  * light-sleep repeater or room server the default is on: those builds slept
  * unconditionally before the switch existed, and the stored 0 carried no
@@ -387,11 +395,7 @@ static inline void sanitizeNodePrefs(NodePrefs* p) {
 	if (p->display_brightness != 0) p->display_brightness = clampPref<uint8_t>(p->display_brightness, 10, 100);
 	if (p->screen_off_secs != 0) p->screen_off_secs = clampPref<uint16_t>(p->screen_off_secs, 5, 300);
 	if (!auto_shutdown_mv_valid(p->auto_shutdown_mv, AUTO_SHUTDOWN_CEILING_MV)) {
-#ifdef CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
-		p->auto_shutdown_mv = CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS;
-#else
-		p->auto_shutdown_mv = 0;
-#endif
+		p->auto_shutdown_mv = AUTO_SHUTDOWN_DEFAULT_MV;
 	}
 }
 
@@ -465,12 +469,10 @@ static inline void initNodePrefs(NodePrefs* prefs) {
 	prefs->v_contact_enabled = 1;     // Default ON — v-contact loopback admin chat (companion)
 	prefs->v_battery_alert_mv = 0xFFFF; // Sentinel: derive from board auto-shutdown threshold
 	prefs->wifi_enabled = 1;          // as upstream: WiFi still stays off until an SSID is set
-	/* Companion-only default, set here so every caller of initNodePrefs() sees
-	 * it. 0 means disabled and is a legal stored value. */
+	/* Set here so every caller of initNodePrefs() sees it. 0 means disabled and
+	 * is a legal stored value. */
+	prefs->auto_shutdown_mv = AUTO_SHUTDOWN_DEFAULT_MV;
 #ifdef CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS
-	prefs->auto_shutdown_mv = CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS;
 	prefs->auto_shutdown_set = 1;
-#else
-	prefs->auto_shutdown_mv = 0;
 #endif
 }

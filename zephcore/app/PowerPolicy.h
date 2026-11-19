@@ -44,8 +44,8 @@ public:
 	/* Every housekeeping tick; self-throttled to one reading per 30 s. */
 	void tick();
 
-	/* Milliseconds until tick() takes its next reading, 0 if due now. For a
-	 * deadline-driven loop. */
+	/* Milliseconds until tick() takes its next reading, 0 if due now,
+	 * UINT32_MAX when there is nothing to watch. For a deadline-driven loop. */
 	uint32_t msUntilNextCheck() const;
 
 	/* `get|set autoshutdown`; true if the line was one. */
@@ -63,6 +63,8 @@ public:
 	}
 
 private:
+	/* No cutoff set and no alert hooked: a reading would change nothing. */
+	bool idle() const;
 	void checkAlert(uint16_t mv, bool on_battery);
 	void checkShutdown(uint16_t mv, bool on_battery);
 

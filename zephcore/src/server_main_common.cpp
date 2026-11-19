@@ -496,13 +496,13 @@ static void refresh_ui_radio_state(void)
 #if SERVER_POWER_POLICY
 /* Low-battery auto-shutdown, as on the companion, only where the board wakes
  * itself when the battery recovers (a node with no button in reach would stay
- * off). No app to notify and no v-contact. Built on first use, once
- * server_main() has bound the role's prefs. */
+ * off). No app to notify and no v-contact. Set by server_main(), whose frame
+ * lives as long as the node. */
+static PowerPolicy *s_power_policy;
+
 static PowerPolicy &power_policy(void)
 {
-	static PowerPolicy policy(zephyr_board, *server_role->prefs, {});
-
-	return policy;
+	return *s_power_policy;
 }
 #endif
 
@@ -715,6 +715,11 @@ int server_main(const ServerRole &role)
 
 #ifdef ZEPHCORE_LORA
 	server_role = &role;
+#if SERVER_POWER_POLICY
+	PowerPolicy policy(zephyr_board, *role.prefs, {});
+
+	s_power_policy = &policy;
+#endif
 
 	/* Initialize mesh event object BEFORE begin() — radio callbacks post events */
 	k_event_init(&mesh_events);

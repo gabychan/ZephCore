@@ -340,13 +340,14 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 	if (_board->handleCommand(command, sender_timestamp, reply)) {
 		return;
 	}
+
 	// ZEPHCORE: low-battery auto-shutdown, on a board that wakes itself again.
-	if (autoshutdown::isZCommand(command)) {
+	if (autoshutdown::isCommand(command)) {
 #if IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
 		bool changed = false;
 
-		autoshutdown::zCommand(*_prefs, command, AUTO_SHUTDOWN_CEILING_MV, reply,
-				       replyCap(sender_timestamp), &changed);
+		autoshutdown::command(*_prefs, command, AUTO_SHUTDOWN_CEILING_MV, reply,
+				      replyCap(sender_timestamp), &changed);
 		if (changed) {
 			savePrefs();
 		}

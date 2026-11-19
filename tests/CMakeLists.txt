@@ -44,7 +44,7 @@ add_executable(zephcore_unit
   ${PRODUCTION}/app/KissModem.cpp
 )
 target_compile_features(zephcore_unit PRIVATE cxx_std_17)
-target_compile_definitions(zephcore_unit PRIVATE CONFIG_ZEPHCORE_PACKET_LOGGING=0
+target_compile_definitions(zephcore_unit PRIVATE CONFIG_ZEPHCORE_PACKET_LOGGING=0 CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS=3200
   CONFIG_ZEPHCORE_UI_DESIGN_JOYSTICK=1 CONFIG_ZEPHCORE_UI_DESIGN_BUTTON=0)
 target_include_directories(zephcore_unit PRIVATE
   support unit ${PRODUCTION} ${PRODUCTION}/include ${PRODUCTION}/helpers ${PRODUCTION}/helpers/compat

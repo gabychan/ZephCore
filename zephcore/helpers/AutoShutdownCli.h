@@ -92,6 +92,13 @@ inline bool command(NodePrefs &prefs, const char *line, uint16_t ceiling_mv, cha
 	return true;
 }
 
+/* `get|set autoshutdown` (the plain commands, any role through CommonCLI). */
+inline bool isCommand(const char *line)
+{
+	return strcmp(line, "get autoshutdown") == 0 ||
+	       strncmp(line, "set autoshutdown ", 17) == 0;
+}
+
 inline bool isZCommand(const char *line)
 {
 	return strcmp(line, "get z.autoshutdown") == 0 ||
