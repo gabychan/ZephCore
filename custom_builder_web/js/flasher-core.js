@@ -498,29 +498,39 @@ function initFlasherCore() {
       formatter = nrf.openDfuZip(await fetchBytes(url));
     }
 
-    const flash = (pkg, label, from, to) =>
-      nrf.flashNrf(pkg, {
+    let dfuPort = null;
+    const flash = async (pkg, label, from, to) => {
+      dfuPort ??= await nrf.requestPort();
+      await nrf.flashNrf(pkg, {
+        port: dfuPort,
         onConnected: () => setProgress(from, `${label}: conectado a la placa.`),
         onStage: (stage) => setProgress(from, `${label}: ${DFU_STAGE_TEXT[stage] || stage}...`),
         onProgress: (stage, fraction) => setProgress(from + Math.round(fraction * (to - from)), `${label}: ${DFU_STAGE_TEXT[stage] || stage}...`)
       });
+    };
 
-    const steps = [];
-    if (clean) {
-      steps.push({
-        button: "Elegir el puerto en modo DFU y formatear",
-        run: async () => {
-          await flash(formatter, "Formateando", 15, 50);
-          setProgress(50, "Formateador cargado: la placa borra sus datos y vuelve sola a modo DFU (con memoria externa puede tardar hasta un minuto). Cuando termine, pulsa el botón.");
-        }
-      });
+    // One port choice covers the whole install: the formatter returns the board to the same bootloader
+    // device, whose port the browser already allows.
+    const install = async () => {
+      if (formatter) {
+        await flash(formatter, "Formateando", 15, 50);
+        setProgress(50, "Formateador cargado: la placa borra sus datos y vuelve sola a modo DFU (con memoria externa puede tardar hasta un minuto)...");
+        dfuPort = await nrf.waitForPort(dfuPort, 120000);
+      }
+      await flash(firmware, "Grabando el firmware", clean ? 55 : 15, 95);
+      setProgress(100, `Firmware instalado.${SEND_SETTINGS_HINT()}`);
+    };
+
+    setProgress(14, "Paquetes listos. Elige el puerto de la placa en modo DFU.");
+    try {
+      await install();
+    } catch (err) {
+      console.warn("nRF52 DFU without a click:", err);
+      dfuPort = null;
+      const why = err.name === "NotFoundError" || err.name === "SecurityError" ? "" : `Error: ${err.message} `;
+      setProgress(14, `${why}Pulsa el botón y elige el puerto de la placa en modo DFU (si no lo está, pulsa dos veces RESET).`);
+      offerSteps([{ button: "Elegir el puerto en modo DFU e instalar", run: install }]);
     }
-    steps.push({
-      button: "Elegir el puerto en modo DFU y grabar el firmware",
-      run: () => flash(firmware, "Grabando el firmware", clean ? 55 : 15, 95)
-    });
-    setProgress(14, 'Paquetes listos. Si la placa no está ya en modo DFU, pulsa dos veces RESET. Pulsa el botón y elige su puerto.');
-    offerSteps(steps);
   }
 
   // nRF52 without Web Serial, clean install, step 1: the formatter UF2 erases the file system

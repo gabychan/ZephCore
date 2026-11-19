@@ -198,14 +198,21 @@ test("UF2 without Web Serial: keeping the data downloads only the firmware even 
   }
 });
 
-// nRF52 with Web Serial: the Adafruit bootloader's DFU, one click per port.
-function fakeNrf({ failFirstFlash = false } = {}) {
+// nRF52 with Web Serial: the Adafruit bootloader's DFU, one port choice for the whole install.
+function fakeNrf({ failFirstFlash = false, failFirstPort = false } = {}) {
   const calls = [];
   let failed = false;
+  let portFailed = false;
   return {
     calls,
     module: {
       async touchBootloader() { calls.push("touch"); },
+      async requestPort() {
+        if (failFirstPort && !portFailed) { portFailed = true; throw Object.assign(new Error("No port selected"), { name: "NotFoundError" }); }
+        calls.push("port");
+        return { id: calls.length };
+      },
+      async waitForPort(previous) { calls.push("wait"); return previous; },
       openDfuZip: (bytes) => ({ url: new TextDecoder().decode(bytes) }),
       async flashNrf(pkg, hooks) {
         if (failFirstFlash && !failed) { failed = true; throw new Error("La placa no responde"); }
@@ -219,48 +226,49 @@ function fakeNrf({ failFirstFlash = false } = {}) {
 }
 const FIRMWARE_ZIP = "t1000_e-companion-zephtacore-abc1234.zip";
 
-test("nRF52: the board is rebooted into its bootloader, then the firmware zip is written on the next click", async () => {
+test("nRF52: one click reboots the board into its bootloader and writes the firmware zip", async () => {
   const nrf = fakeNrf();
   const els = await loadPage({ nrf: nrf.module, install: "keep" });
   await els.btnUnifiedFlash.listeners.click();
-  assert.deepEqual(nrf.calls, ["touch"]);
-  assert.equal(els.btnNextStep.style.display, "");
-  assert.match(els.btnNextStep.textContent, /grabar el firmware/);
-  await els.btnNextStep.listeners.click();
-  assert.deepEqual(nrf.calls, ["touch", "flash " + FIRMWARE_ZIP]);
+  assert.deepEqual(nrf.calls, ["touch", "port", "flash " + FIRMWARE_ZIP]);
   assert.equal(els.downloads.length, 0);
   assert.match(els.flashStatusText.textContent, /Firmware instalado/);
   assert.equal(els.btnNextStep.style.display, "none");
 });
 
-test("nRF52: a clean install loads the formatter first, and the firmware on a later click", async () => {
+test("nRF52: a clean install loads the formatter, waits for the same port to come back and writes the firmware", async () => {
   catalog.device[0].firmware[0].erase = CDN + "SoftDevice_v7_formatter.zip";
   try {
     const nrf = fakeNrf();
     const els = await loadPage({ nrf: nrf.module, install: "clean" });
     await els.btnUnifiedFlash.listeners.click();
-    assert.match(els.btnNextStep.textContent, /formatear/);
-    await els.btnNextStep.listeners.click();
-    assert.deepEqual(nrf.calls, ["touch", "flash SoftDevice_v7_formatter.zip"]);
-    assert.match(els.flashStatusText.textContent, /vuelve sola a modo DFU/);
-    assert.match(els.btnNextStep.textContent, /grabar el firmware/);
-    await els.btnNextStep.listeners.click();
-    assert.deepEqual(nrf.calls, ["touch", "flash SoftDevice_v7_formatter.zip", "flash " + FIRMWARE_ZIP]);
+    assert.deepEqual(nrf.calls, ["touch", "port", "flash SoftDevice_v7_formatter.zip", "wait", "flash " + FIRMWARE_ZIP]);
     assert.match(els.flashStatusText.textContent, /Firmware instalado/);
+    assert.equal(els.btnNextStep.style.display, "none");
   } finally {
     delete catalog.device[0].firmware[0].erase;
   }
 });
 
-test("nRF52: a failed DFU shows the error and offers the same step again", async () => {
+test("nRF52: when the browser does not let the port be chosen without a click, the button does it", async () => {
+  const nrf = fakeNrf({ failFirstPort: true });
+  const els = await loadPage({ nrf: nrf.module, install: "keep" });
+  await els.btnUnifiedFlash.listeners.click();
+  assert.deepEqual(nrf.calls, ["touch"]);
+  assert.equal(els.btnNextStep.style.display, "");
+  await els.btnNextStep.listeners.click();
+  assert.deepEqual(nrf.calls, ["touch", "port", "flash " + FIRMWARE_ZIP]);
+  assert.match(els.flashStatusText.textContent, /Firmware instalado/);
+});
+
+test("nRF52: a failed DFU shows the error and offers the install again", async () => {
   const nrf = fakeNrf({ failFirstFlash: true });
   const els = await loadPage({ nrf: nrf.module, install: "keep" });
   await els.btnUnifiedFlash.listeners.click();
-  await els.btnNextStep.listeners.click();
   assert.match(els.flashStatusText.textContent, /Error: La placa no responde/);
   assert.equal(els.btnNextStep.style.display, "");
   await els.btnNextStep.listeners.click();
-  assert.deepEqual(nrf.calls, ["touch", "flash " + FIRMWARE_ZIP]);
+  assert.deepEqual(nrf.calls, ["touch", "port", "port", "flash " + FIRMWARE_ZIP]);
 });
 
 test("nRF52: a board whose catalog has no DFU zip reports it and offers no step", async () => {

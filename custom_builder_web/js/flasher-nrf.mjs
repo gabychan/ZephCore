@@ -40,6 +40,39 @@ export async function touchBootloader() {
   await port.close();
 }
 
+const disconnected = new WeakSet();
+
+/** Asks for the bootloader's port, and notes when it goes away. */
+export async function requestPort() {
+  const port = await navigator.serial.requestPort();
+  port.addEventListener("disconnect", () => disconnected.add(port));
+  return port;
+}
+
+/**
+ * The same USB device after it rebooted (the formatter returns the board to the bootloader): the browser
+ * keeps the permission already granted, so the port comes back from getPorts() without asking again.
+ */
+export async function waitForPort(previous, timeoutMs) {
+  const { usbVendorId, usbProductId } = previous.getInfo();
+  const deadline = performance.now() + timeoutMs;
+  while (performance.now() < deadline) {
+    if (disconnected.has(previous)) {
+      const ports = await navigator.serial.getPorts();
+      const found = ports.find((p) => {
+        const info = p.getInfo();
+        return info.usbVendorId === usbVendorId && info.usbProductId === usbProductId;
+      });
+      if (found) {
+        found.addEventListener("disconnect", () => disconnected.add(found));
+        return found;
+      }
+    }
+    await sleep(500);
+  }
+  throw new Error("La placa no ha vuelto a modo DFU. Pulsa dos veces RESET y vuelve a intentarlo.");
+}
+
 /** The `link` that runDfu expects, on top of an open Web Serial port. */
 function serialLink(port) {
   const reader = port.readable.getReader();
@@ -87,12 +120,12 @@ function serialLink(port) {
 }
 
 /**
- * Asks for the bootloader's port and flashes the application image of a DFU package.
+ * Flashes a DFU package on the bootloader's port (asked for when not given).
  * @param {{bin: Uint8Array, dat: Uint8Array}} dfu
  * @param {Parameters<typeof runDfu>[2] & {onConnected?: () => void}} hooks
  */
-export async function flashNrf(dfu, { onConnected = () => {}, ...hooks } = {}) {
-  const port = await navigator.serial.requestPort();
+export async function flashNrf(dfu, { port = null, onConnected = () => {}, ...hooks } = {}) {
+  port ??= await requestPort();
   await port.open({ baudRate: DFU_BAUDRATE });
   onConnected();
   const link = serialLink(port);
