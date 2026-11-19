@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const L = require("../../custom_builder_web/js/flasher-logic.js");
 
-const CDN = "https://cdn.jsdelivr.net/gh/xejarque/ZephCore@firmware-dist/";
+const CDN = "https://xejarque.github.io/ZephCore/firmware/";
 const file = (name, url = CDN + name) => ({ name, url });
 const catalog = (versions) => ({ device: [{ firmware: [{ role: "x", version: versions }] }] });
 

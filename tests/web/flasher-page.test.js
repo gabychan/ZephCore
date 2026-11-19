@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const L = require("../../custom_builder_web/js/flasher-logic.js");
 
-const CDN = "https://cdn.jsdelivr.net/gh/xejarque/ZephCore@firmware-dist/";
+const CDN = "https://xejarque.github.io/ZephCore/firmware/";
 const catalog = {
   device: [{ firmware: [{ role: "companionUsb", version: { "1.18.2": { files: [
     { name: "t1000_e-companion-zephtacore-abc1234.uf2", url: CDN + "t1000_e-companion-zephtacore-abc1234.uf2" },

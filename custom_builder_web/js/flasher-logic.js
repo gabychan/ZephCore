@@ -3,7 +3,7 @@
  * matching and quoting. Loaded by the pages and by node --test.
  */
 (function (root) {
-  const FIRMWARE_URL_PREFIX = /^https:\/\/cdn\.jsdelivr\.net\/gh\/(xejarque|liquidraver)\/ZephCore@firmware-dist\//;
+  const FIRMWARE_URL_PREFIX = /^https:\/\/((xejarque|liquidraver)\.github\.io\/ZephCore\/firmware|cdn\.jsdelivr\.net\/gh\/(xejarque|liquidraver)\/ZephCore@firmware-dist)\//;
   const FILE_SUFFIX = { uf2: "\\.uf2", hex: "\\.hex", bin: "-merged\\.bin", dfu: "\\.zip" };
 
   // Coding rate: the builder stores 1-4 (4/5-4/8), the firmware takes 5-8.
@@ -71,7 +71,7 @@
 
   // The catalog's `erase` of a firmware option is the .zip of the formatter for the board's
   // SoftDevice; the .uf2 sits beside it (ext "zip" or "uf2"). Anything else is not trusted.
-  const FORMATTER_ZIP = /^https:\/\/cdn\.jsdelivr\.net\/gh\/(xejarque|liquidraver)\/ZephCore@firmware-dist\/SoftDevice_v[67]_formatter\.zip$/;
+  const FORMATTER_ZIP = /^https:\/\/((xejarque|liquidraver)\.github\.io\/ZephCore\/firmware|cdn\.jsdelivr\.net\/gh\/(xejarque|liquidraver)\/ZephCore@firmware-dist)\/SoftDevice_v[67]_formatter\.zip$/;
   function formatterUrl(file, ext = "uf2") {
     const zip = file && file.erase;
     return FORMATTER_ZIP.test(zip || "") ? zip.replace(/\.zip$/, `.${ext}`) : null;

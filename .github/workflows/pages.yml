@@ -1,6 +1,10 @@
 name: Deploy Website & Docs to GitHub Pages
 
 on:
+  workflow_run:
+    workflows: ["build firmware"]
+    types: [completed]
+    branches: [master]
   push:
     branches:
       - master
@@ -32,6 +36,23 @@ jobs:
 
       - name: Test the flasher and builder logic
         run: node --test tests/web/*.test.*
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+
+      # The browser cannot fetch Release assets (no CORS header), so the site carries
+      # the latest release's files itself and a catalog pointing at them.
+      - name: Add the latest release's firmware and catalog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pip install -r requirements.txt
+          tag="$(gh release view --json tagName --jq .tagName)"
+          gh release download "$tag" --dir custom_builder_web/firmware
+          python gen_provider_catalog.py --firmware-dir custom_builder_web/firmware \
+            --url-base "https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/firmware" \
+            --version "$tag" --out custom_builder_web/firmware/catalog.json
 
       - name: Setup Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5

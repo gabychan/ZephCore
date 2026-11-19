@@ -233,7 +233,7 @@ function initFlasherCore() {
   }
 
   const CATALOG_URLS = [
-    "https://cdn.jsdelivr.net/gh/xejarque/ZephCore@firmware-dist/catalog.json",
+    "firmware/catalog.json",
     "https://cdn.jsdelivr.net/gh/liquidraver/ZephCore@firmware-dist/catalog.json"
   ];
   // Files of the catalogs that load, fetched once per page.
