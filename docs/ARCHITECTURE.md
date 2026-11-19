@@ -746,7 +746,7 @@ wake voltage; the CLI refuses what `sanitizeNodePrefs()` would drop at boot
 
 **Battery wake** (`CONFIG_ZEPHCORE_BATTERY_WAKE`: a `nordic,nrf-lpcomp` node on
 the battery divider and a measured `battery-wake-mv` in `zephyr,user`; today the
-ProMicro SX1262): the LPCOMP is set to its rising edge at boot
+ProMicro SX1262 and GAT562 30S): the LPCOMP is set to its rising edge at boot
 (`board/zephyr_poweroff.c`) and keeps running through System OFF, so a
 low-battery power-off (`zephcore_power_off_low_battery()`) wakes again once the
 battery rises past `battery-wake-mv`; every other power-off suspends it first and
