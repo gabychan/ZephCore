@@ -147,7 +147,9 @@ static void battery_wake_prepare(bool keep)
 {
 #if IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
 	if (!keep) {
-		(void)pm_device_action_run(battery_wake, PM_DEVICE_ACTION_SUSPEND);
+		if (pm_device_action_run(battery_wake, PM_DEVICE_ACTION_SUSPEND) != 0) {
+			LOG_WRN("Battery wake not suspended: it can wake this power-off");
+		}
 		return;
 	}
 	/* Already above the reference, there is no rising edge left to wake on. */
