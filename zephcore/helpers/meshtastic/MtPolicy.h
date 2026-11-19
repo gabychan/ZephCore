@@ -50,6 +50,31 @@ private:
 	Slot _slot[kSlots] = {};
 };
 
+/* The NodeInfo we send on our own account: once per node per interval and, for all nodes together,
+ * at most one per kGapMs, so frames from invented node ids cannot make us transmit. */
+class NodeInfoLimit {
+public:
+	static constexpr uint32_t kGapMs = 5000;
+
+	bool allow(uint32_t node, uint32_t now_ms, uint32_t interval_ms)
+	{
+		if (_sent && (uint32_t)(now_ms - _last_ms) < kGapMs) {
+			return false;
+		}
+		if (!_node.allow(node, now_ms, interval_ms)) {
+			return false;
+		}
+		_sent = true;
+		_last_ms = now_ms;
+		return true;
+	}
+
+private:
+	NodeRateLimit _node;
+	uint32_t _last_ms = 0;
+	bool _sent = false;
+};
+
 /* Marking a contact as favourite asks the node once, and only when something
  * is missing: its name or its public key. */
 inline bool favouriteAsksNodeInfo(bool was_favourite, bool is_favourite, bool has_name,

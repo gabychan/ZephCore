@@ -1433,6 +1433,11 @@
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {
+      "id": "UNIT-MT-072",
+      "name": "Our own NodeInfo goes out once per node per interval and one per gap overall, whatever the node ids",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-071",
       "name": "The key cache answers the nodes it holds, a node's new key replaces its old one, a full cache forgets the oldest, and clear empties it",
       "source": "tests/unit/meshtastic_tests.cpp"
