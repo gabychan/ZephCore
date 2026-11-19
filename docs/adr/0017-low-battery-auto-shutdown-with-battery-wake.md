@@ -31,7 +31,7 @@ running through System OFF and its crossing event wakes the SoC.
 
 ## Consequences
 
-- Only the ProMicro SX1262 has a battery wake today. Other boards keep the old behaviour until a wake voltage is
+- Only the ProMicro SX1262 and the GAT562 30S have a battery wake today. Other boards keep the old behaviour until a wake voltage is
   measured on each; they carry no code for it.
 - A companion on the ProMicro SX1262 now also wakes by itself after a low-battery power-off.
 - A stored companion threshold outside the range goes back to the default at boot.
