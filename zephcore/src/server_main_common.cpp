@@ -24,6 +24,7 @@ LOG_MODULE_REGISTER(zephcore_server_main, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 #include <zephyr/sys/reboot.h>
 #include "oled_power.h"
 #include "boot_prefs.h"
+#include <app/PowerPolicy.h>
 
 /* BLE controller assert handler — BT is compiled even for the servers (via zephcore_common.conf) */
 #if IS_ENABLED(CONFIG_BT_CTLR_ASSERT_HANDLER)
@@ -315,9 +316,16 @@ static void maintenance_timer_fn(struct k_timer *timer)
 	k_event_post(&mesh_events, MESH_EVENT_MAINTENANCE);
 }
 
-/* Ask the mesh for its soonest pending deadline and arm the one-shot for it,
- * after every loop pass. The backstop is a ceiling on the wait, so it must
- * stay well above the shortest recurring deadline. */
+#if defined(ZEPHCORE_LORA) && IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
+#define SERVER_POWER_POLICY 1
+static PowerPolicy &power_policy(void);
+#else
+#define SERVER_POWER_POLICY 0
+#endif
+
+/* Ask the mesh (and the battery check) for the soonest pending deadline and
+ * arm the one-shot for it, after every loop pass. The backstop is a ceiling on
+ * the wait, so it must stay well above the shortest recurring deadline. */
 static void arm_maintenance_wake(void)
 {
 	uint32_t delay = MAINTENANCE_BACKSTOP_MS;
@@ -326,6 +334,9 @@ static void arm_maintenance_wake(void)
 #ifdef ZEPHCORE_LORA
 	if (server_role) {
 		next = server_role->mesh->msUntilNextMaintenance();
+#if SERVER_POWER_POLICY
+		next = MIN(next, power_policy().msUntilNextCheck());
+#endif
 
 		if (next < delay) {
 			delay = next;
@@ -482,6 +493,19 @@ static void refresh_ui_radio_state(void)
 }
 #endif
 
+#if SERVER_POWER_POLICY
+/* Low-battery auto-shutdown, as on the companion, only where the board wakes
+ * itself when the battery recovers (a node with no button in reach would stay
+ * off). No app to notify and no v-contact. Set by server_main(), whose frame
+ * lives as long as the node. */
+static PowerPolicy *s_power_policy;
+
+static PowerPolicy &power_policy(void)
+{
+	return *s_power_policy;
+}
+#endif
+
 /* Server event loop */
 static void server_event_loop(void)
 {
@@ -552,6 +576,11 @@ static void server_event_loop(void)
 
 		/* A maintenance deadline came due — run the time-based work too. */
 		if (events & MESH_EVENT_MAINTENANCE) {
+#if SERVER_POWER_POLICY
+			if (server_role) {
+				power_policy().tick();
+			}
+#endif
 #ifdef ZEPHCORE_LORA
 			/* Drive loop() so time-based actions (advert timers,
 			 * tempradio set/revert, contacts flush, uplink status)
@@ -686,6 +715,11 @@ int server_main(const ServerRole &role)
 
 #ifdef ZEPHCORE_LORA
 	server_role = &role;
+#if SERVER_POWER_POLICY
+	PowerPolicy policy(zephyr_board, *role.prefs, {});
+
+	s_power_policy = &policy;
+#endif
 
 	/* Initialize mesh event object BEFORE begin() — radio callbacks post events */
 	k_event_init(&mesh_events);

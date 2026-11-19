@@ -318,6 +318,11 @@
       "source": "tests/unit/prefs_json_tests.cpp"
     },
     {
+      "id": "UNIT-PJSON-014",
+      "name": "A repeater's auto-shutdown threshold survives prefs.json; a file without it keeps the default",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
       "id": "UNIT-LPP-001",
       "name": "Values round to the nearest step (3850 mV is 3.85 V, not the library's 3.84)",
       "source": "tests/unit/lpp_tests.cpp"
@@ -351,6 +356,26 @@
       "id": "UNIT-TTEXT-003",
       "name": "A type the screen does not show is skipped, not the end; empty is 'no telemetry'",
       "source": "tests/unit/telemetry_text_tests.cpp"
+    },
+    {
+      "id": "UNIT-POLICY-AUTOSHUTDOWN-001",
+      "name": "get|set autoshutdown: 0 or 2900 to the ceiling, digits only, changed flag",
+      "source": "tests/unit/policy_tests.cpp"
+    },
+    {
+      "id": "UNIT-POLICY-AUTOSHUTDOWN-002",
+      "name": "get|set z.autoshutdown: the same setting in the z. replies, capped under the wake",
+      "source": "tests/unit/policy_tests.cpp"
+    },
+    {
+      "id": "UNIT-POLICY-AUTOSHUTDOWN-003",
+      "name": "What the CLI accepts is exactly what sanitizeNodePrefs keeps",
+      "source": "tests/unit/policy_tests.cpp"
+    },
+    {
+      "id": "UNIT-POLICY-AUTOSHUTDOWN-004",
+      "name": "Auto-shutdown starts off on a role that is not a companion, whatever the Kconfig threshold",
+      "source": "tests/unit/policy_tests.cpp"
     },
     {
       "id": "UNIT-POLICY-001",

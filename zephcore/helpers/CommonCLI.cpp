@@ -9,6 +9,7 @@
 #include "buzzer_gate.h"
 #include "pm_sleep_guard.h"
 #include <helpers/ui/ui_task.h>
+#include <helpers/AutoShutdownCli.h>
 #if IS_ENABLED(CONFIG_ZEPHCORE_UI_DISPLAY)
 #include <helpers/ui/display.h>
 #endif
@@ -416,6 +417,20 @@ bool CommonCLI::handleZCmd(uint32_t sender_timestamp, const char* command, char*
 		_callbacks->formatMtNeighbours(reply, replyCap(sender_timestamp), page, recent);
 #else
 		strcpy(reply, "not available");
+#endif
+		return true;
+	}
+	if (autoshutdown::isZCommand(command)) {
+#if IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
+		bool changed = false;
+
+		autoshutdown::zCommand(*_prefs, command, AUTO_SHUTDOWN_CEILING_MV, reply,
+				       replyCap(sender_timestamp), &changed);
+		if (changed) {
+			savePrefs();
+		}
+#else
+		snprintf(reply, replyCap(sender_timestamp), "Error: not available on this board");
 #endif
 		return true;
 	}

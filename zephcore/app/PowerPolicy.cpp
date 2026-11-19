@@ -6,19 +6,21 @@
 #include "PowerPolicy.h"
 
 #include <adapters/board/zephyr_poweroff.h>
+#include <helpers/AutoShutdownCli.h>
 #include <helpers/ui/ui_task.h>
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 LOG_MODULE_REGISTER(zephcore_power_policy, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 
 #if defined(CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS) && \
 	CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS > 0
 #define HAS_AUTO_SHUTDOWN 1
+/* initNodePrefs() and sanitizeNodePrefs() fall back to the default. */
+static_assert(auto_shutdown_mv_valid(CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS,
+				     AUTO_SHUTDOWN_CEILING_MV),
+	      "CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS outside the auto-shutdown range");
 #else
 #define HAS_AUTO_SHUTDOWN 0
 #endif
@@ -35,15 +37,39 @@ LOG_MODULE_REGISTER(zephcore_power_policy, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 static void shutdown_work_fn(struct k_work *work)
 {
 	ARG_UNUSED(work);
-	zephcore_power_off();
+	zephcore_power_off_low_battery();
 }
 static K_WORK_DELAYABLE_DEFINE(s_shutdown_work, shutdown_work_fn);
 #endif
+
+bool PowerPolicy::idle() const
+{
+	bool cutoff = HAS_AUTO_SHUTDOWN && _prefs.auto_shutdown_mv != 0;
+
+	return !cutoff && !_hooks.alert_enabled;
+}
+
+uint32_t PowerPolicy::msUntilNextCheck() const
+{
+	if (_shutting_down || idle()) {
+		return UINT32_MAX;
+	}
+	if (!_checked) {
+		return 0;
+	}
+	uint32_t since = k_uptime_get_32() - _next_check_ms;
+
+	return since >= CHECK_INTERVAL_MS ? 0 : CHECK_INTERVAL_MS - since;
+}
 
 void PowerPolicy::tick()
 {
 	if (_shutting_down) {
 		return;  /* committed; the grace work powers off */
+	}
+	if (idle()) {
+		_shutdown_low = 0;
+		return;
 	}
 	uint32_t now = k_uptime_get_32();
 
@@ -140,7 +166,7 @@ void PowerPolicy::checkShutdown(uint16_t mv, bool on_battery)
 		return;
 	}
 	ui_show_low_battery(true);
-	zephcore_power_off();
+	zephcore_power_off_low_battery();
 #else
 	ui_show_low_battery(true);
 	LOG_WRN("auto-shutdown: CONFIG_POWEROFF not enabled, cannot power off");
@@ -154,54 +180,22 @@ void PowerPolicy::checkShutdown(uint16_t mv, bool on_battery)
 bool PowerPolicy::handleCommand(const char *line, char *reply, size_t cap)
 {
 #if HAS_AUTO_SHUTDOWN
-	if (strcmp(line, "get autoshutdown") == 0) {
-		uint16_t mv = _prefs.auto_shutdown_mv;
+	bool changed = false;
 
-		if (mv == 0) {
-			snprintf(reply, cap, "autoshutdown: off");
-		} else {
-			snprintf(reply, cap, "autoshutdown: %u mV", mv);
-		}
-		return true;
+	if (!autoshutdown::command(_prefs, line, AUTO_SHUTDOWN_CEILING_MV, reply, cap, &changed)) {
+		return false;
 	}
-	if (strncmp(line, "set autoshutdown ", 17) == 0) {
-		const char *arg = line + 17;
-
-		while (*arg == ' ') {
-			arg++;
-		}
-		/* Digits only, then nothing but whitespace. */
-		char *end = NULL;
-		long v = strtol(arg, &end, 10);
-
-		while (*end == ' ' || *end == '\r' || *end == '\n' || *end == '\t') {
-			end++;
-		}
-		if (arg[0] < '0' || arg[0] > '9' || *end != '\0') {
-			snprintf(reply, cap, "ERROR: numbers only (0 = off, 1-5000 mV)");
-			return true;
-		}
-		if (v > 5000) {
-			snprintf(reply, cap, "ERROR: must be 0 (off) or 1-5000 mV");
-			return true;
-		}
-		_prefs.auto_shutdown_mv = (uint16_t)v;
-		_prefs.auto_shutdown_set = 1;
+	if (changed) {
 		if (_hooks.prefs_dirty) {
 			_hooks.prefs_dirty();
 		}
 		_shutdown_low = 0;
-		if (v == 0) {
-			snprintf(reply, cap, "OK - autoshutdown off");
-		} else {
-			snprintf(reply, cap, "OK - autoshutdown %ld mV", v);
-		}
-		return true;
 	}
+	return true;
 #else
 	ARG_UNUSED(line);
 	ARG_UNUSED(reply);
 	ARG_UNUSED(cap);
-#endif
 	return false;
+#endif
 }

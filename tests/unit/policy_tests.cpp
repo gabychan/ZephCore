@@ -3,7 +3,9 @@
 #include <OffgridPolicy.h>
 #include <RateLimiter.h>
 #include <mesh/Maintenance.h>
+#include <AutoShutdownCli.h>
 using namespace mesh;
+static constexpr size_t CLI_REPLY_SIZE_TEST = 256;
 
 TEST(reply_routes, "UNIT-POLICY-001", "Reply routing and scope truth tables") {
     const ReplyRoute routes[] = {REPLY_ROUTE_FLOOD, REPLY_ROUTE_DIRECT_OUT_PATH,
@@ -137,4 +139,113 @@ TEST(offgrid_normalize, "UNIT-OFFGRID-003", "Off-grid: a repeat flag on a mesh f
     p = offgridPrefs(868.0f, 1, 869.618f);
     offgridFreqEdited(p);
     CHECK(p.client_repeat == 0 && p.offgrid_home_freq == 0.0f && p.freq == 868.0f);
+}
+
+TEST(autoshutdown_cli, "UNIT-POLICY-AUTOSHUTDOWN-001", "get|set autoshutdown: 0 or 2900 to the ceiling, digits only, changed flag") {
+    NodePrefs p = {};
+    char reply[CLI_REPLY_SIZE_TEST];
+    bool changed = false;
+    const uint16_t ceiling = AUTO_SHUTDOWN_MAX_MV;  // a build without a battery wake
+
+    p.auto_shutdown_mv = 3200;
+    CHECK(autoshutdown::command(p, "get autoshutdown", ceiling, reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "autoshutdown: 3200 mV") == 0);
+    CHECK(!changed);
+
+    CHECK(autoshutdown::command(p, "set autoshutdown 3400", ceiling, reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "OK - autoshutdown 3400 mV") == 0);
+    CHECK(changed && p.auto_shutdown_mv == 3400 && p.auto_shutdown_set == 1);
+
+    changed = false;
+    CHECK(autoshutdown::command(p, "set autoshutdown 0", ceiling, reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "OK - autoshutdown off") == 0);
+    CHECK(changed && p.auto_shutdown_mv == 0);
+    CHECK(autoshutdown::command(p, "get autoshutdown", ceiling, reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "autoshutdown: off") == 0);
+
+    // Both ends are accepted.
+    CHECK(autoshutdown::command(p, "set autoshutdown 2900", ceiling, reply, sizeof(reply), &changed));
+    CHECK(p.auto_shutdown_mv == 2900);
+    CHECK(autoshutdown::command(p, "set autoshutdown 4200  ", ceiling, reply, sizeof(reply), &changed));
+    CHECK(p.auto_shutdown_mv == 4200);
+
+    // Rejected input stores nothing and does not flag a change.
+    p.auto_shutdown_mv = 3200;
+    changed = false;
+    for (const char *bad : {"set autoshutdown abc", "set autoshutdown 3.4", "set autoshutdown -5",
+                            "set autoshutdown 3400x", "set autoshutdown "}) {
+        CHECK(autoshutdown::command(p, bad, ceiling, reply, sizeof(reply), &changed));
+        CHECK(strcmp(reply, "ERROR: numbers only (0 = off, 2900-4200 mV)") == 0);
+        CHECK(!changed && p.auto_shutdown_mv == 3200);
+    }
+    for (const char *bad : {"set autoshutdown 1", "set autoshutdown 2899", "set autoshutdown 4201",
+                            "set autoshutdown 70000", "set autoshutdown 99999999999999999999"}) {
+        CHECK(autoshutdown::command(p, bad, ceiling, reply, sizeof(reply), &changed));
+        CHECK(strcmp(reply, "ERROR: must be 0 (off) or 2900-4200 mV") == 0);
+        CHECK(!changed && p.auto_shutdown_mv == 3200);
+    }
+
+    // Not ours: left for the other handlers.
+    CHECK(!autoshutdown::command(p, "get power", ceiling, reply, sizeof(reply), &changed));
+    CHECK(!autoshutdown::command(p, "set autoshutdownx 1", ceiling, reply, sizeof(reply), &changed));
+}
+
+TEST(z_autoshutdown_cli, "UNIT-POLICY-AUTOSHUTDOWN-002", "get|set z.autoshutdown: the same setting in the z. replies, capped under the wake") {
+    NodePrefs p = {};
+    char reply[CLI_REPLY_SIZE_TEST];
+    bool changed = false;
+    // A board that wakes at 3600 mV: nothing above 3300 mV may be stored.
+    const uint16_t ceiling = 3600 - AUTO_SHUTDOWN_WAKE_MARGIN_MV;
+
+    CHECK(autoshutdown::zCommand(p, "get z.autoshutdown", ceiling, reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "> off") == 0 && !changed);
+    CHECK(autoshutdown::zCommand(p, "set z.autoshutdown 3300", ceiling, reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "OK") == 0 && changed && p.auto_shutdown_mv == 3300 && p.auto_shutdown_set == 1);
+    CHECK(autoshutdown::zCommand(p, "get z.autoshutdown", ceiling, reply, sizeof(reply), &changed));
+    CHECK(strcmp(reply, "> 3300 mV") == 0);
+
+    changed = false;
+    for (const char *bad : {"set z.autoshutdown abc", "set z.autoshutdown 3301", "set z.autoshutdown 4200",
+                            "set z.autoshutdown 2899", "set z.autoshutdown -1", "set z.autoshutdown "}) {
+        CHECK(autoshutdown::zCommand(p, bad, ceiling, reply, sizeof(reply), &changed));
+        CHECK(strcmp(reply, "Error: 0 (off) or 2900-3300 mV") == 0 && !changed && p.auto_shutdown_mv == 3300);
+    }
+    CHECK(!autoshutdown::zCommand(p, "get autoshutdown", ceiling, reply, sizeof(reply), &changed));
+    CHECK(!autoshutdown::zCommand(p, "get z.info", ceiling, reply, sizeof(reply), &changed));
+
+    CHECK(autoshutdown::isZCommand("get z.autoshutdown") && autoshutdown::isZCommand("set z.autoshutdown 1"));
+    CHECK(!autoshutdown::isZCommand("get z.autoshutdownx") && !autoshutdown::isZCommand("set autoshutdown 3300"));
+}
+
+TEST(autoshutdown_sane, "UNIT-POLICY-AUTOSHUTDOWN-003", "What the CLI accepts is exactly what sanitizeNodePrefs keeps") {
+    for (uint16_t ceiling : {(uint16_t)AUTO_SHUTDOWN_MAX_MV, (uint16_t)3300}) {
+        for (uint32_t mv = 0; mv <= 5000; mv++) {
+            char arg[8];
+            uint16_t parsed = 0;
+            snprintf(arg, sizeof(arg), "%u", (unsigned)mv);
+            bool cli_ok = autoshutdown::parseMv(arg, ceiling, &parsed) == autoshutdown::Parse::OK;
+            CHECK(cli_ok == auto_shutdown_mv_valid((uint16_t)mv, ceiling));
+            CHECK(!cli_ok || parsed == mv);
+        }
+    }
+
+    // A stored value outside the range falls back to the role's default (0 here: not a companion).
+    NodePrefs p = {};
+    p.auto_shutdown_mv = 5000;
+    sanitizeNodePrefs(&p);
+    CHECK(p.auto_shutdown_mv == 0);
+    p.auto_shutdown_mv = 3300;
+    sanitizeNodePrefs(&p);
+    CHECK(p.auto_shutdown_mv == 3300);
+}
+
+TEST(autoshutdown_default, "UNIT-POLICY-AUTOSHUTDOWN-004", "Auto-shutdown starts off on a role that is not a companion, whatever the Kconfig threshold") {
+    static_assert(CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS == 3200, "the test build sets a Kconfig threshold");
+    NodePrefs p;
+    initNodePrefs(&p);
+    CHECK(p.auto_shutdown_mv == 0);
+
+    p.auto_shutdown_mv = 4500;
+    sanitizeNodePrefs(&p);
+    CHECK(p.auto_shutdown_mv == 0);
 }

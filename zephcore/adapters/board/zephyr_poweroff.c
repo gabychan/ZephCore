@@ -26,7 +26,10 @@
 #include <ZephyrFsUtil.h>
 
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/comparator.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/init.h>
+#include <zephyr/pm/device.h>
 #include <zephyr/drivers/regulator.h>
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/reboot.h>
@@ -118,9 +121,51 @@ static void power_regulators_off(void)
 #endif
 }
 
-void zephcore_power_off(void)
+/* ========== Battery wake ==========
+ * The LPCOMP keeps running through System OFF, and its ANADETECT edge wakes
+ * the SoC (a reset, reported as LOWPOWER). The driver starts it at boot with
+ * ANADETECT on both edges; it is set to the rising edge once here, so it has
+ * long been running when a power-off comes. */
+
+#if IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
+static const struct device *const battery_wake =
+	DEVICE_DT_GET(DT_COMPAT_GET_ANY_STATUS_OKAY(nordic_nrf_lpcomp));
+
+static int battery_wake_init(void)
+{
+	if (!device_is_ready(battery_wake) ||
+	    comparator_set_trigger(battery_wake, COMPARATOR_TRIGGER_RISING_EDGE) != 0) {
+		LOG_ERR("Battery wake not available");
+	}
+	return 0;
+}
+SYS_INIT(battery_wake_init, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+#endif
+
+/* A running comparator wakes System OFF: only a low-battery power-off keeps it. */
+static void battery_wake_prepare(bool keep)
+{
+#if IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
+	if (!keep) {
+		if (pm_device_action_run(battery_wake, PM_DEVICE_ACTION_SUSPEND) != 0) {
+			LOG_WRN("Battery wake not suspended: it can wake this power-off");
+		}
+		return;
+	}
+	/* Already above the reference, there is no rising edge left to wake on. */
+	if (comparator_get_output(battery_wake) == 1) {
+		LOG_ERR("Battery wake cannot fire: input already above its reference");
+	}
+#else
+	ARG_UNUSED(keep);
+#endif
+}
+
+static FUNC_NORETURN void power_off(bool battery_wake_on)
 {
 	LOG_INF("Powering off");
+
+	battery_wake_prepare(battery_wake_on);
 
 	/* 0. Deferred flash writes, while every rail is still up. */
 	zephcore_persist_before_off();
@@ -204,4 +249,14 @@ void zephcore_power_off(void)
 	sys_reboot(SYS_REBOOT_COLD);
 #endif
 	CODE_UNREACHABLE;
+}
+
+void zephcore_power_off(void)
+{
+	power_off(false);
+}
+
+void zephcore_power_off_low_battery(void)
+{
+	power_off(true);
 }

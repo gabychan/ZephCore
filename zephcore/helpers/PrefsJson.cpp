@@ -335,6 +335,9 @@ protected:
 		def("backoff", _p->backoff_multiplier);
 		def("disc_ts", _p->discovery_mod_timestamp);
 		def("gps_set", _p->gps_enabled_set);
+		/* `set z.autoshutdown`. The companion's aoff_set marks its 3300 mV
+		 * migration, which a server never had. */
+		def("auto_off_mv", _p->auto_shutdown_mv);
 	}
 
 public:

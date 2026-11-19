@@ -1,10 +1,11 @@
 /*
  * SPDX-License-Identifier: MIT
  *
- * The companion's low-battery policy, on every build that reads a battery,
- * with or without a UI: auto-shutdown (prefs.auto_shutdown_mv, `get|set
+ * The low-battery policy: auto-shutdown (prefs.auto_shutdown_mv, `get|set
  * autoshutdown`) and the v-contact low-battery alert (prefs.v_battery_alert_mv).
- * Driven by the housekeeping tick, main thread only.
+ * The companion runs it on every build that reads a battery, with or without
+ * a UI; a repeater or room server only with CONFIG_ZEPHCORE_BATTERY_WAKE, where
+ * the node wakes itself once the battery recovers. Main thread only.
  *
  * Both sample the battery every 30 s and need three low readings in a row, so
  * a TX sag cannot trigger them; both skip while the board reports external
@@ -43,6 +44,10 @@ public:
 	/* Every housekeeping tick; self-throttled to one reading per 30 s. */
 	void tick();
 
+	/* Milliseconds until tick() takes its next reading, 0 if due now,
+	 * UINT32_MAX when there is nothing to watch. For a deadline-driven loop. */
+	uint32_t msUntilNextCheck() const;
+
 	/* `get|set autoshutdown`; true if the line was one. */
 	bool handleCommand(const char *line, char *reply, size_t cap);
 
@@ -58,6 +63,8 @@ public:
 	}
 
 private:
+	/* No cutoff set and no alert hooked: a reading would change nothing. */
+	bool idle() const;
 	void checkAlert(uint16_t mv, bool on_battery);
 	void checkShutdown(uint16_t mv, bool on_battery);
 

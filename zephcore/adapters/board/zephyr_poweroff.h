@@ -32,8 +32,14 @@ uint8_t zephcore_shutdown_reason(void);
 const char *zephcore_shutdown_reason_str(uint8_t reason);
 
 /* Every load down, LoRa held in reset, the wake button armed, the power latch
- * released last, then System OFF. Does not return. */
+ * released last, then System OFF. Does not return. The node stays off until
+ * the button or a reset. */
 FUNC_NORETURN void zephcore_power_off(void);
+
+/* zephcore_power_off() for a low battery: on a board with a battery wake
+ * (CONFIG_ZEPHCORE_BATTERY_WAKE) the node also wakes when the battery rises
+ * back above the board's `battery-wake-mv`. */
+FUNC_NORETURN void zephcore_power_off_low_battery(void);
 
 /* The UI's part (heartbeat LED, display), run first. Weak no-op here; the UI
  * builds provide it. */
