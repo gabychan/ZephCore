@@ -420,6 +420,20 @@ bool CommonCLI::handleZCmd(uint32_t sender_timestamp, const char* command, char*
 #endif
 		return true;
 	}
+	if (autoshutdown::isZCommand(command)) {
+#if IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
+		bool changed = false;
+
+		autoshutdown::zCommand(*_prefs, command, AUTO_SHUTDOWN_CEILING_MV, reply,
+				       replyCap(sender_timestamp), &changed);
+		if (changed) {
+			savePrefs();
+		}
+#else
+		snprintf(reply, replyCap(sender_timestamp), "Error: not available on this board");
+#endif
+		return true;
+	}
 	if (strcmp(command, "get z.info") == 0) {
 		replyZInfo(replyCap(sender_timestamp), reply);
 		return true;
@@ -497,21 +511,6 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 	}
 	// hook for variant-specific CLI processing
 	if (_board->handleCommand(command, sender_timestamp, reply)) {
-		return;
-	}
-	// ZEPHCORE: low-battery auto-shutdown, on a board that wakes itself again.
-	if (autoshutdown::isZCommand(command)) {
-#if IS_ENABLED(CONFIG_ZEPHCORE_BATTERY_WAKE)
-		bool changed = false;
-
-		autoshutdown::zCommand(*_prefs, command, AUTO_SHUTDOWN_CEILING_MV, reply,
-				       replyCap(sender_timestamp), &changed);
-		if (changed) {
-			savePrefs();
-		}
-#else
-		snprintf(reply, replyCap(sender_timestamp), "Error: not available on this board");
-#endif
 		return;
 	}
 

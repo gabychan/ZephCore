@@ -42,9 +42,16 @@ static void shutdown_work_fn(struct k_work *work)
 static K_WORK_DELAYABLE_DEFINE(s_shutdown_work, shutdown_work_fn);
 #endif
 
+bool PowerPolicy::idle() const
+{
+	bool cutoff = HAS_AUTO_SHUTDOWN && _prefs.auto_shutdown_mv != 0;
+
+	return !cutoff && !_hooks.alert_enabled;
+}
+
 uint32_t PowerPolicy::msUntilNextCheck() const
 {
-	if (_shutting_down) {
+	if (_shutting_down || idle()) {
 		return UINT32_MAX;
 	}
 	if (!_checked) {
@@ -59,6 +66,10 @@ void PowerPolicy::tick()
 {
 	if (_shutting_down) {
 		return;  /* committed; the grace work powers off */
+	}
+	if (idle()) {
+		_shutdown_low = 0;
+		return;
 	}
 	uint32_t now = k_uptime_get_32();
 
