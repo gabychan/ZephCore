@@ -15,3 +15,4 @@ restructure; most describe decisions taken earlier. The system view is in [../DE
 | [0008](0008-storage-and-settings-backend.md) | Storage layout, power-loss writes, BLE bonds in NVS |
 | [0009](0009-wifi-companion-boards.md) | WiFi companion boards and contact counts |
 | [0011](0011-esp32-companion-ble-ota.md) | ESP32 companions update over BLE with MCUmgr (sysbuild builds; `ble_ota: false` opts a board out) |
+| [0017](0017-low-battery-auto-shutdown-with-battery-wake.md) | Low-battery auto-shutdown with an LPCOMP battery wake; off by default on repeaters and room servers, companion default kept |

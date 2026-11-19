@@ -300,10 +300,13 @@ it polls external state. Repeater and room server share one loop (`server_main_c
 
 ### 8.3 Power
 - The radio never sleeps (RX 24/7; optional RX duty-cycle sniff inside the driver).
-- One power-off path (`zephcore_power_off()`: loads off, LoRa in reset, wake button armed, power latch last),
-  reached by `poweroff`, the UI and the low-battery policy.
-- Low-battery policy for every companion (`PowerPolicy`): three low readings 30 s apart, never on external power,
-  never on a reading under 2000 mV (no battery).
+- One power-off sequence (loads off, LoRa in reset, wake button armed, power latch last) with two entries:
+  `zephcore_power_off()` for `poweroff` and the UI, which stays off until the button, and
+  `zephcore_power_off_low_battery()` for the low-battery policy, which keeps the battery wake where the board has
+  one ([ADR 0017](adr/0017-low-battery-auto-shutdown-with-battery-wake.md)).
+- Low-battery policy (`PowerPolicy`): three low readings 30 s apart, never on external power, never on a reading
+  under 2000 mV (no battery). Every companion runs it; a repeater or room server only on a board with a battery
+  wake, and off until its threshold is set.
 - GPS: duty-cycled; holds the SoC light-sleep lock only while acquiring.
 - ESP32 companions on boards that declare it can light-sleep after `powersaving on` (off by default): never
   while a USB host is attached, the display is on or a BLE link is not yet encrypted.
@@ -362,7 +365,8 @@ CayenneLPP encoder rounds where the library truncates); upstream bugs found this
 
 Recorded as ADRs in [adr/](adr/README.md): ESP32 boot and flash layout (0001), S3 native-USB companion (0002),
 overlay precedence (0003), BLE privacy (0004), the Zephyr `main` pin (0005), SX126x duty cycle and RX-busy gating
-(0006), adaptive contention window (0007), storage and settings backend (0008), WiFi companion boards (0009).
+(0006), adaptive contention window (0007), storage and settings backend (0008), WiFi companion boards (0009),
+low-battery auto-shutdown with a battery wake (0017).
 
 Principles recorded in this document rather than as ADRs: the single-threaded mesh (§6.1), the heap-free packet
 path (§8.1), no hardware watchdog (§8.7), forward-only wall clock (§8.2), one owner per patched Zephyr file (R4.4),

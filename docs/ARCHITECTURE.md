@@ -753,7 +753,9 @@ voltage follows the regulator and divider tolerance and is measured per board.
 With it, repeaters and room servers run the same policy (no app, no v-contact),
 its 30 s reading a deadline of the maintenance wake, and persist the threshold as
 `zc.auto_off_mv`. A companion boots with `CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS`;
-any other role boots with the threshold at 0 (`AUTO_SHUTDOWN_DEFAULT_MV`).
+any other role boots with the threshold at 0 (`AUTO_SHUTDOWN_DEFAULT_MV`). On a board with a
+power latch the battery divider must sit outside the latched rail, or nothing is left to sense the recovery.
+Decision record: ADR 0017.
 
 ### 6.3 RepeaterMesh
 
