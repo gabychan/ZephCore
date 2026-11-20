@@ -1,0 +1,2915 @@
+{
+  "description": "ZephCore is an independent, ground-up implementation of the MeshCore protocol on the Zephyr RTOS. It is wire-compatible with stock MeshCore and adds features such as an adaptive contention window, LoRa RX duty-cycling, and support for additional boards. Companion (BLE + USB), Repeater, and native-Linux builds are provided.",
+  "maker": {
+    "Ikoka": {
+      "name": "Ikoka"
+    },
+    "elecrow": {
+      "name": "Elecrow"
+    },
+    "gat-iot": {
+      "name": "GAT-IoT"
+    },
+    "heltec": {
+      "name": "Heltec"
+    },
+    "lilygo": {
+      "name": "LilyGo"
+    },
+    "meshnology": {
+      "name": "Meshnology"
+    },
+    "minewsemi": {
+      "name": "MinewSemi"
+    },
+    "muziworks": {
+      "name": "muzi works"
+    },
+    "promicro": {
+      "name": "ProMicro"
+    },
+    "rak": {
+      "name": "RAK Wireless"
+    },
+    "seeed": {
+      "name": "Seeed Studio"
+    },
+    "uniteng": {
+      "name": "UnitEng"
+    }
+  },
+  "device": [
+    {
+      "maker": "elecrow",
+      "class": "zephcore",
+      "name": "Elecrow ThinkNode M1",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m1-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m1-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "cfe80a93f5473283fee2db12798f463dccf5a491d2f34f70492d9aed5dd7df18"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m1-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m1-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "88983af5bc5e09ab3ec0a326e9a747ceac0cce5e2d8a9adf20d88bfac5ee7987"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m1-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m1-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "cfe80a93f5473283fee2db12798f463dccf5a491d2f34f70492d9aed5dd7df18"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m1-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m1-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "88983af5bc5e09ab3ec0a326e9a747ceac0cce5e2d8a9adf20d88bfac5ee7987"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m1-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m1-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "9aa500206a13de076b2b8e1b87160a78a0820b6e3e2d031af12cadb70a371a99"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m1-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m1-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "b1d6d5a5d0a1551a76f767b67a072399944830e55cdd70283487b56525bf0f7b"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "elecrow",
+      "class": "zephcore",
+      "name": "Elecrow ThinkNode M3",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m3-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m3-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "47ba9a2b89537c43f1593ff427d1218d28f706504ff5c0625d104e921ab123e8"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m3-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m3-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "cff571c19c33692bb4da29778674080d1de918004b5b795e4b89c96adb1e17c5"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m3-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m3-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "47ba9a2b89537c43f1593ff427d1218d28f706504ff5c0625d104e921ab123e8"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m3-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m3-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "cff571c19c33692bb4da29778674080d1de918004b5b795e4b89c96adb1e17c5"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m3-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m3-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "69781bea386b9bdac4f7fed551df8548a536d7664b87375e8dbdfcffa2c3567f"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m3-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m3-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "7c738a0d2db4ee1668489e2c4e3f22c37205f03de6637da85c37d6304c86a778"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "elecrow",
+      "class": "zephcore",
+      "name": "Elecrow ThinkNode M6",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m6-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m6-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "1fc0ff44fe54010a79028509b0367afe18182c59a3ebd739829ca7ad60824b7f"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m6-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m6-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "cc472b82a4803b371550457b043f566d824672b561369a61e5fec9a27e7edab3"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m6-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m6-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "1fc0ff44fe54010a79028509b0367afe18182c59a3ebd739829ca7ad60824b7f"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m6-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m6-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "cc472b82a4803b371550457b043f566d824672b561369a61e5fec9a27e7edab3"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "thinknode_m6-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m6-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "f1aeab16d4fae4d4afb9f1a9fd3242cc0860ad8a0594de6927918210944be607"
+                },
+                {
+                  "type": "download",
+                  "name": "thinknode_m6-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/thinknode_m6-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "8fb836512ace1577f0227025103fcd5807b91f80f61d25dd4f4ff27bfb8daac6"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "gat-iot",
+      "class": "zephcore",
+      "name": "GAT-IoT GAT562 30s",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "gat562_30s-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/gat562_30s-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "36ab640ec7afeefa8159f0de343b6f486142158b226b47d29072253b04d06403"
+                },
+                {
+                  "type": "download",
+                  "name": "gat562_30s-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/gat562_30s-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "ecf88d9bd25c297207689d2a4ce1bc0257a6fbf56955f7748177de9f72562f5e"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "gat562_30s-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/gat562_30s-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "36ab640ec7afeefa8159f0de343b6f486142158b226b47d29072253b04d06403"
+                },
+                {
+                  "type": "download",
+                  "name": "gat562_30s-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/gat562_30s-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "ecf88d9bd25c297207689d2a4ce1bc0257a6fbf56955f7748177de9f72562f5e"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "gat562_30s-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/gat562_30s-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "5310fb985fbcc8fb382880fef97f0bdbdf927e0a1d816cc217f07fb42d008c84"
+                },
+                {
+                  "type": "download",
+                  "name": "gat562_30s-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/gat562_30s-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "c32236a5a9e9d24ac74607a7405339f814cdd2a7fdfa336d1a8618d2d5be68d3"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "heltec",
+      "class": "zephcore",
+      "name": "Heltec Mesh Node T1",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t1-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t1-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "d3128d91a5c7916d8a010ec179ab4555b1ea95afae202354c938e3e66532ddf0"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t1-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t1-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "57fe65ba90b21f8df4009b0c816ae802e3f8201db0e9993d8941c384b7d4716b"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t1-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t1-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "d3128d91a5c7916d8a010ec179ab4555b1ea95afae202354c938e3e66532ddf0"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t1-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t1-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "57fe65ba90b21f8df4009b0c816ae802e3f8201db0e9993d8941c384b7d4716b"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t1-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t1-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "2871cde045afa7fc52aa0b7528f68981e20fda197070c70d951b89447bce78d6"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t1-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t1-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "e57c8c00656775eda722fbb1fbe3f43548e30fcc69911b3a61730c12ac5c4566"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "heltec",
+      "class": "zephcore",
+      "name": "Heltec T114",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t114-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t114-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "c01be646847638294b8c8d2050da033cfb6c4d87e8acb62e2c87fd295d5a393b"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t114-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t114-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "777d1b59d1e4a185f3004eac4d18f8e3329f427a39c4c3538b39915ff4b04a45"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t114-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t114-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "c01be646847638294b8c8d2050da033cfb6c4d87e8acb62e2c87fd295d5a393b"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t114-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t114-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "777d1b59d1e4a185f3004eac4d18f8e3329f427a39c4c3538b39915ff4b04a45"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t114-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t114-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "396e53ac826c994f87752cd68513d7ce6daeeccc4d67006a438144707b053f81"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t114-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t114-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "35179576ad9fdcc3bf210b48109b1c5ab9649fc0e8b09c536b68f09c35f007cb"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "Ikoka",
+      "class": "zephcore",
+      "name": "Ikoka Nano",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "ikoka_nano_30dbm-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ikoka_nano_30dbm-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "72f5ec9509709422ff94565c45a4d361fd55b91d7e7bb4fd3193f23e6beff68e"
+                },
+                {
+                  "type": "download",
+                  "name": "ikoka_nano_30dbm-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ikoka_nano_30dbm-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "99e447909ff4fd558b8af3a7596d2a255aad8a2ae08b440741f46b4f6170326e"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "ikoka_nano_30dbm-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ikoka_nano_30dbm-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "72f5ec9509709422ff94565c45a4d361fd55b91d7e7bb4fd3193f23e6beff68e"
+                },
+                {
+                  "type": "download",
+                  "name": "ikoka_nano_30dbm-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ikoka_nano_30dbm-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "99e447909ff4fd558b8af3a7596d2a255aad8a2ae08b440741f46b4f6170326e"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "ikoka_nano_30dbm-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ikoka_nano_30dbm-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "3d18fe6e479609811fe4ffaa254c9d0da49aa7e1d684823a6d1011109ae5b051"
+                },
+                {
+                  "type": "download",
+                  "name": "ikoka_nano_30dbm-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ikoka_nano_30dbm-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "4da6971dfd839d02921f9c897ccd1f4f7ddaea251e2177db06011ae521a1b44f"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "lilygo",
+      "class": "zephcore",
+      "name": "LilyGo T-Echo",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "lilygo_techo-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_techo-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "7eb33e86859da90ec97efccd1f534e943031265ee2358cfa361526f448529d4e"
+                },
+                {
+                  "type": "download",
+                  "name": "lilygo_techo-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_techo-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "9908d26d4dae9cc3e65deb8feaea2ea7cd35504c064e286b74a487f3524c1f3d"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "lilygo_techo-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_techo-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "7eb33e86859da90ec97efccd1f534e943031265ee2358cfa361526f448529d4e"
+                },
+                {
+                  "type": "download",
+                  "name": "lilygo_techo-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_techo-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "9908d26d4dae9cc3e65deb8feaea2ea7cd35504c064e286b74a487f3524c1f3d"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "lilygo_techo-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_techo-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "6658fd606ca7fabcc394009e96c6ed878c8f0d66cc1491cc0ca2e8cb040713ba"
+                },
+                {
+                  "type": "download",
+                  "name": "lilygo_techo-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_techo-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "c50b0df55774274d10a48278ee4b32b7ea58498767a82a6613fd7644111aa325"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "muziworks",
+      "class": "zephcore",
+      "name": "muzi works R1 Neo",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "muziworks_r1neo-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/muziworks_r1neo-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "4b114808bd4f3303b80d72383f5ca6331ada180aa18ba75556355eef035f1208"
+                },
+                {
+                  "type": "download",
+                  "name": "muziworks_r1neo-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/muziworks_r1neo-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "3a28817f5ac453afb4b39cf146fee9e605f41ec49324bad5c7defe08f6316f8a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "muziworks_r1neo-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/muziworks_r1neo-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "4b114808bd4f3303b80d72383f5ca6331ada180aa18ba75556355eef035f1208"
+                },
+                {
+                  "type": "download",
+                  "name": "muziworks_r1neo-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/muziworks_r1neo-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "3a28817f5ac453afb4b39cf146fee9e605f41ec49324bad5c7defe08f6316f8a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "muziworks_r1neo-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/muziworks_r1neo-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "ab7aedbccdae325793f1a6852c9b6e452e017e68b6927adf751e43eee36fe754"
+                },
+                {
+                  "type": "download",
+                  "name": "muziworks_r1neo-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/muziworks_r1neo-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "2ec2e38fc03f400d70b79ceaf0b59de2dffbcd0cca0838092939f7dca263d10a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "promicro",
+      "class": "zephcore",
+      "name": "ProMicro nrf52 (faketec)",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "promicro_sx1262-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/promicro_sx1262-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "3209071b26bbfdbbe5431bc14021ccf83151b20ef7f8275766254667fc9c75af"
+                },
+                {
+                  "type": "download",
+                  "name": "promicro_sx1262-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/promicro_sx1262-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "5e3cbf600a1cdcd13b0098325cb9cc447b85118b196a46ef141b04e029c1587a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "promicro_sx1262-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/promicro_sx1262-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "3209071b26bbfdbbe5431bc14021ccf83151b20ef7f8275766254667fc9c75af"
+                },
+                {
+                  "type": "download",
+                  "name": "promicro_sx1262-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/promicro_sx1262-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "5e3cbf600a1cdcd13b0098325cb9cc447b85118b196a46ef141b04e029c1587a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "promicro_sx1262-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/promicro_sx1262-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "fc7a068a6fea467a4dfca9d16f4e5277c504cc7751d4500593b41c75835cce67"
+                },
+                {
+                  "type": "download",
+                  "name": "promicro_sx1262-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/promicro_sx1262-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "9dc5bdf327b4f03096205d8a62172800bc4b39f592d2f3f8fac2f1d324e6d5b9"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "rak",
+      "class": "zephcore",
+      "name": "RAK WisBlock / WisMesh (RAK 4631)",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak4631-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak4631-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "80683e2415220c1be016c1c46cb02a8c7c59bc8a1e5bc8aef610e171f70be470"
+                },
+                {
+                  "type": "download",
+                  "name": "rak4631-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak4631-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "9f8e2eaa27e53c532a9aeceed88c6e1f94934d8c5a65155db327623151e468ad"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak4631-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak4631-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "80683e2415220c1be016c1c46cb02a8c7c59bc8a1e5bc8aef610e171f70be470"
+                },
+                {
+                  "type": "download",
+                  "name": "rak4631-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak4631-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "9f8e2eaa27e53c532a9aeceed88c6e1f94934d8c5a65155db327623151e468ad"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak4631-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak4631-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "325ab80ab232b31939c647c7a8024eefac11cb30c76427584b58a19bc371213a"
+                },
+                {
+                  "type": "download",
+                  "name": "rak4631-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak4631-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "c62b2ff2214bc4f79c41212916a4ffabdcd129ec2a508dc49a86f3d8fd06490f"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "rak",
+      "class": "zephcore",
+      "name": "RAK WisMesh 1W Booster (3401 + 13302)",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak3401_1watt-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak3401_1watt-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "defc8747e5a89c1176f314294779a604e1b1c65672966365805e753606b23f7c"
+                },
+                {
+                  "type": "download",
+                  "name": "rak3401_1watt-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak3401_1watt-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "5b94f4ed8b30e67d1c02d2e9f4d5d27e1284f28829a4483dfaa42473e316973a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak3401_1watt-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak3401_1watt-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "defc8747e5a89c1176f314294779a604e1b1c65672966365805e753606b23f7c"
+                },
+                {
+                  "type": "download",
+                  "name": "rak3401_1watt-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak3401_1watt-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "5b94f4ed8b30e67d1c02d2e9f4d5d27e1284f28829a4483dfaa42473e316973a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak3401_1watt-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak3401_1watt-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "d28492161845b97f7f0e0fa0d9507ba95c0c57f11d87b88f506f2f179630c039"
+                },
+                {
+                  "type": "download",
+                  "name": "rak3401_1watt-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak3401_1watt-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "18b9c3e0a966362061693e72ef1611bad74d8b555da327c4de603764b5a49424"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "rak",
+      "class": "zephcore",
+      "name": "RAK WisMesh Tag",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak_wismesh_tag-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak_wismesh_tag-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "8da53e6c05e934e42078011190ad8f8b0ccd31a4cbde90523bd0911035a061f1"
+                },
+                {
+                  "type": "download",
+                  "name": "rak_wismesh_tag-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak_wismesh_tag-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "4c8e91d72a92d9c8dc5091dbaaa753c6f1bab21463a2392f44f0cc5a1d70b5bc"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak_wismesh_tag-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak_wismesh_tag-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "8da53e6c05e934e42078011190ad8f8b0ccd31a4cbde90523bd0911035a061f1"
+                },
+                {
+                  "type": "download",
+                  "name": "rak_wismesh_tag-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak_wismesh_tag-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "4c8e91d72a92d9c8dc5091dbaaa753c6f1bab21463a2392f44f0cc5a1d70b5bc"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "rak_wismesh_tag-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak_wismesh_tag-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "4e57b7760731ce81e4ccbd1f4eeb62703c89557a5a0598dd60150e227838fd24"
+                },
+                {
+                  "type": "download",
+                  "name": "rak_wismesh_tag-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/rak_wismesh_tag-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "509366970de390170e34362d51749638a43345a07478261f507d1c118b37b73f"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio SenseCAP Solar",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "sensecap_solar-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/sensecap_solar-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "5a2b3e03efd8bec8b0216e2a09f2ba5a93b4dadcea360423633fb189c90160b7"
+                },
+                {
+                  "type": "download",
+                  "name": "sensecap_solar-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/sensecap_solar-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "fc20135b00801da442cc7f7210a7b29cdd8ab87e0ef458fcedaf93e27e93d72c"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "sensecap_solar-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/sensecap_solar-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "5a2b3e03efd8bec8b0216e2a09f2ba5a93b4dadcea360423633fb189c90160b7"
+                },
+                {
+                  "type": "download",
+                  "name": "sensecap_solar-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/sensecap_solar-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "fc20135b00801da442cc7f7210a7b29cdd8ab87e0ef458fcedaf93e27e93d72c"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "sensecap_solar-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/sensecap_solar-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "9522c90003c89a4fddb38f0d25ebab17a41efebd2aa868f5a6bc50c2f8eb60bc"
+                },
+                {
+                  "type": "download",
+                  "name": "sensecap_solar-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/sensecap_solar-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "3f701eef0e77d10ad8fc0a473ceb0a29cc7e3110f597690d1ea179bc634ef0fd"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio SenseCAP T1000-E",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "t1000_e-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/t1000_e-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "04a49e4a9839afca42bf96ac0bf83f2a2c9b909e36796cb779244472e79176e6"
+                },
+                {
+                  "type": "download",
+                  "name": "t1000_e-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/t1000_e-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "3e361ed5f655e64f67706b7259808e3eb65a6f53891ec847113cb9c05be42e00"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "t1000_e-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/t1000_e-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "04a49e4a9839afca42bf96ac0bf83f2a2c9b909e36796cb779244472e79176e6"
+                },
+                {
+                  "type": "download",
+                  "name": "t1000_e-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/t1000_e-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "3e361ed5f655e64f67706b7259808e3eb65a6f53891ec847113cb9c05be42e00"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "t1000_e-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/t1000_e-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "c37c3bc5f2639de3574c8880b7beb4fc8ea9b4837395743c8c17b5e5108eeaaf"
+                },
+                {
+                  "type": "download",
+                  "name": "t1000_e-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/t1000_e-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "5a8ddcb20f50ee77e6152078e4f49d47d658eddf9a58bc2899242cc2eeffa5b2"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio Wio Tracker L1 Pro",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "wio_tracker_l1-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/wio_tracker_l1-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "5c9c10d4727d9778422160c76e939d2730811292244dd9128a4ec983a4262b09"
+                },
+                {
+                  "type": "download",
+                  "name": "wio_tracker_l1-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/wio_tracker_l1-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "4d82e7d7945d01f775f973fc39d7a0abeb5543f84ad5eb08ffbebe710fc7e60c"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "wio_tracker_l1-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/wio_tracker_l1-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "5c9c10d4727d9778422160c76e939d2730811292244dd9128a4ec983a4262b09"
+                },
+                {
+                  "type": "download",
+                  "name": "wio_tracker_l1-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/wio_tracker_l1-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "4d82e7d7945d01f775f973fc39d7a0abeb5543f84ad5eb08ffbebe710fc7e60c"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "wio_tracker_l1-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/wio_tracker_l1-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "b9550199af292fe5cf6143c74b30b75c610a73c00c20226b046ded82bbf21642"
+                },
+                {
+                  "type": "download",
+                  "name": "wio_tracker_l1-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/wio_tracker_l1-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "fb0212373a063a619c0c7334310077ec97325c3fa3348702bd337df2acd9c724"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio Xiao nRF52 WIO",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "xiao_nrf52840-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_nrf52840-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "dbcb1ca402f2f621a16598191745abefec5910fc8b23aa61abd1d5417e22a19d"
+                },
+                {
+                  "type": "download",
+                  "name": "xiao_nrf52840-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_nrf52840-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "2572f6a8a3eeb4d8dd0da145a5d348d094353a1d7cd7e24b2068d8c8abf8c509"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "xiao_nrf52840-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_nrf52840-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "dbcb1ca402f2f621a16598191745abefec5910fc8b23aa61abd1d5417e22a19d"
+                },
+                {
+                  "type": "download",
+                  "name": "xiao_nrf52840-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_nrf52840-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "2572f6a8a3eeb4d8dd0da145a5d348d094353a1d7cd7e24b2068d8c8abf8c509"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "xiao_nrf52840-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_nrf52840-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "07b473223bd7b90e5cec6bf50e34447ee668e3aadf968855a4d8f192b9b6dff0"
+                },
+                {
+                  "type": "download",
+                  "name": "xiao_nrf52840-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_nrf52840-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "6cd5edba05701c4e6d7b643abfb0939e3b714e4d6eac994cbc961d3fb91f7c7a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        }
+      ]
+    },
+    {
+      "maker": "heltec",
+      "class": "zephcore",
+      "name": "Heltec Mesh Node T096",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t096-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t096-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "c3b3f7f4754a2659e68e90c23174451ed99bdb83e44402fbb7096b34ef66b2d5"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t096-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t096-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "8beb6930d780d4faa599255db760de43c93043833682513179442474d3f4e028"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t096-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t096-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "c3b3f7f4754a2659e68e90c23174451ed99bdb83e44402fbb7096b34ef66b2d5"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t096-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t096-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "8beb6930d780d4faa599255db760de43c93043833682513179442474d3f4e028"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "heltec_t096-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t096-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "b407e258c2092726e22f23ccec19c967e080918e0300effef3668fc2e3dcde38"
+                },
+                {
+                  "type": "download",
+                  "name": "heltec_t096-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_t096-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "109cadcd60d4a1ea1e484fe93a620d40a2f32212a39f908dd5f2a018e2f4721a"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/meshcore-dev/flasher.meshcore.io@main/img/lora.svg'>"
+    },
+    {
+      "maker": "lilygo",
+      "class": "zephcore",
+      "name": "LilyGo T-Impulse Plus",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "lilygo_timpulse_plus-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_timpulse_plus-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "005bbca1885408a93e458790df15c5a386e5596a9d10182851668d4b04a7874b"
+                },
+                {
+                  "type": "download",
+                  "name": "lilygo_timpulse_plus-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_timpulse_plus-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "7fbd916be26c90143a1986be16ba36643e9b52c391d881df7fbbbbe4977ae2dc"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "lilygo_timpulse_plus-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_timpulse_plus-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "005bbca1885408a93e458790df15c5a386e5596a9d10182851668d4b04a7874b"
+                },
+                {
+                  "type": "download",
+                  "name": "lilygo_timpulse_plus-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_timpulse_plus-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "7fbd916be26c90143a1986be16ba36643e9b52c391d881df7fbbbbe4977ae2dc"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "lilygo_timpulse_plus-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_timpulse_plus-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "f86ed1ed7dd6ef737d366d97aff871695b323e9b58c27edaed737f68a42aa493"
+                },
+                {
+                  "type": "download",
+                  "name": "lilygo_timpulse_plus-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_timpulse_plus-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "d80b102058bbc1b4ce0efb9b1b8a38ced6560176e558b3fce004e4401ac7a520"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v6_formatter.zip"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/meshcore-dev/flasher.meshcore.io@main/img/lora.svg'>"
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio SenseCAP MeshTracker X1",
+      "type": "nrf52",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "meshtracker_x1-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshtracker_x1-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "4c2f4a5a80bcb82126de163ac2a494c3c32ad0e893f3a93285003b34a692fdb0"
+                },
+                {
+                  "type": "download",
+                  "name": "meshtracker_x1-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshtracker_x1-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "96ea556d8706564782e8647b443902de73d5fe07eefe253bca9ef036677525d6"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "meshtracker_x1-companion-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshtracker_x1-companion-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "4c2f4a5a80bcb82126de163ac2a494c3c32ad0e893f3a93285003b34a692fdb0"
+                },
+                {
+                  "type": "download",
+                  "name": "meshtracker_x1-companion-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshtracker_x1-companion-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "96ea556d8706564782e8647b443902de73d5fe07eefe253bca9ef036677525d6"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash",
+                  "name": "meshtracker_x1-repeater-zephtacore-4390c45.zip",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshtracker_x1-repeater-zephtacore-4390c45.zip",
+                  "title": "DFU package (install or update over USB)",
+                  "sha256": "85321b5883570fccccebadda711dd7020cf582d87d7a34d0a10c28461043a608"
+                },
+                {
+                  "type": "download",
+                  "name": "meshtracker_x1-repeater-zephtacore-4390c45.uf2",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshtracker_x1-repeater-zephtacore-4390c45.uf2",
+                  "title": "UF2 -- drag-and-drop onto the bootloader drive",
+                  "sha256": "2c8d77ee7833dfcb874d02765f61bc7697426b2cf95240ab0835aa52f774ea2b"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore",
+          "erase": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/SoftDevice_v7_formatter.zip"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshtracker_x1.jpg'>"
+    },
+    {
+      "maker": "heltec",
+      "class": "zephcore",
+      "name": "Heltec v3",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "461275b931a4ab0ea3e35386f5445900fc8ab6dcc27a894ebdbc0d22261b0951"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "50956e73ad87d17c489505fdf0d29f7389c1bf86d0e6a50e8846751585996f27"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "461275b931a4ab0ea3e35386f5445900fc8ab6dcc27a894ebdbc0d22261b0951"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "50956e73ad87d17c489505fdf0d29f7389c1bf86d0e6a50e8846751585996f27"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v3-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v3-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "567db0ee5fdb49ac3cabb9def371330d28b4a7b69f42a68efa928546a156a459"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v3-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v3-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "f13a9d306338aeb7f687ef1db53127cc99ef5c214f40085f3dd05336d86ca15d"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "heltec",
+      "class": "zephcore",
+      "name": "Heltec v4",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v4-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "5c0bb19b1bb5d17ef1fc51d2e869d503725112baec18661a9714dd64eb9e04f7"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v4-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "bf3750ec183dd69303c18b6eda0cbade9b45874626eaa90069eea23c8a54b194"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v4-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "5c0bb19b1bb5d17ef1fc51d2e869d503725112baec18661a9714dd64eb9e04f7"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v4-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "bf3750ec183dd69303c18b6eda0cbade9b45874626eaa90069eea23c8a54b194"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v4-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "6918285913ebfb9701cd610d602969900347994ed7d2421a5266e3b3250c0863"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v4-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "825abe97ac7966ae4c6fba4c242f547e4d2a3e9bf6766eecc2b063ec1c1fde47"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v4_r8-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4_r8-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "ece968c247de13a30c7168f8b34e7894ee06950df0600e6750b437d7ce2ec3b5"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v4_r8-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4_r8-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "2852ddeb2391538bb4c6854f78c1e2f7dcd6510a4d3625c96ad5de609e8b2763"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v4_r8-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4_r8-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "ece968c247de13a30c7168f8b34e7894ee06950df0600e6750b437d7ce2ec3b5"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v4_r8-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4_r8-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "2852ddeb2391538bb4c6854f78c1e2f7dcd6510a4d3625c96ad5de609e8b2763"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v4_r8-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4_r8-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "2221f183cbfa47f0f88b9f0c58b9010885c06e52ada1671ae72487ca5ae479e1"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v4_r8-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v4_r8-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "0ee78019f2967eaa3125b202d63e7a6419d09431709a34e173798d521e67ecf4"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "heltec",
+      "class": "zephcore",
+      "name": "Heltec Wireless Tracker",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wireless_tracker-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "9dc7a90996bde7e7e10eeafc9dd37fb3555c8a59fa69115b565933e0b2e12ee3"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wireless_tracker-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "d0ac01c20d12976c1dcc791edd86a6f2fe1c729e5c256dfe96c628527654e907"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wireless_tracker-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "9dc7a90996bde7e7e10eeafc9dd37fb3555c8a59fa69115b565933e0b2e12ee3"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wireless_tracker-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "d0ac01c20d12976c1dcc791edd86a6f2fe1c729e5c256dfe96c628527654e907"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wireless_tracker-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "f569718b999e300d0922a72bb813e03e2476edca4c2eea2c4b571f2632f54cc6"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wireless_tracker-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "8ccca96bb497645f22422066a810c70f3d1ca96e8d93edcda5b540d6ad318e4b"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "heltec",
+      "class": "zephcore",
+      "name": "Heltec Wireless Tracker v2",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wireless_tracker_v2-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker_v2-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "24487003824a795c1951ee4da6007966ee183b1bf00dcc5d1c15399ce2013421"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wireless_tracker_v2-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker_v2-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "0fa34414298c56159a65381bacdf7f7e9938d78d7d1fcf1d67714e0a1e5c6606"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wireless_tracker_v2-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker_v2-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "24487003824a795c1951ee4da6007966ee183b1bf00dcc5d1c15399ce2013421"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wireless_tracker_v2-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker_v2-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "0fa34414298c56159a65381bacdf7f7e9938d78d7d1fcf1d67714e0a1e5c6606"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wireless_tracker_v2-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker_v2-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "23fc09610931586470f2aceee51bc18bd43d4b4410eb75bb9dab817f2c879290"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wireless_tracker_v2-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wireless_tracker_v2-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "54f06218782eec89eaa06e14446b4729b3b90b4563838c36e08fa6a2f5b11466"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "lilygo",
+      "class": "zephcore",
+      "name": "LilyGo T-Beam (SX1262)",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "ttgo_tbeam-esp32-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ttgo_tbeam-esp32-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "580c3c6b610f8ee9d0dc119b93516b5e9debbdc41e7fd256a20a58bb139c2e49"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "ttgo_tbeam-esp32-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ttgo_tbeam-esp32-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "580c3c6b610f8ee9d0dc119b93516b5e9debbdc41e7fd256a20a58bb139c2e49"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "ttgo_tbeam-esp32-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/ttgo_tbeam-esp32-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "debe4ad192ae2996096784ccb93f82078bcbc4dd483b53397d6aa259d9c34ff1"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "lilygo",
+      "class": "zephcore",
+      "name": "LilyGo T3 S3 (SX126x)",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "lilygo_t3s3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_t3s3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "a8089c7cd3176cab45f87966fefef41648092a6a062258759a9773ae03f417c6"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "lilygo_t3s3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_t3s3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "a7dd919a2e6df50a1fab06c8a5ce1638361b11f6533937db0207eea300ed47dd"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "lilygo_t3s3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_t3s3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "a8089c7cd3176cab45f87966fefef41648092a6a062258759a9773ae03f417c6"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "lilygo_t3s3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_t3s3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "a7dd919a2e6df50a1fab06c8a5ce1638361b11f6533937db0207eea300ed47dd"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "lilygo_t3s3-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_t3s3-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "0e06d020002ce4724f6858169d8f4d1a97cae2a996a21c065a54a03f6594aa7d"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "lilygo_t3s3-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/lilygo_t3s3-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "ed1c59cfa84290fd2cce4fd442189dae6e2b3b3b6d3f8e764762e3cd9ee5834e"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio Xiao C3",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "xiao_esp32c3-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32c3-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "d341932d6f08ca577ae8aacfd8ed2e1d813175f2b965a8fff68e27af3bb85374"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "xiao_esp32c3-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32c3-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "ee2b129193e4724e753f5a5cdad54b38ff77c9c3392e58e32abcebcaeecce935"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "xiao_esp32c3-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32c3-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "d341932d6f08ca577ae8aacfd8ed2e1d813175f2b965a8fff68e27af3bb85374"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "xiao_esp32c3-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32c3-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "ee2b129193e4724e753f5a5cdad54b38ff77c9c3392e58e32abcebcaeecce935"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "xiao_esp32c3-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32c3-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "f7fb4361119af3c59b4aaa880c92149fc33fea3896c996bf64df2d068918e9ce"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "xiao_esp32c3-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32c3-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "b9560c8d93938f956def2b91d654ab60da1deeac365d165c3baa7b743e0194b4"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio Xiao S3 WIO",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "xiao_esp32s3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32s3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "daef18b3c55b6f375c206c8259ca2c6569283688f9cdabbf1d3dd8aa3f7b1110"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "xiao_esp32s3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32s3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "6843e40464c823fe54d00fbe005e54ae6c06d9e7ba0d8269a1f72299bae0dfcf"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "xiao_esp32s3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32s3-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "daef18b3c55b6f375c206c8259ca2c6569283688f9cdabbf1d3dd8aa3f7b1110"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "xiao_esp32s3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32s3-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "6843e40464c823fe54d00fbe005e54ae6c06d9e7ba0d8269a1f72299bae0dfcf"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "xiao_esp32s3-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32s3-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "74f7b25eee024c4eeb7e6f3d424f3b331752b8c129cfaeb338b901a2d42cc38b"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "xiao_esp32s3-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_esp32s3-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "86b20fa464d105a09486f8ac991941c28c97f3e11d192aa1a36afc4ec0ae09e2"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "uniteng",
+      "class": "zephcore",
+      "name": "UnitEng Station G2",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "station_g2-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/station_g2-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "d6cc1dd1bf078ec3fb6925c0edecd1fdc7af2959ae9a372cba4e620499e2f12e"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "station_g2-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/station_g2-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "dd4a42852bc788cb077b0d17ab7a97581abb606cf9c833ef5b15800c4d6029cb"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "station_g2-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/station_g2-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "d6cc1dd1bf078ec3fb6925c0edecd1fdc7af2959ae9a372cba4e620499e2f12e"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "station_g2-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/station_g2-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "dd4a42852bc788cb077b0d17ab7a97581abb606cf9c833ef5b15800c4d6029cb"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "station_g2-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/station_g2-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "8357101f5aa081970491d08fdf3ddc34a647348b4436c811a3db4e2454b048e7"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "station_g2-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/station_g2-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "c2b761abb6ca2fa80f802e4f24d248dabaf7c459963b9f18162c4520249818ad"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ]
+    },
+    {
+      "maker": "heltec",
+      "class": "zephcore",
+      "name": "Heltec v4.3",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v43-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v43-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "e86ff96e45b21ff21a4bc004e26a15bc48aa9823418e1b9836b44c8007b7cc7f"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v43-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v43-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "67fb1385c2ca8c8560739413b570067c48ce37d9a45759b7f72e1b668874a013"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v43-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v43-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "e86ff96e45b21ff21a4bc004e26a15bc48aa9823418e1b9836b44c8007b7cc7f"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v43-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v43-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "67fb1385c2ca8c8560739413b570067c48ce37d9a45759b7f72e1b668874a013"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "heltec_wifi_lora32_v43-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v43-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "f73fc9bf38c96f5f3e42b468f2967e590ca01be1e5e9e034c3432d7d0b7123d8"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "heltec_wifi_lora32_v43-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/heltec_wifi_lora32_v43-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "5bde140ab99bb82d075394495a8aeb7d3b297bd4b8a55e72b4474ee4a92a22fa"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/meshcore-dev/flasher.meshcore.io@main/img/heltec_v4.svg'>"
+    },
+    {
+      "maker": "meshnology",
+      "class": "zephcore",
+      "name": "Meshnology W12",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "meshnology_w12-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshnology_w12-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "cf8dff8df935c28fa60c70c7d152f4b8745f08c250428e23929967a8b9d6c588"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "meshnology_w12-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshnology_w12-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "ae2a0c299cbc9408f496fef75880042aa97d8304e054c90dccbe25d033d7ff0f"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "companionUsb",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "meshnology_w12-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshnology_w12-esp32s3-procpu-companion-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "cf8dff8df935c28fa60c70c7d152f4b8745f08c250428e23929967a8b9d6c588"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "meshnology_w12-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshnology_w12-esp32s3-procpu-companion-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "ae2a0c299cbc9408f496fef75880042aa97d8304e054c90dccbe25d033d7ff0f"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "meshnology_w12-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshnology_w12-esp32s3-procpu-repeater-zephtacore-4390c45-merged.bin",
+                  "title": "Full install (bootloader + firmware)",
+                  "sha256": "c3c74afa3cf79e2ed5501fc58a0f8c01c5247cdcde194b7b8ee80adfb3e20b63"
+                },
+                {
+                  "type": "flash-update",
+                  "name": "meshnology_w12-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/meshnology_w12-esp32s3-procpu-repeater-zephtacore-4390c45-update.bin",
+                  "title": "Update (app only; keeps settings)",
+                  "sha256": "2d946c5182e965917cd6b55645f8970143202506d408cf3ae609bddd155974a8"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/meshcore-dev/flasher.meshcore.io@main/img/lora.svg'>"
+    },
+    {
+      "maker": "minewsemi",
+      "class": "zephcore",
+      "name": "MinewSemi ME25LS02",
+      "type": "noflash",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "download",
+                  "name": "me25ls02-nrf54l15-cpuapp-companion-zephtacore-4390c45.hex",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/me25ls02-nrf54l15-cpuapp-companion-zephtacore-4390c45.hex",
+                  "title": "Firmware image -- flash over SWD (no USB bootloader on this SoC)",
+                  "sha256": "8435fd25bd2128a549b120c3adbc576acc164ac0958e09c93e6f1593b33657c2"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "download",
+                  "name": "me25ls02-nrf54l15-cpuapp-repeater-zephtacore-4390c45.hex",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/me25ls02-nrf54l15-cpuapp-repeater-zephtacore-4390c45.hex",
+                  "title": "Firmware image -- flash over SWD (no USB bootloader on this SoC)",
+                  "sha256": "966e14488d62fe2ee9f2d8cc5ad54c17c6cb4cf1d62cf8f96eab489060080be9"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/meshcore-dev/flasher.meshcore.io@main/img/lora.svg'>"
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio Xiao nRF54L15",
+      "type": "noflash",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "download",
+                  "name": "xiao_nrf54l15-nrf54l15-cpuapp-companion-zephtacore-4390c45.hex",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_nrf54l15-nrf54l15-cpuapp-companion-zephtacore-4390c45.hex",
+                  "title": "Firmware image -- flash over SWD (no USB bootloader on this SoC)",
+                  "sha256": "87d6ae0003004d514cc288e1d1c785c36c8863575f05cce8068103515331cddb"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "download",
+                  "name": "xiao_nrf54l15-nrf54l15-cpuapp-repeater-zephtacore-4390c45.hex",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_nrf54l15-nrf54l15-cpuapp-repeater-zephtacore-4390c45.hex",
+                  "title": "Firmware image -- flash over SWD (no USB bootloader on this SoC)",
+                  "sha256": "ef0df8289f3427a3b42f5d5aff207a84dd019efdb0e76138d0bfe1b19091e012"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/meshcore-dev/flasher.meshcore.io@main/img/lora.svg'>"
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Semtech LR2021 LoRa Plus EVK",
+      "type": "noflash",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "download",
+                  "name": "seeed_lr2021_evk-nrf54l15-cpuapp-companion-zephtacore-4390c45.hex",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/seeed_lr2021_evk-nrf54l15-cpuapp-companion-zephtacore-4390c45.hex",
+                  "title": "Firmware image -- flash over SWD (no USB bootloader on this SoC)",
+                  "sha256": "b1d479a09f73ccc23900817c61b0e604bd76b62f11af1ec543da876d9c7fef96"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "download",
+                  "name": "seeed_lr2021_evk-nrf54l15-cpuapp-repeater-zephtacore-4390c45.hex",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/seeed_lr2021_evk-nrf54l15-cpuapp-repeater-zephtacore-4390c45.hex",
+                  "title": "Firmware image -- flash over SWD (no USB bootloader on this SoC)",
+                  "sha256": "d450d013d43cc40ad587d019963b87a622d11bac10a8a876fc7d4cbfa69cb257"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/meshcore-dev/flasher.meshcore.io@main/img/lora.svg'>"
+    },
+    {
+      "maker": "seeed",
+      "class": "zephcore",
+      "name": "Seeed Studio Xiao MG24",
+      "type": "noflash",
+      "firmware": [
+        {
+          "role": "companionBle",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "download",
+                  "name": "xiao_mg24-companion-zephtacore-4390c45.hex",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_mg24-companion-zephtacore-4390c45.hex",
+                  "title": "Firmware image -- flash over SWD (no bootloader on this board)",
+                  "sha256": "b3a17c2e921ce408bfffbeba3ea6d7df3b244b04ec3e41ea225590b5ea153ebd"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        },
+        {
+          "role": "repeater",
+          "version": {
+            "1.18.2-zephcore": {
+              "notes": "",
+              "files": [
+                {
+                  "type": "download",
+                  "name": "xiao_mg24-repeater-zephtacore-4390c45.hex",
+                  "url": "https://cdn.jsdelivr.net/gh/gabychan/ZephCore@firmware-dist/xiao_mg24-repeater-zephtacore-4390c45.hex",
+                  "title": "Firmware image -- flash over SWD (no bootloader on this board)",
+                  "sha256": "bf118a77317dcda09b5ab76db87e59122b1edf84b196048fecb50e30ed7d23f6"
+                }
+              ]
+            }
+          },
+          "subTitle": "Zephtacore"
+        }
+      ],
+      "tooltip": "<img class='device' src='https://cdn.jsdelivr.net/gh/meshcore-dev/flasher.meshcore.io@main/img/lora.svg'>"
+    }
+  ]
+}
