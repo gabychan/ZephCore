@@ -190,31 +190,10 @@ TEST(autoshutdown_cli, "UNIT-POLICY-AUTOSHUTDOWN-001", "get|set autoshutdown: 0 
     CHECK(!autoshutdown::command(p, "set autoshutdownx 1", ceiling, reply, sizeof(reply), &changed));
 }
 
-TEST(z_autoshutdown_cli, "UNIT-POLICY-AUTOSHUTDOWN-002", "get|set z.autoshutdown: the same setting in the z. replies, capped under the wake") {
-    NodePrefs p = {};
-    char reply[CLI_REPLY_SIZE_TEST];
-    bool changed = false;
-    // A board that wakes at 3600 mV: nothing above 3300 mV may be stored.
-    const uint16_t ceiling = 3600 - AUTO_SHUTDOWN_WAKE_MARGIN_MV;
-
-    CHECK(autoshutdown::zCommand(p, "get z.autoshutdown", ceiling, reply, sizeof(reply), &changed));
-    CHECK(strcmp(reply, "> off") == 0 && !changed);
-    CHECK(autoshutdown::zCommand(p, "set z.autoshutdown 3300", ceiling, reply, sizeof(reply), &changed));
-    CHECK(strcmp(reply, "OK") == 0 && changed && p.auto_shutdown_mv == 3300 && p.auto_shutdown_set == 1);
-    CHECK(autoshutdown::zCommand(p, "get z.autoshutdown", ceiling, reply, sizeof(reply), &changed));
-    CHECK(strcmp(reply, "> 3300 mV") == 0);
-
-    changed = false;
-    for (const char *bad : {"set z.autoshutdown abc", "set z.autoshutdown 3301", "set z.autoshutdown 4200",
-                            "set z.autoshutdown 2899", "set z.autoshutdown -1", "set z.autoshutdown "}) {
-        CHECK(autoshutdown::zCommand(p, bad, ceiling, reply, sizeof(reply), &changed));
-        CHECK(strcmp(reply, "Error: 0 (off) or 2900-3300 mV") == 0 && !changed && p.auto_shutdown_mv == 3300);
-    }
-    CHECK(!autoshutdown::zCommand(p, "get autoshutdown", ceiling, reply, sizeof(reply), &changed));
-    CHECK(!autoshutdown::zCommand(p, "get z.info", ceiling, reply, sizeof(reply), &changed));
-
-    CHECK(autoshutdown::isZCommand("get z.autoshutdown") && autoshutdown::isZCommand("set z.autoshutdown 1"));
-    CHECK(!autoshutdown::isZCommand("get z.autoshutdownx") && !autoshutdown::isZCommand("set autoshutdown 3300"));
+TEST(autoshutdown_is_command, "UNIT-POLICY-AUTOSHUTDOWN-002", "autoshutdown::isCommand picks out get|set autoshutdown and nothing else") {
+    CHECK(autoshutdown::isCommand("get autoshutdown") && autoshutdown::isCommand("set autoshutdown 3300"));
+    CHECK(!autoshutdown::isCommand("get autoshutdownx") && !autoshutdown::isCommand("set autoshutdown"));
+    CHECK(!autoshutdown::isCommand("get power") && !autoshutdown::isCommand("get z.autoshutdown"));
 }
 
 TEST(autoshutdown_sane, "UNIT-POLICY-AUTOSHUTDOWN-003", "What the CLI accepts is exactly what sanitizeNodePrefs keeps") {

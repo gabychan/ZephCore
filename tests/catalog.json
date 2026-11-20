@@ -354,7 +354,7 @@
     },
     {
       "id": "UNIT-POLICY-AUTOSHUTDOWN-002",
-      "name": "get|set z.autoshutdown: the same setting in the z. replies, capped under the wake",
+      "name": "autoshutdown::isCommand picks out get|set autoshutdown and nothing else",
       "source": "tests/unit/policy_tests.cpp"
     },
     {

@@ -1,8 +1,8 @@
 /*
  * SPDX-License-Identifier: MIT
  * The auto-shutdown threshold commands: `get|set autoshutdown` (the companion's
- * CLI) and `get|set z.autoshutdown` (every role, through CommonCLI), both on
- * prefs.auto_shutdown_mv. A set takes 0 (off) or AUTO_SHUTDOWN_MIN_MV to the
+ * CLI and, on a board with a battery wake, every other role through CommonCLI),
+ * on prefs.auto_shutdown_mv. A set takes 0 (off) or AUTO_SHUTDOWN_MIN_MV to the
  * build's ceiling, digits only, so what is stored is what sanitizeNodePrefs()
  * keeps after a reboot. Pure code, host tested.
  */
@@ -97,38 +97,6 @@ inline bool isCommand(const char *line)
 {
 	return strcmp(line, "get autoshutdown") == 0 ||
 	       strncmp(line, "set autoshutdown ", 17) == 0;
-}
-
-inline bool isZCommand(const char *line)
-{
-	return strcmp(line, "get z.autoshutdown") == 0 ||
-	       strncmp(line, "set z.autoshutdown ", 19) == 0;
-}
-
-/* `get|set z.autoshutdown`, in the z. replies; true if the line was one. */
-inline bool zCommand(NodePrefs &prefs, const char *line, uint16_t ceiling_mv, char *reply,
-		     size_t cap, bool *changed)
-{
-	if (strcmp(line, "get z.autoshutdown") == 0) {
-		if (prefs.auto_shutdown_mv == 0) {
-			snprintf(reply, cap, "> off");
-		} else {
-			snprintf(reply, cap, "> %u mV", prefs.auto_shutdown_mv);
-		}
-		return true;
-	}
-	if (strncmp(line, "set z.autoshutdown ", 19) != 0) {
-		return false;
-	}
-	uint16_t mv = 0;
-
-	if (parseMv(line + 19, ceiling_mv, &mv) != Parse::OK) {
-		snprintf(reply, cap, "Error: 0 (off) or %u-%u mV", AUTO_SHUTDOWN_MIN_MV, ceiling_mv);
-		return true;
-	}
-	store(prefs, mv, changed);
-	snprintf(reply, cap, "OK");
-	return true;
 }
 
 }  // namespace autoshutdown

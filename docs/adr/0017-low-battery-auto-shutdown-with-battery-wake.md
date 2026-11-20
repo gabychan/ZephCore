@@ -17,7 +17,7 @@ running through System OFF and its crossing event wakes the SoC.
 - The threshold is `prefs.auto_shutdown_mv`: 0 (off) or 2900 mV up to a ceiling, 4200 mV or 300 mV under the
   board's `battery-wake-mv`. The CLI and `sanitizeNodePrefs()` share the range.
 - Defaults: a companion boots with `CONFIG_ZEPHCORE_AUTO_SHUTDOWN_MILLIVOLTS` (3200 on nRF52, as before); a repeater
-  or room server boots with it off, on every board. The owner turns it on with `set z.autoshutdown <mV>`.
+  or room server boots with it off, on every board. The owner turns it on with `set autoshutdown <mV>`.
 - Two power-off entries: `zephcore_power_off()` suspends the comparator and stays off until the button;
   `zephcore_power_off_low_battery()` keeps it, so the node wakes when the battery rises past `battery-wake-mv`.
   Every new power-off caller picks one.
