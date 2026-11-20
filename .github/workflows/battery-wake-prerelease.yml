@@ -1,0 +1,84 @@
+name: battery-wake pre-release (ZephCore, repeater)
+
+# ZephCore repeater with the low-battery auto-shutdown and the LPCOMP battery
+# wake, published as a GitHub pre-release for beta testers. Runs on every push to this branch and by hand.
+
+on:
+  push:
+    branches: [ "battery-wake-public" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  zephyr_sdk: 1.0.1
+  python_version: 3.12
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Boards with the LPCOMP battery wake and a wake threshold measured on the bench.
+        board: [ promicro_sx1262, gat562_30s ]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '${{ env.python_version }}'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Setup Zephyr project
+        uses: zephyrproject-rtos/action-zephyr-setup@be8136a8bba01580485d98b7ad2d32477c36a49a # v1.0.15
+        with:
+          app-path: zephcore
+          toolchains: arm-zephyr-eabi
+          sdk-version: ${{ env.zephyr_sdk }}
+          enable-ccache: 'false'
+
+      - name: Build
+        env:
+          BOARD: ${{ matrix.board }}
+        run: |
+          west build -b "$BOARD" zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/repeater.conf"
+          mkdir -p firmware
+          SHORT=$(git rev-parse --short HEAD)
+          cp build/zephyr/zephyr.uf2 "firmware/${BOARD}-repeater-battery-wake-${SHORT}.uf2"
+          cp build/zephyr/zephyr.zip "firmware/${BOARD}-repeater-battery-wake-${SHORT}.zip"
+          ls -l firmware
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: battery-wake-${{ matrix.board }}
+          path: firmware
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    needs: build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: battery-wake-*
+          path: firmware
+          merge-multiple: true
+
+      - name: Pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT=$(git rev-parse --short HEAD)
+          TAG="battery-wake-zephcore-${SHORT}"
+          gh release create "$TAG" firmware/* \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "battery-wake (ZephCore) ${SHORT}" \
+            --notes "Pre-release for beta testers: ZephCore repeater with low-battery auto-shutdown and LPCOMP battery wake. Validated on the bench: ProMicro SX1262 (wakes at 3.60 to 3.87 V, autoshutdown up to 3300 mV) and GAT562 30S (wakes at 3.38 to 3.40 V, autoshutdown up to 3080 mV). Other boards do not have the battery wake. Commands: get|set autoshutdown <mV>; a repeater starts with it off (0)."
