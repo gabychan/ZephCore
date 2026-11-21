@@ -56,7 +56,7 @@ jobs:
           ROLE: ${{ inputs.role }}
         run: |
           if [ "$ROLE" = "repeater" ]; then
-            CONFS="boards/common/repeater.conf;boards/common/zephtacore.conf"
+            CONFS="boards/common/repeater.conf;boards/common/repeater_uplink.conf;boards/common/zephtacore.conf"
           else
             CONFS="boards/common/zephtacore.conf"
           fi
