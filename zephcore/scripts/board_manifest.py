@@ -55,7 +55,7 @@ APP_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__
 BOARDS_DIR = os.path.join(APP_DIR, "boards")
 
 PLATFORM_DIRS = {"nrf52840": "nrf52", "nrf54l": "nrf54l", "esp32": "esp32",
-                 "mg24": "mg24", "stm32wl": "stm32wl"}
+                 "mg24": "mg24", "stm32wl": "stm32wl", "rp2040": "rp2040"}
 ROLES = ("companion", "repeater", "room_server", "observer")
 KEYS = {"target", "capabilities", "release", "catalog", "linux"}
 CAPS = {"ble_ota", "light_sleep", "light_sleep_companion", "wifi"}

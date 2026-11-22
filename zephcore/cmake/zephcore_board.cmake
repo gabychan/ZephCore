@@ -8,7 +8,7 @@
 #          ZEPHCORE_SOURCE_DIR  the application source dir
 # Outputs: ZEPHCORE_BOARD_BASE  board name without revision or qualifiers
 #          ZEPHCORE_BOARD_DIR   boards/<platform-dir>/<board>, or "" if none
-#          ZEPHCORE_PLATFORM    nrf52 | nrf54l | esp32 | mg24 | stm32wl | linux | ""
+#          ZEPHCORE_PLATFORM    nrf52 | nrf54l | esp32 | mg24 | stm32wl | rp2040 | linux | ""
 #          ZEPHCORE_BOARD_LIGHT_SLEEP  TRUE if the board manifest declares it
 #          ZEPHCORE_BOARD_LIGHT_SLEEP_COMPANION  TRUE if the board manifest declares it
 #          ZEPHCORE_BOARD_WIFI         TRUE if the board manifest declares it
@@ -61,7 +61,7 @@ if(ZEPHCORE_BOARD_DIR)
     get_filename_component(_zb_platdir "${_zb_parent}" NAME)
     if(_zb_platdir STREQUAL "nrf52840")
         set(ZEPHCORE_PLATFORM nrf52)
-    elseif(_zb_platdir MATCHES "^(nrf54l|esp32|mg24|stm32wl)$")
+    elseif(_zb_platdir MATCHES "^(nrf54l|esp32|mg24|stm32wl|rp2040)$")
         set(ZEPHCORE_PLATFORM "${_zb_platdir}")
     else()
         message(FATAL_ERROR "ZephCore: unknown platform directory boards/${_zb_platdir}/")
@@ -76,6 +76,8 @@ elseif(BOARD MATCHES "mg24|efr32")
     set(ZEPHCORE_PLATFORM mg24)
 elseif(BOARD MATCHES "stm32wl|lora_e5")
     set(ZEPHCORE_PLATFORM stm32wl)
+elseif(BOARD MATCHES "rp2040|rpi_pico")
+    set(ZEPHCORE_PLATFORM rp2040)
 elseif(BOARD MATCHES "^native_(sim|posix)")
     set(ZEPHCORE_PLATFORM linux)
 endif()

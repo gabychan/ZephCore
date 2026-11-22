@@ -1,0 +1,145 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Waveshare RP2040-LoRa (SX1262, 868/915 MHz)
+ *
+ * Pin map from Arduino MeshCore variants/waveshare_rp2040_lora (not yet checked
+ * against the Waveshare schematic, which that variant links):
+ *   NSS GP13   SCK GP14   MOSI GP15   MISO GP24
+ *   DIO1 GP16  BUSY GP18  RESET GP23  RXEN GP17
+ *   LED GP25   DIO2 = TX switch   DIO3 = TCXO 1.8 V
+ *
+ * Flash: 2 MB. Code 0x100..0x180000, /lfs 512 KB at 0x180000 (the same 0.5 MB
+ * filesystem MeshCore reserves on this board).
+ *
+ * Console: USB CDC ACM (the repeater CLI). Flash by holding BOOT while plugging
+ * in and copying zephyr.uf2 to the RPI-RP2 drive.
+ */
+
+/dts-v1/;
+
+#include <freq.h>
+#include <zephyr/dt-bindings/lora/sx126x.h>
+#include <raspberrypi/rpi_pico/rp2040.dtsi>
+
+#include "waveshare_rp2040_lora-pinctrl.dtsi"
+
+/ {
+	model = "Waveshare RP2040-LoRa";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,flash-controller = &ssi;
+		zephyr,code-partition = &code_partition;
+		zephyr,console = &cdc_acm_uart;
+		zephyr,shell-uart = &cdc_acm_uart;
+		zephyr,entropy = &rosc_entropy;
+	};
+
+	aliases {
+		lora0 = &lora;
+		led0 = &board_led;
+		lora-tx-led = &board_led;
+		rtc = &rtc;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		board_led: led_0 {
+			gpios = <&gpio0 25 GPIO_ACTIVE_HIGH>;
+			label = "LED";
+		};
+	};
+
+	/* RP2040 has no hardware RNG: ring-oscillator bit, see
+	 * adapters/rng/entropy_rp2040_rosc.c */
+	rosc_entropy: rosc-entropy {
+		compatible = "zephcore,rp2040-rosc-entropy";
+	};
+};
+
+&flash0 {
+	reg = <0x10000000 DT_SIZE_M(2)>;
+	ranges = <0x0 0x10000000 DT_SIZE_M(2)>;
+
+	partitions {
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		/* Second-stage bootloader (boot2) */
+		second_stage_bootloader: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			reg = <0x00000000 0x100>;
+			label = "second_stage_bootloader";
+			read-only;
+		};
+
+		code_partition: partition@100 {
+			compatible = "zephyr,mapped-partition";
+			reg = <0x100 (DT_SIZE_M(1) + DT_SIZE_K(512) - 0x100)>;
+			label = "code-partition";
+			read-only;
+		};
+
+		lfs_partition: partition@180000 {
+			compatible = "zephyr,mapped-partition";
+			reg = <0x180000 DT_SIZE_K(512)>;
+			label = "lfs";
+		};
+	};
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&timer {
+	status = "okay";
+};
+
+&rtc {
+	clocks = <&clocks RPI_PICO_CLKID_CLK_RTC>;
+	status = "okay";
+};
+
+&vreg {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+	clock-frequency = <DT_FREQ_M(8)>;
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
+
+	lora: lora@0 {
+		compatible = "semtech,sx1262";
+		reg = <0>;
+		spi-max-frequency = <DT_FREQ_M(8)>;
+
+		reset-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>;
+		busy-gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
+		dio1-gpios = <&gpio0 16 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+		rx-enable-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+
+		dio2-tx-enable;
+		dio3-tcxo-voltage = <SX126X_DIO3_TCXO_1V8>;
+		tcxo-power-startup-delay-ms = <10>;
+		rx-boosted;
+	};
+};
+
+/* USB CDC ACM: console and repeater CLI */
+zephyr_udc0: &usbd {
+	status = "okay";
+
+	cdc_acm_uart: cdc_acm_uart {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};
+
+/* /lfs auto-mount (defines the &lfs fstab node) */
+#include "../../common/filesystem.dtsi"

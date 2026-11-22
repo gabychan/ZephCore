@@ -1,0 +1,57 @@
+name: ZephCore build (RP2040)
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: "Placa"
+        required: true
+        default: waveshare_rp2040_lora
+        type: choice
+        options:
+          - waveshare_rp2040_lora
+
+env:
+  zephyr_sdk: 1.0.1
+  python_version: 3.12
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '${{ env.python_version }}'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+
+      - name: Setup Zephyr project
+        uses: zephyrproject-rtos/action-zephyr-setup@be8136a8bba01580485d98b7ad2d32477c36a49a # v1.0.15
+        with:
+          app-path: zephcore
+          toolchains: arm-zephyr-eabi
+          sdk-version: ${{ env.zephyr_sdk }}
+          enable-ccache: 'false'
+
+      - name: Build repeater
+        env:
+          BOARD: ${{ inputs.board }}
+        run: |
+          west build -b "$BOARD" zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/repeater.conf"
+          mkdir -p firmware
+          SHORT=$(git rev-parse --short HEAD)
+          cp build/zephyr/zephyr.uf2 "firmware/${BOARD}-repeater-${SHORT}.uf2"
+          cp build/zephyr/zephyr.hex "firmware/${BOARD}-repeater-${SHORT}.hex"
+          ls -l firmware
+          # Flash/RAM figures, the first thing to read on a new port.
+          west build -t rom_report > firmware/rom_report.txt 2>&1 || true
+          west build -t ram_report > firmware/ram_report.txt 2>&1 || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zephcore-${{ inputs.board }}-repeater
+          path: firmware
+          if-no-files-found: error
+          retention-days: 30

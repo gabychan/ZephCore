@@ -1,0 +1,7 @@
+# Waveshare RP2040-LoRa board configuration
+
+config BOARD_WAVESHARE_RP2040_LORA
+	select SOC_RP2040
+	# Second-stage bootloader for the on-board QSPI flash. MeshCore builds this
+	# board as a plain Pico (W25Q080 boot2), so the same one is used here.
+	select RP2_FLASH_W25Q080

@@ -1,0 +1,22 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Waveshare RP2040-LoRa pin control.
+ *
+ * SX1262 on SPI1: SCK GP14, MOSI GP15, MISO GP24. NSS (GP13) is driven as a
+ * plain GPIO through cs-gpios, so it is deliberately not muxed to SPI1_CSN.
+ */
+
+#include <zephyr/dt-bindings/pinctrl/rpi-pico-rp2040-pinctrl.h>
+
+&pinctrl {
+	spi1_default: spi1_default {
+		group1 {
+			pinmux = <SPI1_SCK_P14>, <SPI1_TX_P15>;
+		};
+
+		group2 {
+			pinmux = <SPI1_RX_P24>;
+			input-enable;
+		};
+	};
+};

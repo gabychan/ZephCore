@@ -1,0 +1,14 @@
+# Copyright 2026 ZephCore
+# SPDX-License-Identifier: MIT
+
+description: |
+  RP2040 ring-oscillator entropy source (ROSC RANDOMBIT register).
+
+  The RP2040 has no hardware RNG and Zephyr ships an entropy driver only for the
+  RP2350. This node registers adapters/rng/entropy_rp2040_rosc.c as the
+  zephyr,entropy device. The register block is fixed in the SoC, so the node has
+  no properties.
+
+compatible: "zephcore,rp2040-rosc-entropy"
+
+include: base.yaml
