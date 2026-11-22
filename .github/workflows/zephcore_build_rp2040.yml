@@ -76,6 +76,15 @@ jobs:
           west build -b "$BOARD" zephyr/samples/subsys/usb/cdc_acm -d build_cdc --pristine -- \
             -DBOARD_ROOT="$PWD/zephcore" -DDTC_OVERLAY_FILE="$OVERLAY"
           cp build_cdc/zephyr/zephyr.uf2 "firmware/${BOARD}-smoke-cdc_acm.uf2"
+          # USB isolation variants:
+          #  A: our board, MPU off (stock rpi_pico runs without it)
+          #  B: stock rpi_pico, same sample (same silicon: if this also fails
+          #     to enumerate, the cause is the physical board, not our DTS)
+          west build -b "$BOARD" zephyr/samples/subsys/usb/cdc_acm -d build_cdc_nompu --pristine -- \
+            -DBOARD_ROOT="$PWD/zephcore" -DDTC_OVERLAY_FILE="$OVERLAY" -DCONFIG_ARM_MPU=n
+          cp build_cdc_nompu/zephyr/zephyr.uf2 "firmware/${BOARD}-smoke-cdc_acm-A-nompu.uf2"
+          west build -b rpi_pico zephyr/samples/subsys/usb/cdc_acm -d build_cdc_pico --pristine
+          cp build_cdc_pico/zephyr/zephyr.uf2 "firmware/rpi_pico-smoke-cdc_acm-B-stock.uf2"
           ls -l firmware
 
       - uses: actions/upload-artifact@v7
