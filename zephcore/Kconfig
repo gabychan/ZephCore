@@ -1453,3 +1453,10 @@ config ZEPHCORE_ENTROPY_RP2040_ROSC
 	  The RP2040 has no hardware RNG and Zephyr's Pico entropy driver is
 	  RP2350-only. Registers adapters/rng/entropy_rp2040_rosc.c as the
 	  zephyr,entropy device.
+
+config ZEPHCORE_RP2040_BOOT_DIAG
+	bool "RP2040 bring-up: LED stage markers"
+	depends on SOC_RP2040
+	help
+	  Blinks the board LED once per boot stage (adapters/board/rp2040_boot_diag.h).
+	  For bring-up without a console; leave off in released firmware.

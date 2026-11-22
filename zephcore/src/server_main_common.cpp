@@ -621,8 +621,11 @@ static void server_event_loop(void)
 	}
 }
 
+#include "rp2040_boot_diag.h"
+
 int server_main(const ServerRole &role)
 {
+	ZC_DIAG_BLINK(3);
 #ifdef ZEPHCORE_LORA
 	/* Clear any stale bootloader magic from previous sessions.
 	 * Prevents nRF52 boards from re-entering bootloader after reboot. */
@@ -636,7 +639,7 @@ int server_main(const ServerRole &role)
 #if ZEPHCORE_USB_STACK && DT_HAS_COMPAT_STATUS_OKAY(zephyr_cdc_acm_uart) && \
 	!IS_ENABLED(CONFIG_CDC_ACM_SERIAL_INITIALIZE_AT_BOOT) && \
 	(IS_ENABLED(CONFIG_USB_CDC_ACM) || IS_ENABLED(CONFIG_USBD_CDC_ACM_CLASS))
-	zephcore_usbd_init();
+	ZC_DIAG_RESULT(zephcore_usbd_init());
 	zephcore_usbd_wait_dtr(2000);
 #endif
 	LOG_INF("=== ZephCore %s starting ===", role.name);
@@ -672,6 +675,7 @@ int server_main(const ServerRole &role)
 	if (!data_store.begin()) {
 		LOG_ERR("RepeaterDataStore init failed");
 	}
+	ZC_DIAG_BLINK(5);
 
 	/* Initialize sensor manager */
 	sensors.begin();
@@ -739,6 +743,7 @@ int server_main(const ServerRole &role)
 		LOG_INF("New identity saved");
 	}
 	role.mesh->self_id = self_identity;
+	ZC_DIAG_BLINK(6);
 
 	/* Log the node ID (first 8 bytes of public key) */
 	LOG_INF("%s ID: %02x%02x%02x%02x%02x%02x%02x%02x...", role.name,
@@ -866,6 +871,7 @@ int server_main(const ServerRole &role)
 	 * Event-driven architecture: main thread runs the server event loop.
 	 * No BLE - all configuration via USB serial CLI.
 	 */
+	ZC_DIAG_BLINK(7);
 #ifdef ZEPHCORE_LORA
 	server_event_loop();  /* Never returns */
 #else

@@ -496,6 +496,11 @@ if(CONFIG_SOC_FAMILY_ESPRESSIF_ESP32)
   endif()
 endif()
 
+# RP2040 bring-up: LED stage markers while there is no console.
+if(CONFIG_ZEPHCORE_RP2040_BOOT_DIAG)
+  target_sources(app PRIVATE adapters/board/rp2040_boot_diag.c)
+endif()
+
 # RP2040 has no hardware RNG: ring-oscillator entropy source (Kconfig
 # ZEPHCORE_ENTROPY_RP2040_ROSC, devicetree zephcore,rp2040-rosc-entropy).
 if(CONFIG_ZEPHCORE_ENTROPY_RP2040_ROSC)
