@@ -1439,3 +1439,17 @@ config ZEPHTACORE_MT_HOP_LIMIT
 	  network you join.
 
 endmenu
+
+config ZEPHCORE_ENTROPY_RP2040_ROSC
+	bool "RP2040 ring-oscillator entropy source"
+	default y
+	depends on SOC_RP2040
+	depends on DT_HAS_ZEPHCORE_RP2040_ROSC_ENTROPY_ENABLED
+	select ENTROPY_HAS_DRIVER
+	# The ROSC bit is not a certified TRNG: have Zephyr run a DRBG on top of it
+	# rather than treat it as a hardware CSPRNG.
+	select ENTROPY_NEEDS_PRNG
+	help
+	  The RP2040 has no hardware RNG and Zephyr's Pico entropy driver is
+	  RP2350-only. Registers adapters/rng/entropy_rp2040_rosc.c as the
+	  zephyr,entropy device.

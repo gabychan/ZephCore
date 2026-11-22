@@ -1,0 +1,6 @@
+board:
+  name: waveshare_rp2040_lora
+  full_name: Waveshare RP2040-LoRa (SX1262)
+  vendor: waveshare
+  socs:
+    - name: rp2040

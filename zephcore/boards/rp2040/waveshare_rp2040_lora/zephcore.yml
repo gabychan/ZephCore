@@ -1,0 +1,3 @@
+# ZephCore board manifest — schema in zephcore/scripts/board_manifest.py
+# Bring-up: no `release:` yet, so it builds locally and is listed as source-only.
+target: waveshare_rp2040_lora
