@@ -35,6 +35,16 @@ void rp2040_diag_blink(int n)
 	}
 }
 
+void rp2040_diag_event(int n)
+{
+	if (!gpio_is_ready_dt(&diag_led)) {
+		return;
+	}
+	for (int i = 0; i < n; i++) {
+		diag_pulse(80000, 80000);
+	}
+}
+
 void rp2040_diag_result(int rc)
 {
 	if (rc == 0) {

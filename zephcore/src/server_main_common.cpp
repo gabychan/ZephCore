@@ -178,6 +178,7 @@ static void cli_uart_isr(const struct device *dev, void *user_data)
 		}
 
 		if (uart_irq_rx_ready(dev)) {
+			ZC_DIAG_EVENT(1);
 			uint8_t buf[64];
 			uint32_t room = MIN(sizeof(buf), ring_buf_space_get(&usb_ring_buf));
 			if (room == 0) {
@@ -234,6 +235,7 @@ static bool cli_rx_bytes(void)
 	uint8_t byte;
 
 	while (ring_buf_get(&usb_ring_buf, &byte, 1) == 1) {
+		ZC_DIAG_EVENT(2);
 		const uint8_t prev = cli_prev_byte;
 		cli_prev_byte = byte;
 

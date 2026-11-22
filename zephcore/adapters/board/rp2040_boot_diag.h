@@ -12,6 +12,10 @@
  *   5  RepeaterDataStore begin done (after the first-boot format, if any)
  *   6  identity loaded or generated
  *   7  about to enter the event loop
+ *
+ * Runtime markers (short 80 ms pulses, no leading gap):
+ *   1 pulse   console RX interrupt received bytes from the host
+ *   2 pulses  main loop assembled a console byte
  */
 
 #ifndef ZEPHCORE_RP2040_BOOT_DIAG_H
@@ -25,6 +29,7 @@ extern "C" {
 
 void rp2040_diag_blink(int n);
 void rp2040_diag_result(int rc);
+void rp2040_diag_event(int n);
 
 #ifdef __cplusplus
 }
@@ -32,11 +37,13 @@ void rp2040_diag_result(int rc);
 
 #define ZC_DIAG_BLINK(n)	rp2040_diag_blink(n)
 #define ZC_DIAG_RESULT(expr)	rp2040_diag_result(expr)
+#define ZC_DIAG_EVENT(n)	rp2040_diag_event(n)
 
 #else
 
 #define ZC_DIAG_BLINK(n)	((void)0)
 #define ZC_DIAG_RESULT(expr)	((void)(expr))
+#define ZC_DIAG_EVENT(n)	((void)0)
 
 #endif
 
