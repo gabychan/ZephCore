@@ -1,0 +1,9 @@
+/* For the Zephyr blinky sample only (see .github/workflows/zephcore_build_rp2040.yml).
+ * Blinky has no USB stack, so the CDC ACM console the board chooses would have no
+ * driver behind it; drop it and build without a console. */
+/ {
+	chosen {
+		/delete-property/ zephyr,console;
+		/delete-property/ zephyr,shell-uart;
+	};
+};

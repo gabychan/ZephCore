@@ -10,6 +10,14 @@ on:
         type: choice
         options:
           - waveshare_rp2040_lora
+      app:
+        description: "Que compilar"
+        required: true
+        default: repeater
+        type: choice
+        options:
+          - repeater
+          - smoke
 
 env:
   zephyr_sdk: 1.0.1
@@ -36,6 +44,7 @@ jobs:
           enable-ccache: 'false'
 
       - name: Build repeater
+        if: ${{ inputs.app == 'repeater' }}
         env:
           BOARD: ${{ inputs.board }}
         run: |
@@ -45,13 +54,33 @@ jobs:
           cp build/zephyr/zephyr.uf2 "firmware/${BOARD}-repeater-${SHORT}.uf2"
           cp build/zephyr/zephyr.hex "firmware/${BOARD}-repeater-${SHORT}.hex"
           ls -l firmware
-          # Flash/RAM figures, the first thing to read on a new port.
           west build -t rom_report > firmware/rom_report.txt 2>&1 || true
           west build -t ram_report > firmware/ram_report.txt 2>&1 || true
 
+      # Zephyr's own samples on the same board definition, to tell a board
+      # problem (boot, flash layout, LED pin, USB) from a ZephCore one.
+      #   blinky:  LED on led0 (GP25) toggling every second
+      #   cdc_acm: USB serial port that echoes what is typed
+      - name: Build smoke tests
+        if: ${{ inputs.app == 'smoke' }}
+        env:
+          BOARD: ${{ inputs.board }}
+        run: |
+          OVERLAY="$PWD/zephcore/boards/rp2040/waveshare_rp2040_lora/smoke.overlay"
+          BLINKY_OVERLAY="$PWD/zephcore/boards/rp2040/waveshare_rp2040_lora/smoke_blinky.overlay"
+          mkdir -p firmware
+          west build -b "$BOARD" zephyr/samples/basic/blinky -d build_blinky --pristine -- \
+            -DBOARD_ROOT="$PWD/zephcore" -DDTC_OVERLAY_FILE="$BLINKY_OVERLAY" \
+            -DCONFIG_CONSOLE=n -DCONFIG_UART_CONSOLE=n
+          cp build_blinky/zephyr/zephyr.uf2 "firmware/${BOARD}-smoke-blinky.uf2"
+          west build -b "$BOARD" zephyr/samples/subsys/usb/cdc_acm -d build_cdc --pristine -- \
+            -DBOARD_ROOT="$PWD/zephcore" -DDTC_OVERLAY_FILE="$OVERLAY"
+          cp build_cdc/zephyr/zephyr.uf2 "firmware/${BOARD}-smoke-cdc_acm.uf2"
+          ls -l firmware
+
       - uses: actions/upload-artifact@v7
         with:
-          name: zephcore-${{ inputs.board }}-repeater
+          name: zephcore-${{ inputs.board }}-${{ inputs.app }}
           path: firmware
           if-no-files-found: error
           retention-days: 30

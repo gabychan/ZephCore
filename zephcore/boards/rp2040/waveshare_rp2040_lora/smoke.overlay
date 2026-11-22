@@ -1,0 +1,3 @@
+/* Intentionally empty. Passed as DTC_OVERLAY_FILE for the Zephyr sample builds in
+ * .github/workflows/zephcore_build_rp2040.yml so a sample's own app.overlay does
+ * not add a second CDC ACM node next to the board's. */
