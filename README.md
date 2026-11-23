@@ -193,11 +193,10 @@ bench; the ESP32 boards are largely tested by the community, so reports are very
 has host tests in CI, and the decisions are written down in [ADRs](docs/adr/README.md) so the next robot
 does not undo them.
 
-[![TWONKS: AI Design Logic](img/twonks-ai-design.jpg)](https://www.twonks.co.uk/)
-
-*Comic by [TWONKS](https://www.twonks.co.uk/). Borrowed with love; go read the rest.*
+Comic by [TWONKS](https://www.twonks.co.uk/); go read the rest.
 
 ## License
 
-MIT, same as upstream MeshCore; see [LICENSE](LICENSE), which also lists the vendored pieces (Monocypher,
-Zephyr patches). Logo by [recrof](https://github.com/recrof), [WTFPL](https://en.wikipedia.org/wiki/WTFPL).
+MIT, same as upstream MeshCore; see [LICENSE](LICENSE). That file also lists the code and assets that keep
+their own licenses (Zephyr patches under [Apache-2.0](LICENSE-Apache-2.0.txt), Semtech drivers and firmware
+under Clear BSD, Leaflet, esptool-js, fflate, Monocypher). Logo by [recrof](https://github.com/recrof), [WTFPL](https://en.wikipedia.org/wiki/WTFPL).

@@ -9,7 +9,7 @@
  * Firmware image source: https://github.com/Lora-net/radio_firmware_images
  * Bootloader protocol source: https://github.com/Lora-net/lr1110_driver
  * Loader flow reference: https://github.com/Lora-net/SWTL001 (AN1200.57)
- * License: Clear BSD (Semtech Corporation 2021-2026)
+ * Firmware images in lib/: Clear BSD (Semtech Corporation 2021-2026)
  *
  * Firmware 0x0402 only boots on chip bootloader 0x1001. Chips made before
  * the H1_2026 release run legacy bootloader 0x6500, so the update is

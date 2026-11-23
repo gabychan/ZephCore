@@ -2,7 +2,7 @@
  * Copyright (c) 2018 Oticon A/S
  * Copyright (c) 2026 ZephCore
  *
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  *
  * ZephCore replacement for Zephyr's fake_entropy_native_sim.c.
  *

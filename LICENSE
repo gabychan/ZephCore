@@ -22,16 +22,34 @@ SOFTWARE.
 
 ---
 
-This repository vendors third-party code and assets under separate,
-compatible licenses:
+ZephCore is built on code from other projects. The MIT license above covers
+ZephCore's own files. The following keep their own license and notices; each
+file keeps its header.
 
-- `lib/monocypher/` — Monocypher, by Loup Vaillant. Dual-licensed
-  BSD-2-Clause OR CC0-1.0 (see file headers).
-- `patches/zephyr/*.patch` — diffs against Zephyr RTOS (Apache-2.0). The
-  patches are applied to, and remain part of, the separately-licensed Zephyr
-  source tree fetched via `west update`; they are not distributed as
-  standalone files under this project's MIT license.
-- `img/kite-network-logo-bright.svg`, `img/kite-network-logo-dark.svg`,
-  `img/kite-network-logo-thick-bright.svg`, `img/kite-network-logo-thick-dark.svg`
-  — ZephCore logo, by recrof (https://github.com/recrof). Licensed under the
-  WTFPL.
+- **MeshCore** (MIT). Copyright (c) 2025 Scott Powell / rippleradios.com.
+  Source: https://github.com/meshcore-dev/MeshCore. Its notice applies to the
+  files ported from it, listed in `.editorconfig`, and to the board files that
+  carry its header.
+- **Zephyr RTOS** (Apache-2.0). Per-file notices stay in the Zephyr tree.
+  Covers `zephcore/patches/zephyr/*.patch`, which modify Zephyr files and are
+  applied to the Zephyr tree fetched by `west update`, and
+  `zephcore/patches/zephyr-new/drivers/entropy/fake_entropy_native_sim.c`, which
+  replaces a Zephyr file and keeps its Oticon A/S notice. The Apache-2.0 text is
+  in [LICENSE-Apache-2.0.txt](LICENSE-Apache-2.0.txt).
+- **Monocypher** (BSD-2-Clause OR CC0-1.0). Copyright (c) 2017-2020 Loup Vaillant.
+  `zephcore/lib/monocypher/` (see file headers).
+- **Semtech LR20xx driver** (Clear BSD). Copyright Semtech Corporation.
+  `zephcore/patches/zephyr-new/drivers/lora/lr20xx/lr20xx_driver/` (see its
+  `LICENSE.txt`).
+- **Semtech LR1110 firmware images and bootloader code** (Clear BSD). Copyright
+  Semtech Corporation. `zephcore/tools/lr1110_updater/lib/` and
+  `zephcore/tools/lr1110_updater/src/lr1110_bootloader.{c,h}`. Each
+  `*_license.txt` there also contains a BSD-2-Clause notice by Kenneth MacKay
+  (2014). Clear BSD grants no patent license.
+- **Leaflet** (BSD-2-Clause). Copyright (c) 2010-2023 Vladimir Agafonkin,
+  (c) 2010-2011 CloudMade. `custom_builder_web/vendor/leaflet.*`.
+- **esptool-js** (Apache-2.0). Copyright 2019 Espressif Systems (Shanghai) CO LTD.
+  `custom_builder_web/vendor/esptool-js.*`.
+- **fflate** (MIT). Copyright (c) 2026 Arjun Barrett. `custom_builder_web/vendor/fflate.*`.
+- **ZephCore logo** (WTFPL). By [recrof](https://github.com/recrof).
+  `img/kite-network-logo-*.svg`.
