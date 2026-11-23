@@ -1373,6 +1373,11 @@
       "source": "tests/unit/dispatcher_tests.cpp"
     },
     {
+      "id": "UNIT-DISPATCH-028",
+      "name": "A later packet never delays the wake of a sooner one, and the next packet keeps a wake after the first is sent",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-066",
       "name": "The decoders read nothing outside their buffer on truncated, flipped or random input, and a sealed payload shorter than its overhead opens to nothing",
       "source": "tests/unit/meshtastic_tests.cpp"
