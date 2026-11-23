@@ -1341,6 +1341,11 @@
       "id": "UNIT-FOREIGN-004",
       "name": "A dupe of a MeshCore flood we hold pushes it back by 0.2 x its airtime from its own slot, never earlier, within the cap; a flood not tracked stays",
       "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-028",
+      "name": "A later packet never delays the wake of a sooner one, and the next packet keeps a wake after the first is sent",
+      "source": "tests/unit/dispatcher_tests.cpp"
     }
   ]
 }

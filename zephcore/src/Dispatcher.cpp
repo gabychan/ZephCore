@@ -43,6 +43,8 @@ Dispatcher::Dispatcher(Radio& radio, MillisecondClock& ms, PacketManager& mgr)
   _tx_queued_user_data = NULL;
   _wake_cb = NULL;
   _wake_user_data = NULL;
+  tx_wake_at = 0;
+  tx_wake_armed = false;
 }
 
 void Dispatcher::begin() {
@@ -171,6 +173,33 @@ void Dispatcher::loop() {
   // ZEPHCORE: no inbound (delayed) queue.
   checkRecv();
   checkSend();
+  armNextScheduledTx((uint32_t)_ms->getMillis());  // ZEPHCORE
+}
+
+// ZEPHCORE: see Dispatcher.h.
+void Dispatcher::notifyTxQueued(uint32_t delay_ms) {
+  if (!_tx_queued_cb) return;
+  uint32_t now = (uint32_t)_ms->getMillis();
+  uint32_t at = now + delay_ms;
+  if (tx_wake_armed && (int32_t)(tx_wake_at - now) > 0 && (int32_t)(tx_wake_at - at) <= 0) return;
+  tx_wake_at = at;
+  tx_wake_armed = true;
+  _tx_queued_cb(delay_ms, _tx_queued_user_data);
+}
+
+// ZEPHCORE: the wake of the soonest packet still in the future.
+void Dispatcher::armNextScheduledTx(uint32_t now) {
+  bool found = false;
+  uint32_t soonest = 0;
+  int total = _mgr->getOutboundTotal();
+  for (int i = 0; i < total; i++) {
+    uint32_t left = _mgr->getOutboundSchedule(i) - now;
+    if ((int32_t)left > 0 && (!found || left < soonest)) {
+      soonest = left;
+      found = true;
+    }
+  }
+  if (found) notifyTxQueued(soonest);
 }
 
 // ZEPHCORE: deadline-driven maintenance. The event loop calls

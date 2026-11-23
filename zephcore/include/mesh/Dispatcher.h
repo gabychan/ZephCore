@@ -227,6 +227,8 @@ class Dispatcher {
   void* _tx_queued_user_data;
   wake_callback_t _wake_cb;
   void* _wake_user_data;
+  uint32_t tx_wake_at;  // ZEPHCORE: when the armed TX wake fires
+  bool tx_wake_armed;
 
   void processRecvPacket(Packet* pkt);
   void updateTxBudget();
@@ -266,9 +268,9 @@ protected:
   virtual uint32_t getTxStarvationDuration() const;
   // Adaptive CAD moved the operating detPeak offset; subclasses persist it.
   virtual void onCadOffsetChanged(int8_t offset) { }
-  void notifyTxQueued(uint32_t delay_ms) {
-    if (_tx_queued_cb) _tx_queued_cb(delay_ms, _tx_queued_user_data);
-  }
+  // ZEPHCORE: asks for a wake in delay_ms. The callback holds one timer, so a later
+  // request never moves the wake that is already armed sooner.
+  void notifyTxQueued(uint32_t delay_ms);
 
 public:
   void begin();
@@ -331,6 +333,7 @@ private:
   uint32_t getMaxTxBudgetMs() const;
   bool txBudgetAllowsSend(uint32_t now);
   void onLbtRefused(uint32_t now, int len);
+  void armNextScheduledTx(uint32_t now);
   void checkRecv();
   void checkSend();
 };
