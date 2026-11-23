@@ -256,6 +256,27 @@ TEST(dispatch_foreign_queue, "UNIT-DISPATCH-023", "Foreign frames in the queue a
     CHECK(f.dispatcher.getForeignQueued() == 2);
 }
 
+TEST(dispatch_tx_wake, "UNIT-DISPATCH-028", "A later packet never delays the wake of a sooner one, and the next packet keeps a wake after the first is sent") {
+    Fixture f; f.begin();
+    f.dispatcher.sendPacket(f.packet(), 2, 100);
+    f.dispatcher.sendPacket(f.packet(), 2, 600);
+    CHECK(f.dispatcher.wakes == std::vector<uint32_t>({100}));   // the 600 ms packet left the armed wake alone
+    f.clock.now = 200; f.dispatcher.loop();
+    CHECK(f.radio.sent.size() == 1);
+    f.complete();
+    f.dispatcher.loop();
+    CHECK(f.dispatcher.wakes.back() == 500);                     // armed for the packet still waiting
+    f.clock.now = 700; f.dispatcher.loop(); f.complete();
+    CHECK(f.radio.sent.size() == 2);
+    Fixture g; g.begin();
+    g.dispatcher.sendPacket(g.packet(), 2, 600);
+    g.dispatcher.sendPacket(g.packet(), 2, 100);
+    CHECK(g.dispatcher.wakes == std::vector<uint32_t>({600, 100}));   // a sooner packet moves it forward
+    g.clock.now = 200; g.dispatcher.loop(); g.complete(); g.dispatcher.loop();
+    CHECK(g.dispatcher.wakes.back() == 500);
+    g.clock.now = 700; g.dispatcher.loop(); g.complete();
+}
+
 TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause with age and longest streak") {
     mesh::TxStall lbt, rx;
     char buf[96];
