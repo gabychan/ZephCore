@@ -78,11 +78,6 @@
       "source": "tests/unit/contention_tests.cpp"
     },
     {
-      "id": "UNIT-CONTENTION-005",
-      "name": "A dupe defers a pending packet from its own slot, never earlier",
-      "source": "tests/unit/contention_tests.cpp"
-    },
-    {
       "id": "UNIT-DISPATCH-001",
       "name": "Immediate wake delayed dispatch and exactly-once completion",
       "source": "tests/unit/dispatcher_tests.cpp"
@@ -1345,6 +1340,16 @@
     {
       "id": "UNIT-DISPATCH-028",
       "name": "A later packet never delays the wake of a sooner one, and the next packet keeps a wake after the first is sent",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-029",
+      "name": "A packet whose turn met a busy channel draws its wait again when it comes free, and does not go out with the end of the frame",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-030",
+      "name": "After a frame heard or sent, a due packet waits; one still ahead keeps its slot",
       "source": "tests/unit/dispatcher_tests.cpp"
     }
   ]
