@@ -965,20 +965,23 @@ static void lr20xx_apply_modem_config(struct lr20xx_data *data,
 
 	/* DCDC workaround removed — LDO mode, RadioLib doesn't do it */
 
-	lr20xx_radio_lora_pkt_params_t pkt = {
-		.preamble_len_in_symb = mc->preamble_len,
-		.pkt_mode = LR20XX_RADIO_LORA_PKT_EXPLICIT,
-		.pld_len_in_bytes = 255,
-		.crc = mc->packet_crc_disable ? LR20XX_RADIO_LORA_CRC_DISABLED
-					      : LR20XX_RADIO_LORA_CRC_ENABLED,
-		.iq = mc->iq_inverted ? LR20XX_RADIO_LORA_IQ_INVERTED
-				      : LR20XX_RADIO_LORA_IQ_STANDARD,
-	};
-	rc = lr20xx_radio_lora_set_packet_params(ctx, &pkt);
-	LOG_DBG("modem_cfg: set_pkt(pre=%d len=%d crc=%d iq=%d)=%d",
-		pkt.preamble_len_in_symb, pkt.pld_len_in_bytes,
-		pkt.crc, pkt.iq, rc);
-	CHECK_CMD(ctx, "set_pkt_params");
+	/* TX callers program their own, with the frame's length and preamble. */
+	if (!tx_mode) {
+		lr20xx_radio_lora_pkt_params_t pkt = {
+			.preamble_len_in_symb = mc->preamble_len,
+			.pkt_mode = LR20XX_RADIO_LORA_PKT_EXPLICIT,
+			.pld_len_in_bytes = 255,
+			.crc = mc->packet_crc_disable ? LR20XX_RADIO_LORA_CRC_DISABLED
+						      : LR20XX_RADIO_LORA_CRC_ENABLED,
+			.iq = mc->iq_inverted ? LR20XX_RADIO_LORA_IQ_INVERTED
+					      : LR20XX_RADIO_LORA_IQ_STANDARD,
+		};
+		rc = lr20xx_radio_lora_set_packet_params(ctx, &pkt);
+		LOG_DBG("modem_cfg: set_pkt(pre=%d len=%d crc=%d iq=%d)=%d",
+			pkt.preamble_len_in_symb, pkt.pld_len_in_bytes,
+			pkt.crc, pkt.iq, rc);
+		CHECK_CMD(ctx, "set_pkt_params");
+	}
 
 	uint8_t sync = tx_mode ? data->tx_sync_word : data->rx_sync_word;
 
@@ -1985,13 +1988,13 @@ static int lr20xx_lora_config(const struct device *dev,
 	 * chip across every sleep this driver issues, and Semtech's own
 	 * ral_lr20xx_init() calibrates at init and never on the Tx/Rx path. */
 	k_mutex_lock(&data->spi_mutex, K_FOREVER);
-
-	/* Standby first: CalibFE is refused in Rx/Tx (DS §6.4.2), and on reconfigure
-	 * the chip is still in continuous RX. Free at boot. */
 	memcpy(&data->modem_cfg, config, sizeof(*config));
 	data->configured = true;
 	/* Only a full RX start programs these settings: the recv fast paths stay closed until one runs. */
 	data->rx_params_stale = true;
+
+	/* Standby first: CalibFE is refused in Rx/Tx (DS §6.4.2), and on reconfigure
+	 * the chip is still in continuous RX. Free at boot. */
 	lr20xx_system_set_standby_mode(&data->hal_ctx,
 				       LR20XX_SYSTEM_STANDBY_MODE_RC);
 	/* Out of RX: the next recv entry must not take its fast path. */
@@ -2011,6 +2014,7 @@ static int lr20xx_lora_config(const struct device *dev,
 
 /* ── Driver API: airtime ────────────────────────────────────────────── */
 
+/* Airtime of a transmission of data_len bytes with the next TX preamble. */
 static uint32_t lr20xx_lora_airtime(const struct device *dev,
 				    uint32_t data_len)
 {
@@ -2029,7 +2033,7 @@ static uint32_t lr20xx_lora_airtime(const struct device *dev,
 		ceilf((8.0f * data_len - 4.0f * sf + 28.0f + 16.0f) /
 		      (4.0f * (sf - 2.0f * de))) * cr,
 		0.0f);
-	float t_preamble = (mc->preamble_len + 4.25f) * ts;
+	float t_preamble = (lr20xx_tx_preamble(data) + 4.25f) * ts;
 	float t_payload = n_payload * ts;
 
 	return (uint32_t)((t_preamble + t_payload) * 1000.0f);

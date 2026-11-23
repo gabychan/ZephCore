@@ -328,16 +328,19 @@ static void lr11xx_apply_modem_config(struct lr11xx_data *data,
 	};
 	lr11xx_radio_set_lora_mod_params(ctx, &mod);
 
-	lr11xx_radio_pkt_params_lora_t pkt = {
-		.preamble_len_in_symb = mc->preamble_len,
-		.header_type = LR11XX_RADIO_LORA_PKT_EXPLICIT,
-		.pld_len_in_bytes = 255,
-		.crc = mc->packet_crc_disable ? LR11XX_RADIO_LORA_CRC_OFF
-					      : LR11XX_RADIO_LORA_CRC_ON,
-		.iq = mc->iq_inverted ? LR11XX_RADIO_LORA_IQ_INVERTED
-				      : LR11XX_RADIO_LORA_IQ_STANDARD,
-	};
-	lr11xx_radio_set_lora_pkt_params(ctx, &pkt);
+	/* TX callers program their own, with the frame's length and preamble. */
+	if (!tx_mode) {
+		lr11xx_radio_pkt_params_lora_t pkt = {
+			.preamble_len_in_symb = mc->preamble_len,
+			.header_type = LR11XX_RADIO_LORA_PKT_EXPLICIT,
+			.pld_len_in_bytes = 255,
+			.crc = mc->packet_crc_disable ? LR11XX_RADIO_LORA_CRC_OFF
+						      : LR11XX_RADIO_LORA_CRC_ON,
+			.iq = mc->iq_inverted ? LR11XX_RADIO_LORA_IQ_INVERTED
+					      : LR11XX_RADIO_LORA_IQ_STANDARD,
+		};
+		lr11xx_radio_set_lora_pkt_params(ctx, &pkt);
+	}
 
 	uint8_t sync = tx_mode ? data->tx_sync_word : data->rx_sync_word;
 
@@ -953,6 +956,7 @@ static int lr11xx_lora_config(const struct device *dev,
 
 /* ── Driver API: airtime ────────────────────────────────────────────── */
 
+/* Airtime of a transmission of data_len bytes with the next TX preamble. */
 static uint32_t lr11xx_lora_airtime(const struct device *dev,
 				    uint32_t data_len)
 {
@@ -970,7 +974,7 @@ static uint32_t lr11xx_lora_airtime(const struct device *dev,
 		.ldro = lr11xx_ldro(mc),
 	};
 	lr11xx_radio_pkt_params_lora_t pkt = {
-		.preamble_len_in_symb = mc->preamble_len,
+		.preamble_len_in_symb = lr11xx_tx_preamble(data),
 		.header_type = LR11XX_RADIO_LORA_PKT_EXPLICIT,
 		.pld_len_in_bytes = (uint8_t)data_len,
 		.crc = mc->packet_crc_disable ? LR11XX_RADIO_LORA_CRC_OFF
