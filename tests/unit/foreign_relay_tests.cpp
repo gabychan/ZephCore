@@ -24,6 +24,8 @@ struct TestMesh : mesh::Mesh {
     using mesh::Mesh::getContentionDelay;
     using mesh::Mesh::computeAdaptiveFloodDelay;
     using mesh::Mesh::computeAdaptiveDirectDelay;
+    using mesh::Mesh::originFloodDelay;
+    using mesh::Mesh::_flood_is_reply;
 };
 struct Fixture {
     test_support::Clock clock;
@@ -125,6 +127,21 @@ TEST(mesh_contention_window, "UNIT-FOREIGN-007", "When the channel comes free a 
     p->header = (PAYLOAD_TYPE_TXT_MSG << 2) | ROUTE_TYPE_DIRECT;
     p->setPathHashSizeAndCount(1, 1);
     CHECK(f.mesh.getContentionDelay(p) == f.mesh.computeAdaptiveDirectDelay(p));
+    f.pool.free(p);
+}
+
+TEST(mesh_flood_reply, "UNIT-FOREIGN-008", "A flood that answers a heard frame waits in the flood window and draws from it again; any other of our floods keeps the short one") {
+    Fixture f;
+    auto *p = f.pool.allocNew();
+    p->header = (PAYLOAD_TYPE_GRP_TXT << 2) | ROUTE_TYPE_FLOOD;
+    p->payload_len = 3;
+    p->setPathHashSizeAndCount(1, 0);
+    CHECK(f.mesh.originFloodDelay(p) == 0 && p->tx_window == 0);
+    CHECK(f.mesh.getContentionDelay(p) == f.mesh.computeAdaptiveDirectDelay(p));
+    f.mesh._flood_is_reply = true;
+    CHECK(f.mesh.originFloodDelay(p) == f.mesh.computeAdaptiveFloodDelay(p));
+    CHECK(p->tx_window == mesh::Packet::TX_WINDOW_FLOOD);
+    CHECK(f.mesh.getContentionDelay(p) == f.mesh.computeAdaptiveFloodDelay(p));
     f.pool.free(p);
 }
 

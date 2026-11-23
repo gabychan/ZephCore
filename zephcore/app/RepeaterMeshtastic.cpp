@@ -140,7 +140,7 @@ void RepeaterMesh::mtPing(const char *text, size_t len, uint32_t id, int8_t snr_
 		return;
 	}
 	n = _mt.buildText(kBotChannel, mt::kBroadcast, out, n, frame, sizeof(frame), id);
-	if (n == 0 || !_mtport.send(frame, n)) {
+	if (n == 0 || !_mtport.sendReply(frame, n, snr_x4)) {
 		ping::unsent(_ping_stats.mt);
 	}
 }

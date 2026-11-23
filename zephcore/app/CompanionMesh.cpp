@@ -1230,11 +1230,13 @@ void CompanionMesh::pingReply(ping::Protocol w, uint8_t channel_idx, ChannelDeta
 	if (w == ping::PROTO_MT) {
 		bool mt_sent = false;
 
-		sent = mtSendChannelText(channel_idx, ts, out, n, mt_sent) && mt_sent;
+		sent = mtSendChannelText(channel_idx, ts, out, n, mt_sent, &heard.snr_x4) && mt_sent;
 	} else
 #endif
 	{
+		_flood_is_reply = true;
 		sent = sendGroupMessage(ts, ch.channel, prefs.node_name, out, n);
+		_flood_is_reply = false;
 	}
 	if (!sent) {
 		ping::unsent(counters);

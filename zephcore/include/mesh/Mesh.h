@@ -48,6 +48,9 @@ protected:
   // Added to the caller's delay on every sendFlood(); companions spread their
   // originated floods, repeaters keep 0.
   virtual uint32_t getInitialFloodJitter(const Packet* packet) { return 0; }
+  // True around a sendFlood() that answers a heard frame: several nodes may answer it at once.
+  bool _flood_is_reply = false;
+  uint32_t originFloodDelay(Packet* packet);
 
   DispatcherAction onRecvPacket(Packet* pkt) override;
 

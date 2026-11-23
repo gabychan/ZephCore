@@ -404,7 +404,9 @@ private:
 	const char *mtRecentName(uint32_t id) const;
 	uint32_t mtReplyTarget(const char *text, size_t len, const char **body, size_t *body_len) const;
 	/* App commands; false when the channel or contact is not a Meshtastic one. */
-	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent);
+	/* reply_snr: the SNR of the frame this text answers, for a bot's reply. */
+	bool mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len, bool &sent,
+			       const int8_t *reply_snr = nullptr);
 	void mtEchoHeard(uint32_t id, uint8_t relay, float snr, float rssi);
 	/* A retry (attempt > 0 of the same timestamp) goes out with the packet id of the first try. */
 	bool mtSendDirectText(const ContactInfo &contact, uint32_t timestamp, uint8_t attempt,

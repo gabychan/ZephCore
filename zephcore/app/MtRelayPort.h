@@ -68,6 +68,9 @@ public:
 
 	/* A frame we originate, after 0 to 7 slots. */
 	bool send(const uint8_t *frame, size_t len);
+	/* A frame that answers one heard at snr_x4, in the window of a client's repeat:
+	 * several nodes may answer the same frame at once. */
+	bool sendReply(const uint8_t *frame, size_t len, int8_t snr_x4);
 
 	/* The next wait of a queued frame, in its window. */
 	uint32_t contentionDelay(const mesh::Packet &packet) const;
@@ -91,6 +94,7 @@ private:
 
 	uint32_t slotMs() const;
 	uint32_t drawDelay(mt::TxWindow window, int8_t snr_x4) const;
+	bool queueOwn(const uint8_t *frame, size_t len, mt::TxWindow window, int8_t snr_x4);
 	void noteDirect(const uint8_t raw[], int len, int8_t snr_x4);
 	void keepHop(const uint8_t raw[], int len, uint8_t *relay, const Policy &policy);
 	void echoHeard(const uint8_t raw[], int len);

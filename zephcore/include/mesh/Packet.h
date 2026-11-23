@@ -81,6 +81,8 @@ public:
   // (Dispatcher::tryParsePacket rejects it), so this cannot be set by a received packet.
   static constexpr uint8_t FOREIGN_HEADER = 0xFD;  // ver 3, type RAW_CUSTOM, route FLOOD
   bool isForeign() const { return header == FOREIGN_HEADER; }
+  // ZEPHCORE: tx_window of a flood of our own that answers a heard frame: it draws from the flood window.
+  static constexpr uint8_t TX_WINDOW_FLOOD = 1;
 
   /**
    * \returns  one of PAYLOAD_VER_ values

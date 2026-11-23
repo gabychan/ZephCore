@@ -158,8 +158,17 @@ void MtRelayPort::formatStats(char *out, size_t cap) const
 
 bool MtRelayPort::send(const uint8_t *frame, size_t len)
 {
-	if (!_mesh.sendForeign(frame, (int)len, 1, drawDelay(mt::TxWindow::Origin, 0),
-			       (uint8_t)mt::TxWindow::Origin)) {
+	return queueOwn(frame, len, mt::TxWindow::Origin, 0);
+}
+
+bool MtRelayPort::sendReply(const uint8_t *frame, size_t len, int8_t snr_x4)
+{
+	return queueOwn(frame, len, mt::TxWindow::Client, snr_x4);
+}
+
+bool MtRelayPort::queueOwn(const uint8_t *frame, size_t len, mt::TxWindow window, int8_t snr_x4)
+{
+	if (!_mesh.sendForeign(frame, (int)len, 1, drawDelay(window, snr_x4), (uint8_t)window, snr_x4)) {
 		LOG_WRN("mt: frame not queued (len=%u)", (unsigned)len);
 		return false;
 	}

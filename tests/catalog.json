@@ -1408,6 +1408,11 @@
       "source": "tests/unit/foreign_relay_tests.cpp"
     },
     {
+      "id": "UNIT-FOREIGN-008",
+      "name": "A flood that answers a heard frame waits in the flood window and draws from it again; any other of our floods keeps the short one",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
       "id": "UNIT-PING-016",
       "name": "The command matches with spaces around it, and a command that is the first word of an answer is refused",
       "source": "tests/unit/ping_tests.cpp"

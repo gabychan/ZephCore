@@ -97,8 +97,17 @@ uint32_t Mesh::computeAdaptiveFloodDelay(const Packet* packet) {
 // ZEPHCORE: see Mesh.h.
 uint32_t Mesh::getContentionDelay(const Packet* packet) {
   if (packet->isForeign()) return getForeignContentionDelay(packet);
-  if (packet->isRouteFlood() && packet->getPathHashCount() > 0) return computeAdaptiveFloodDelay(packet);
+  if (packet->isRouteFlood() && (packet->getPathHashCount() > 0 || packet->tx_window == Packet::TX_WINDOW_FLOOD)) {
+    return computeAdaptiveFloodDelay(packet);
+  }
   return computeAdaptiveDirectDelay(packet);
+}
+
+// ZEPHCORE: see Mesh.h.
+uint32_t Mesh::originFloodDelay(Packet* packet) {
+  if (!_flood_is_reply) return getInitialFloodJitter(packet);
+  packet->tx_window = Packet::TX_WINDOW_FLOOD;
+  return computeAdaptiveFloodDelay(packet);
 }
 
 // Direct: jitter around upstream's 0.3 factor, per-packet in [0.25, 0.40]; +20 ms floor.
@@ -783,7 +792,7 @@ void Mesh::sendFlood(Packet* packet, uint32_t delay_millis, uint8_t path_hash_si
   } else {
     pri = 1;
   }
-  sendPacket(packet, pri, delay_millis + getInitialFloodJitter(packet));  // ZEPHCORE: initial-flood jitter
+  sendPacket(packet, pri, delay_millis + originFloodDelay(packet));  // ZEPHCORE: initial-flood jitter
 }
 
 void Mesh::sendFlood(Packet* packet, uint16_t* transport_codes, uint32_t delay_millis, uint8_t path_hash_size) {
@@ -814,7 +823,7 @@ void Mesh::sendFlood(Packet* packet, uint16_t* transport_codes, uint32_t delay_m
   } else {
     pri = 1;
   }
-  sendPacket(packet, pri, delay_millis + getInitialFloodJitter(packet));  // ZEPHCORE: initial-flood jitter
+  sendPacket(packet, pri, delay_millis + originFloodDelay(packet));  // ZEPHCORE: initial-flood jitter
 }
 
 void Mesh::sendDirect(Packet* packet, const uint8_t* path, uint8_t path_len, uint32_t delay_millis) {

@@ -600,7 +600,9 @@ void RepeaterMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mes
   mesh::Packet* pkt = createGroupDatagram(PAYLOAD_TYPE_GRP_TXT, channel, temp, 5 + n);
 
   if (pkt) {
+    _flood_is_reply = true;
     sendFloodReply(pkt, SERVER_RESPONSE_DELAY, packet->getPathHashSize());
+    _flood_is_reply = false;
   } else {
     ping::unsent(_ping_stats.mc);
   }

@@ -773,7 +773,7 @@ const char *CompanionMesh::mtRecentName(uint32_t id) const
 }
 
 bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char *text, size_t len,
-				      bool &sent)
+				      bool &sent, const int8_t *reply_snr)
 {
 	ChannelDetails ch;
 
@@ -807,7 +807,7 @@ bool CompanionMesh::mtSendChannelText(int ch_idx, uint32_t timestamp, const char
 		mtNoteText(h.id, prefs.node_name);
 		s.len = (uint8_t)(len < sizeof(s.text) ? len : sizeof(s.text));
 		memcpy(s.text, text, s.len);
-		sent = _mtport.send(frame, n);
+		sent = reply_snr ? _mtport.sendReply(frame, n, *reply_snr) : _mtport.send(frame, n);
 	}
 	return true;
 }
