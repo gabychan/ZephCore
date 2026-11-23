@@ -21,6 +21,9 @@ struct TestMesh : mesh::Mesh {
     TestMesh(mesh::Radio& r, mesh::MillisecondClock& ms, mesh::RNG& rng, mesh::RTCClock& rtc,
              mesh::PacketManager& mgr, mesh::MeshTables& t) : mesh::Mesh(r, ms, rng, rtc, mgr, t) {}
     using mesh::Mesh::extendPendingRetransmit;
+    using mesh::Mesh::getContentionDelay;
+    using mesh::Mesh::computeAdaptiveFloodDelay;
+    using mesh::Mesh::computeAdaptiveDirectDelay;
 };
 struct Fixture {
     test_support::Clock clock;
@@ -108,12 +111,29 @@ TEST(mesh_extend_pending, "UNIT-FOREIGN-004", "A dupe of a MeshCore flood we hol
     f.mesh.extendPendingRetransmit(hash);
     const uint32_t first = f.pool.getOutboundSchedule(0);
     CHECK(first > f.clock.now + 400);
-    f.clock.now = first + 5000;                                    // our slot passed
+    f.clock.now = first + 5;                                       // our slot passed: left to recontend()
     f.mesh.extendPendingRetransmit(hash);
-    CHECK(f.pool.getOutboundSchedule(0) >= f.clock.now);
+    CHECK(f.pool.getOutboundSchedule(0) == first);
+    f.pool.rescheduleOutbound(0, f.clock.now + 400);
     uint32_t last = f.pool.getOutboundSchedule(0);
     for (int i = 0; i < 100; i++) { f.mesh.extendPendingRetransmit(hash); CHECK(f.pool.getOutboundSchedule(0) >= last); last = f.pool.getOutboundSchedule(0); }
     CHECK(f.mesh.getContentionTracker().getReactiveHeadroom(hash, 100) == 0);   // the cap is spent
+    f.pool.free(f.pool.removeOutboundByIdx(0));
+}
+
+TEST(mesh_contention_window, "UNIT-FOREIGN-007", "When the channel comes free a relayed flood draws from the flood window; our own flood and a direct packet from the short one") {
+    Fixture f;
+    auto *p = f.pool.allocNew();
+    p->header = (PAYLOAD_TYPE_TXT_MSG << 2) | ROUTE_TYPE_FLOOD;
+    p->payload_len = 3;
+    p->setPathHashSizeAndCount(1, 1);                              // relayed: a hop in its path
+    CHECK(f.mesh.getContentionDelay(p) == f.mesh.computeAdaptiveFloodDelay(p));
+    p->setPathHashSizeAndCount(1, 0);                              // ours
+    CHECK(f.mesh.getContentionDelay(p) == f.mesh.computeAdaptiveDirectDelay(p));
+    p->header = (PAYLOAD_TYPE_TXT_MSG << 2) | ROUTE_TYPE_DIRECT;
+    p->setPathHashSizeAndCount(1, 1);
+    CHECK(f.mesh.getContentionDelay(p) == f.mesh.computeAdaptiveDirectDelay(p));
+    f.pool.free(p);
 }
 
 TEST(foreign_relay_hold, "UNIT-FOREIGN-005", "A repeat waiting longer than the observation window still hears the copy of another node and gives way; once its own wait is over it is no longer tracked") {

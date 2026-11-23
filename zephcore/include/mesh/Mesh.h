@@ -52,6 +52,8 @@ protected:
   DispatcherAction onRecvPacket(Packet* pkt) override;
 
   virtual uint32_t getCADFailRetryDelay() const override;
+  // ZEPHCORE: a relayed flood draws from the flood window; a packet of our own or a direct one from the short window.
+  uint32_t getContentionDelay(const Packet* packet) override;
 
   /**
    * \brief  Decide what to do with received packet, ie. discard, forward, or hold

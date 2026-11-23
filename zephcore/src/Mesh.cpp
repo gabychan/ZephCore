@@ -28,7 +28,7 @@ uint32_t Mesh::msUntilNextMaintenance() {
 
 // ZEPHCORE: a duplicate of a flood we are about to retransmit was heard: defer our copy
 // by one backoff_multiplier x airtime window per dupe, from its own slot, within
-// the per-packet reactive headroom.
+// the per-packet reactive headroom. Only a slot still ahead moves.
 void Mesh::extendPendingRetransmit(uint32_t hash32) {
   uint32_t now = (uint32_t)_ms->getMillis();
   int total = _mgr->getOutboundTotal();
@@ -36,9 +36,11 @@ void Mesh::extendPendingRetransmit(uint32_t hash32) {
     Packet* pkt = _mgr->getOutboundByIdx(i);
     if (pkt && pkt->isRouteFlood() && ContentionTracker::computePacketHash32(pkt) == hash32) {
       uint32_t airtime = _radio->getEstAirtimeFor(pkt->getRawLength());
+      uint32_t slot = _mgr->getOutboundSchedule(i);
+      if ((int32_t)(slot - now) <= 0) break;  // already due: Dispatcher::recontend() draws it again
       uint16_t delay = _contention.getReactiveHeadroom(hash32, airtime);
       if (delay == 0) break;
-      uint32_t at = ContentionTracker::deferredSchedule(_mgr->getOutboundSchedule(i), now, delay);
+      uint32_t at = slot + delay;
       _mgr->rescheduleOutbound(i, at);
       _contention.addReactiveExtension(hash32, delay);
       notifyTxQueued(at - now);
@@ -54,9 +56,11 @@ void Mesh::foreignDupeHeard(const uint8_t* raw, int len) {
   if (!_contention.recordDupeIfTracked(hash, now)) return;
   int i = findForeignQueued(hash);
   if (i < 0) return;
+  uint32_t slot = _mgr->getOutboundSchedule(i);
+  if ((int32_t)(slot - now) <= 0) return;
   uint16_t delay = _contention.getReactiveHeadroom(hash, _radio->getEstForeignAirtimeFor(payloadOnAir(_mgr->getOutboundByIdx(i))));
   if (delay == 0) return;
-  uint32_t at = ContentionTracker::deferredSchedule(_mgr->getOutboundSchedule(i), now, delay);
+  uint32_t at = slot + delay;
   _mgr->rescheduleOutbound(i, at);
   _contention.addReactiveExtension(hash, delay);
   notifyTxQueued(at - now);
@@ -100,6 +104,13 @@ uint32_t Mesh::computeAdaptiveFloodDelay(const Packet* packet) {
   if (max_jitter > airtime_cap) max_jitter = airtime_cap;
   if (max_jitter > 2000) max_jitter = 2000;
   return 20 + _rng->nextInt(0, max_jitter + 1);
+}
+
+// ZEPHCORE: see Mesh.h.
+uint32_t Mesh::getContentionDelay(const Packet* packet) {
+  if (packet->isForeign()) return getCADFailRetryDelay();
+  if (packet->isRouteFlood() && packet->getPathHashCount() > 0) return computeAdaptiveFloodDelay(packet);
+  return computeAdaptiveDirectDelay(packet);
 }
 
 // Direct: jitter around upstream's 0.3 factor, per-packet in [0.25, 0.40]; +20 ms floor.

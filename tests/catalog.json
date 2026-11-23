@@ -78,11 +78,6 @@
       "source": "tests/unit/contention_tests.cpp"
     },
     {
-      "id": "UNIT-CONTENTION-005",
-      "name": "A dupe defers a pending packet from its own slot, never earlier",
-      "source": "tests/unit/contention_tests.cpp"
-    },
-    {
       "id": "UNIT-DISPATCH-001",
       "name": "Immediate wake delayed dispatch and exactly-once completion",
       "source": "tests/unit/dispatcher_tests.cpp"
@@ -1378,6 +1373,16 @@
       "source": "tests/unit/dispatcher_tests.cpp"
     },
     {
+      "id": "UNIT-DISPATCH-029",
+      "name": "A packet whose turn met a busy channel draws its wait again when it comes free, and does not go out with the end of the frame",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-030",
+      "name": "After a frame heard or sent, a due packet waits; one still ahead keeps its slot",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-066",
       "name": "The decoders read nothing outside their buffer on truncated, flipped or random input, and a sealed payload shorter than its overhead opens to nothing",
       "source": "tests/unit/meshtastic_tests.cpp"
@@ -1395,6 +1400,11 @@
     {
       "id": "UNIT-FOREIGN-006",
       "name": "A foreign repeat on the air still counts as waiting: hearing the frame again queues no second copy",
+      "source": "tests/unit/foreign_relay_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-007",
+      "name": "When the channel comes free a relayed flood draws from the flood window; our own flood and a direct packet from the short one",
       "source": "tests/unit/foreign_relay_tests.cpp"
     },
     {
