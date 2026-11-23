@@ -937,7 +937,7 @@ static int lr11xx_lora_config(const struct device *dev,
 	k_mutex_lock(&data->spi_mutex, K_FOREVER);
 	memcpy(&data->modem_cfg, config, sizeof(*config));
 	data->configured = true;
-	/* A receiver already running keeps the old settings until it is restarted. */
+	/* Only a full RX start programs these settings: the recv fast paths stay closed until one runs. */
 	data->rx_params_stale = true;
 	uint16_t freq_mhz = config->frequency / 1000000;
 	lr11xx_system_calibrate_image_in_mhz(&data->hal_ctx,
