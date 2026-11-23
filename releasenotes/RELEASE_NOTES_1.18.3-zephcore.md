@@ -132,6 +132,16 @@ default channels and node name in order.
   `set` of a key that takes text (a ping command, a channel) sets that text even when it is `help`.
   Every on/off `z.` setting (`z.mt.enable`, `z.mt.relay.opaque`, `z.ping.*`, `z.mc.ping.enable`, `z.mt.ping.enable`) also takes `1` and `0`.
 
+## Fewer collisions when the channel is busy (MeshCore and Meshtastic)
+
+- A packet whose turn comes while another node is transmitting no longer goes out the moment that frame ends, when every
+  other waiting node would do the same. It draws its wait again, in the window of its protocol and role. Repeats can take
+  somewhat longer to finish in a busy area. Not measured on the air yet.
+- A packet queued later no longer delays the send of one queued earlier, and none is left waiting for an unrelated wake.
+- Meshtastic: a frame waiting to be repeated draws its wait again after every frame, as Meshtastic does, so routers stay
+  ahead of clients. `router_late` goes after the client window once it hears another node repeat the frame.
+- The ping bots answer in the window of a repeat, so several bots answering one message no longer step on each other.
+
 ## Radio
 
 - SX126x: changing the sync word between MeshCore and Meshtastic no longer waits for the radio's

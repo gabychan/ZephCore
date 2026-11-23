@@ -88,8 +88,8 @@ only when a firmware raises the revision. Existing channels and radio settings a
 - Our position is not broadcast.
 - Text sent from the device UI (joystick) still goes out as MeshCore; only app messages are bridged.
 - A repeated frame waits as a Meshtastic client does: 16 slots left to routers, then a random slot in a window of
-  2^3 to 2^8 slots chosen by the SNR it was heard at (fainter: smaller window). A duplicate heard meanwhile pushes it
-  back by the reactive backoff (`backoff.multiplier` x airtime, capped as for MeshCore floods) and never cancels it.
+  2^3 to 2^8 slots chosen by the SNR it was heard at (fainter: smaller window). After every frame heard or sent it draws
+  that wait again, as Meshtastic does, and a duplicate never cancels it.
   Why: [CAD.md](CAD.md).
 - Frames we send to Meshtastic carry Meshtastic's 16-symbol preamble whatever the SF (SX126x, LR11xx, LR20xx).
 - The ping bot (`z.mc.ping.*`, `z.mt.ping.*`, off until a command is chosen) is in the companion and the repeater, on the fixed channels `#bot` (MeshCore) and `Bots` (Meshtastic). It reports hops, SNR and the route: all of it in MeshCore, only the last relay in Meshtastic, which carries just that. The frequency error meshtacore's `PPING` adds is not available per packet in ZephCore's radio drivers yet. See [CLI_commands.md](../CLI_commands.md).
@@ -156,7 +156,7 @@ Settings live under `z.mt.` in the CLI and in `prefs.json` `mt{}` (see `docs/CLI
 | Reception statistics `z.mc.hopstats`, `z.mt.hopstats`, `z.mc.relays`, `z.mt.relays` | `zephcore/helpers/RxStats.h`; fed by `RepeaterMesh::onRecvPacket` and `onRecvForeign` |
 | Zero hop: when a repeat keeps its `hop_limit` (ADR 0016) | `mt::ZeroHop` in `MtZeroHop.h`, applied in `MtRelayPort::onFrame` |
 | MeshCore or Meshtastic when no key opens a frame | `mt::looksLikeMeshCore` in `MtDiscriminate.h`. While `z.mt.enable` is on, a frame that no channel of ours opens and that is not shaped like MeshCore never reaches the MeshCore parser (`MtRelayPort::unopened`); with it off every frame is MeshCore's |
-| Shared foreign-frame relay | `Mesh::relayForeign`, `foreignDupeHeard` |
+| Shared foreign-frame relay | `Mesh::relayForeign`, `moveForeignWindow`, `Dispatcher::recontend` |
 
 The receiver is hybrid while `z.mt.enable` is on (`LoRaRadio::setMtListen`); with it off, and on every role without Meshtastic, it listens with MeshCore's sync word alone, as upstream does. A hybrid receiver does not report the sync word a frame came in on. A frame that none of our channels opens is told
 from MeshCore by its shape: it must parse as MeshCore, its payload must be whole 16-byte AES blocks after the fixed part,
@@ -164,9 +164,10 @@ and its Meshtastic `to`/`from` must not be our node number (the check meshtacore
 about one Meshtastic frame in fifty does by chance and is handled as MeshCore, as it was before this feature.
 
 Timing follows Meshtastic's `getTxDelayMsecWeighted`: `client` and `repeater` wait 16 slots plus a random slot in a window set
-by the SNR; `router` waits a random slot of the first 2 x cw, before any client. Text, direct messages, ACKs, NodeInfo and
-traceroute are never dropped when another node repeats them first; the rest is (Meshtastic's client behaviour), unless the
-role is `router` or `router_late`.
+by the SNR; `router` waits a random slot of the first 2 x cw, before any client; `router_late` waits like a client and, once
+it hears another node repeat the frame, goes after the worst case of that window. Every queued frame draws its wait again after
+each frame heard or sent. No role drops a repeat because another node sent it first. A ping bot's reply uses the client window,
+because several bots answer the same message at once. See [ADR 0019](../adr/0019-recontention-after-a-busy-channel.md).
 
 Next hop (Meshtastic 2.6+): a frame is repeated when it names no next hop or names this node (the last byte of its node
 number), has hops left, and is neither ours nor for us alone. The repeat clears `next_hop` (this node keeps no routes, so it

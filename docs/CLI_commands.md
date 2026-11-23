@@ -245,7 +245,7 @@ The repeater and the companion repeat Meshtastic floods on the radio they share 
 | Command | Description |
 |---------|-------------|
 | `get z.mt.enable` / `set z.mt.enable on\|off\|1\|0` | Meshtastic side on or off (default on). Off: the receiver listens with MeshCore's sync word alone (Meshtastic frames are no longer heard), no frame is repeated as Meshtastic and the NodeInfo stops. On the companion, a message the app sends on a `#mt-` channel or to a Meshtastic contact is refused at once (`ERR_BAD_STATE`). |
-| `get z.mt.role` / `set z.mt.role <role>` | Role announced in our NodeInfo and its timing. Repeater: `client\|client_base\|router\|router_late\|repeater`, default `client_base`. Companion: `client_mute\|client`, default `client_mute`. `router` repeats in the first slots, before any client; `router_late` waits like a client. No role cancels a repeat when it hears another node send the same frame: our copy only waits longer (`z.mc.backoff.multiplier`). `client_base` tells other nodes this one is fixed, so they may keep hops for what it repeats (`z.mt.zerohop`). `client_mute` repeats nothing, whatever `z.mt.relay` says: a companion that should repeat is set to `client`. A node that was set up before this release keeps the role it stored. |
+| `get z.mt.role` / `set z.mt.role <role>` | Role announced in our NodeInfo and its timing. Repeater: `client\|client_base\|router\|router_late\|repeater`, default `client_base`. Companion: `client_mute\|client`, default `client_mute`. `router` repeats in the first slots, before any client; `router_late` waits like a client and, when it hears another node send the same frame, goes after the whole client window. No role cancels a repeat when it hears another node send the same frame: after every frame heard, our copy draws its wait again in the window of its role. `client_base` tells other nodes this one is fixed, so they may keep hops for what it repeats (`z.mt.zerohop`). `client_mute` repeats nothing, whatever `z.mt.relay` says: a companion that should repeat is set to `client`. A node that was set up before this release keeps the role it stored. |
 | `get z.mt.relay` / `set z.mt.relay off\|essential\|all` | What is repeated (default `essential` on the repeater, `off` on the companion). `essential`: text, direct messages, their ACKs, NodeInfo and traceroute, which are always sent even if another node repeated them first, plus position, which is dropped if another node repeats it while ours waits. `all`: those, plus telemetry and the other ports, dropped the same way. |
 | `get z.mt.relay.opaque` / `set z.mt.relay.opaque on\|off\|1\|0` | Also repeat frames of channels this node holds no key for (default on), in `essential` and in `all`. What they carry is unknown (the port is inside the encrypted payload), so in `essential` they are repeated whatever they carry, telemetry and the other ports included, which `essential` does not repeat on a channel this node holds; they are dropped if another node repeats them while ours waits; direct messages between nodes count as essential and are always sent. |
 | `get z.mt.channel` / `set z.mt.channel <name> [default\|<base64 key>]` | The primary channel the NodeInfo goes out on (default `SFNarrow`, default key). Name up to 11 characters; the key is 1 or 16 bytes in base64; the name alone keeps the key. The key is never printed. |
@@ -449,7 +449,7 @@ The observer role (ESP32, `boards/common/observer.conf`) has its own CLI and, ap
 | `get txdelay` | Adaptive TX delay status: contention estimate and flood delay factor |
 | `get rxdelay` | *(deprecated)* Always returns "adaptive (rxdelay deprecated)" |
 | `get direct.txdelay` | *(deprecated)* Always returns "adaptive (direct.txdelay deprecated)" |
-| `get backoff.multiplier` | *(ZephCore only)* Per-dupe reactive backoff multiplier |
+| `get backoff.multiplier` | *(ZephCore only)* Per-dupe reactive backoff multiplier, for MeshCore floods |
 | `get flood.max` | Max flood retransmit hops |
 | `get flood.max.unscoped` | Max retransmit hops for un-scoped floods |
 | `get flood.max.advert` | Max retransmit hops for ADVERT floods |
@@ -536,7 +536,7 @@ four radio parameters together, since they are one interop-critical set.
 | `set txdelay <value>` | | Accepted for prefs compatibility — **ignored** (txdelay is adaptive) |
 | `set rxdelay <value>` | | Accepted for prefs compatibility — **ignored** (rxdelay is adaptive) |
 | `set direct.txdelay <value>` | | Accepted for prefs compatibility — **ignored** (direct.txdelay is adaptive) |
-| `set backoff.multiplier <m>` | 0.0–2.0 | *(ZephCore only)* Per-dupe reactive backoff multiplier (0 = disable reactive backoff) |
+| `set backoff.multiplier <m>` | 0.0–2.0 | *(ZephCore only)* Per-dupe reactive backoff multiplier, for MeshCore floods (0 = disable reactive backoff) |
 | `set flood.max <count>` | 0–64 | Maximum flood retransmit hops |
 | `set flood.max.unscoped <count>` | 0–64 | Hop limit for un-scoped floods only, including transport floods with code `0` (default 64 = same as flood.max); scoped/transport floods still use flood.max |
 | `set flood.max.advert <count>` | 0–64 | Hop limit for ADVERT floods only (default 8); curbs advert churn independent of flood.max |

@@ -21,3 +21,4 @@ restructure; most describe decisions taken earlier. The system view is in [../DE
 | [0015](0015-meshtastic-channels-by-command.md) | Zephtacore: Meshtastic channels by command, shown to the app as `#mt-<name>` hashtag channels with the key kept in `prefs.json` |
 | [0016](0016-meshtastic-zero-hop-and-roles.md) | Zephtacore: zero hop between fixed Meshtastic neighbours, off by default; repeaters announce `client_base`, companions `client_mute` |
 | [0017](0017-low-battery-auto-shutdown-with-battery-wake.md) | Zephtacore: low-battery auto-shutdown with an LPCOMP battery wake; off by default on repeaters and room servers, companion default kept |
+| [0019](0019-recontention-after-a-busy-channel.md) | A packet held by a busy channel draws its wait again; MeshCore and Meshtastic keep their own windows |

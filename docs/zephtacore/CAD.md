@@ -119,10 +119,29 @@ nuevo cubre. Los nodos cliente esperan además `2 × 8` slots fijos para dejar p
 
 - **Ventana adaptativa**: el nodo cuenta cuántos duplicados oye de los paquetes que repite y mantiene una media móvil.
   Con pocos vecinos la ventana se estrecha (menos latencia); con muchos se ensancha sola. Topes: 6 airtimes y 2 s.
-- **Espera extra por duplicado**: si mientras un paquete está en cola oye a otro nodo repetirlo, retrasa el suyo
-  `backoff_multiplier × airtime` cada vez, hasta un tope de `min(2 s, 12 airtimes)`. **No cancela.** Los duplicados se
-  vigilan 10 s desde que el paquete entra en cola y, en un frame Meshtastic, durante toda su espera además: con SF12 y
-  una señal fuerte la ventana en slots llega a unos 23 s, más que los 10 s.
+- **Espera extra por duplicado (MeshCore)**: si mientras un flood está en cola oye a otro nodo repetirlo y su turno aún
+  no ha llegado, lo retrasa `backoff_multiplier × airtime` cada vez, hasta un tope de `min(2 s, 12 airtimes)`. **No cancela.**
+
+### Qué pasa si el turno llega con el canal ocupado
+
+Es el caso que más importa en una zona densa. Si varios nodos esperan y otro está transmitiendo, y todos salen justo al
+terminar esa trama, todos hacen el CAD en el mismo instante, lo ven libre y colisionan: la ventana no ha servido de nada.
+
+Por eso, en ZephCore, un paquete retenido por una trama **no sale al acabar esa trama: vuelve a sortear su espera**. La regla
+es común y cada protocolo sortea en su propia ventana:
+
+| Envío | Ventana del nuevo sorteo |
+|---|---|
+| MeshCore, flood repetido | Ventana adaptativa |
+| MeshCore, flood propio, direct, ACK y respuestas | Ventana corta: `20 ms + rand(airtime × 0,25…0,40)` |
+| Meshtastic, frame propio | 0 a 7 slots |
+| Meshtastic, cliente y repetidor | 16 slots + `rand(2^CW)`, con CW por SNR |
+| Meshtastic, router | `rand(2 × CW)` slots |
+| Meshtastic, `router_late` | Como cliente; al oír un duplicado, después del peor caso de esa ventana |
+| Respuesta de un ping bot | La de una repetición de su protocolo: varios bots contestan a la vez al mismo mensaje |
+
+En Meshtastic el sorteo se repite tras **cada** trama oída o enviada, aunque el turno no haya llegado, porque así lo hace el
+original y así los routers siguen saliendo antes que los clientes. En MeshCore solo se repite si el turno ya ha vencido.
 
 ### Por qué no cancelar al oír el eco
 
@@ -139,8 +158,8 @@ renunciar a repetir. meshtacore lo resolvió de otra forma: la cancelación se p
 | Pieza | Elección | Motivo |
 |---|---|---|
 | CAD, bloqueo de RX, recuperación | Los de ZephCore | CAD de hardware siempre activo, umbral adaptativo, operación atómica en el driver |
-| Repetición de floods MeshCore | La de ZephCore | Ventana adaptativa y espera extra por duplicados |
-| Repetición de floods Meshtastic | Ventana en slots ponderada por SNR, como Meshtastic, más la espera extra por duplicados de ZephCore, sin cancelar | Coordinarse con los repetidores Meshtastic de alrededor sin perder mensajes en topologías débiles |
+| Repetición de floods MeshCore | La de ZephCore | Ventana adaptativa, espera extra por duplicados y nuevo sorteo si el canal estaba ocupado |
+| Repetición de floods Meshtastic | Ventana en slots ponderada por SNR, como Meshtastic, que se vuelve a sortear tras cada trama, sin cancelar | Coordinarse con los repetidores Meshtastic de alrededor sin perder mensajes en topologías débiles |
 | Frames Meshtastic propios (NodeInfo, texto, respuestas del ping bot) | Entre 0 y 7 slots de espera antes del CAD (la ventana mínima de Meshtastic, 2³) | Si varios nodos contestan al mismo mensaje, sin espera todos llegan al CAD en el mismo instante y lo ven libre |
 | Preámbulo de los frames Meshtastic | 16 símbolos, el de Meshtastic, en SX126x, LR11xx y LR20xx | Con SF≤8 MeshCore usa 32: enviar los frames Meshtastic con 32 solo gastaba aire |
 

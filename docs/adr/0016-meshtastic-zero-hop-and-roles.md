@@ -41,11 +41,10 @@ companion announced `client` too although it repeats nothing by default.
   were heard is repeated again. Upstream's `PacketHistory` holds more frames, so the ring here is the tighter bound. Accepted;
   a cap on the hops kept or a time in the table would bound it, if it is ever seen.
 - A fixed neighbour whose NodeInfo we cannot read is not learned; it goes on the list.
-- A repeat is never cancelled because another node sent the frame first, in any role. The copy only pushes our repeat back
-  (`backoff.multiplier` x airtime, capped as for MeshCore floods), as MeshCore does, so a lone repeater still carries the frame
-  when the node that was heard fails to. Meshtastic's own cancel-on-echo rule is not followed; the cost is a repeat that may
-  be heard twice by a neighbour, which its duplicate table absorbs. The copy is watched for the observation window of the
-  contention ring plus the wait the repeat was given, since a window of 256 slots at SF12 lasts about 23 s.
+- A repeat is never cancelled because another node sent the frame first, in any role, so a lone repeater still carries the
+  frame when the node that was heard fails to. Meshtastic's own cancel-on-echo rule is not followed; the cost is a repeat that
+  may be heard twice by a neighbour, which its duplicate table absorbs. What the copy does to our repeat is in
+  [ADR 0019](0019-recontention-after-a-busy-channel.md).
 - A Meshtastic frame can be 255 bytes and a `Packet` holds 184. The bytes past the 184th wait in a `ForeignTail` slot of 71 bytes
   (`CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS`, 4 by default, about 290 bytes of RAM) while the packet is queued, held through the
   `transport_codes` a foreign packet does not use, and given back in `Dispatcher::releasePacket`. With every slot in use a longer
