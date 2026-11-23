@@ -64,6 +64,7 @@ LOG_MODULE_REGISTER(zephcore_main, CONFIG_ZEPHCORE_MAIN_LOG_LEVEL);
 #ifdef ZEPHCORE_LORA
 #include <app/CompanionMesh.h>
 #include <helpers/CommonCLI.h>
+#include <helpers/ZCommand.h>
 #include <helpers/pm_sleep_guard.h>
 #include <helpers/StatsFormatHelper.h>
 #include <app/CompanionCLI.h>
@@ -694,7 +695,6 @@ static void power_policy_tick(void)
 static bool handle_vcontact_cli(const char *line, char *reply)
 {
 	if (strcmp(line, "help") == 0 || strcmp(line, "?") == 0) {
-		/* There is no global help: list the companion extras only. */
 		strcpy(reply,
 		/* Short: the whole reply must fit one companion frame (the
 		 * padded table this replaced lost its last line). */
@@ -704,6 +704,8 @@ static bool handle_vcontact_cli(const char *line, char *reply)
 #endif
 		       " v.contact on|off\r\n"
 		       " v.batteryalert <mV>|0|default");
+		zcmd::appendGroups(reply, CLI_REPLY_SIZE, strlen(reply), "\r\n",
+				   IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC));
 		return true;
 	}
 	if (strcmp(line, "get v.contact") == 0) {

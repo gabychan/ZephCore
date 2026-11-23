@@ -1,4 +1,4 @@
-// helpers/ZCommand.h: the on/off value of the "z." commands and "<get|set> z.<key> help".
+// helpers/ZCommand.h: the on/off value of the "z." commands and the help that walks the "z." keys as a tree.
 #include "test.h"
 #include "ZCommand.h"
 
@@ -9,6 +9,25 @@ std::string help(const char *command, bool mt = true)
 {
     char out[161] = "";
     return zcmd::helpReply(command, mt, out, sizeof(out)) ? std::string(out) : std::string("<not mine>");
+}
+
+std::string root(bool mt = true)
+{
+    char out[256] = "";
+    zcmd::appendGroups(out, sizeof(out), 0, "", mt);
+    return out;
+}
+
+// Whether line lists word (" name") as a whole word: followed by a space, a "/" or the end.
+bool listsWord(const std::string &line, const std::string &word)
+{
+    for (size_t at = line.find(word); at != std::string::npos; at = line.find(word, at + 1)) {
+        const size_t end = at + word.size();
+        if (end == line.size() || line[end] == ' ' || line[end] == '/') {
+            return true;
+        }
+    }
+    return false;
 }
 }
 
@@ -31,10 +50,10 @@ TEST(zcmd_help_key, "UNIT-ZCMD-002", "help at the end of get or set gives the us
     CHECK(help("get z.mt.neighbors help").find("Meshtastic") != std::string::npos);
 }
 
-TEST(zcmd_help_group, "UNIT-ZCMD-003", "help on a group lists its keys, whole words only, within the reply") {
-    CHECK(help("get z.mt help").find("> z.mt: enable role relay relay.opaque") == 0);
-    CHECK(help("get z.mt help").find("ping.enable") != std::string::npos);
-    CHECK(help("get z.ping help") == "> z.ping: snr rssi ignore.direct ignore.remote");
+TEST(zcmd_help_group, "UNIT-ZCMD-003", "help on a group lists its children, whole words only, within the reply") {
+    CHECK(help("get z.mt help").find("> z.mt: enable role relay/ hops zerohop/") == 0);
+    CHECK(help("get z.mt help").find(" ping/") != std::string::npos);
+    CHECK(help("get z.ping help") == "> z.ping: snr rssi ignore/");
     char out[40] = "";
     CHECK(zcmd::helpReply("get z.mt help", true, out, sizeof(out)));
     CHECK(strlen(out) < sizeof(out) && out[strlen(out) - 1] != ':' && strncmp(out, "> z.mt: enable role", 19) == 0 && out[strlen(out) - 1] != ' ');
@@ -82,4 +101,48 @@ TEST(zcmd_parse, "UNIT-ZCMD-007", "A z. line is taken apart once: get or set, th
     CHECK(std::string(zcmd::splitValue("rate", name, sizeof(name))) == "" && std::string(name) == "rate");
     CHECK(std::string(zcmd::splitValue("a b c", name, sizeof(name))) == "b c" && std::string(name) == "a");
     CHECK(std::string(zcmd::splitValue("toolongname 5", name, sizeof(name))) == "" && std::string(name) == "toolong");
+}
+
+TEST(zcmd_help_root, "UNIT-ZCMD-008", "help lists the groups of z., with / after one that has more under it; a build without Meshtastic has no mt/") {
+    CHECK(root() == "z. groups: mt/ mc/ ping/ autoshutdown info stats tx/");
+    CHECK(root(false) == "z. groups: mc/ ping/ autoshutdown info stats tx/");
+    CHECK(root().size() <= 60);  // the companion's extras take 106 bytes of its 175-byte frame
+}
+
+TEST(zcmd_help_tree, "UNIT-ZCMD-009", "from a group, a / marks a child with more under it; a key with more under it lists them after its usage") {
+    CHECK(help("get z.mt.relay help").find("> z.mt.relay: get|set off|essential|all") == 0);
+    CHECK(help("get z.mt.relay help").find(" | more: opaque") != std::string::npos);
+    CHECK(help("get z.mt.zerohop help").find(" | more: add remove clear") != std::string::npos);
+    CHECK(help("get z.mt.zerohop.add help").find("8 hex digits") != std::string::npos);
+    CHECK(help("get z.mt.fw help") == "> z.mt.fw: drop gap rate stats");
+    CHECK(help("get z.mt.ping help") == "> z.mt.ping: enable trigger status");
+    CHECK(help("get z.mc.fw help") == "> z.mc.fw: drop gap rate stats");
+    CHECK(help("get z.ping.ignore help") == "> z.ping.ignore: direct remote");
+}
+
+TEST(zcmd_help_reach, "UNIT-ZCMD-010", "every key is reached from help through the groups above it, and every reply fits the remote reply") {
+    for (const zcmd::Help &h : zcmd::kHelp) {
+        if (!zcmd::helpListed(h, true)) {
+            continue;
+        }
+        const std::string key = h.key;
+        std::string group;
+        size_t start = 0;
+
+        for (;;) {
+            const size_t dot = key.find('.', start);
+            const std::string child = key.substr(start, dot == std::string::npos ? std::string::npos : dot - start);
+            const std::string listing = group.empty() ? root() : help(("get z." + group + " help").c_str());
+
+            CHECK(listsWord(listing, " " + child));
+            CHECK(listing.size() < 158);
+            if (dot == std::string::npos) {
+                break;
+            }
+            group = key.substr(0, dot);
+            start = dot + 1;
+        }
+        const std::string usage = help(("get z." + key + " help").c_str());
+        CHECK(usage.size() < 158);
+    }
 }

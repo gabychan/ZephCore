@@ -1119,7 +1119,7 @@
     },
     {
       "id": "UNIT-ZCMD-003",
-      "name": "help on a group lists its keys, whole words only, within the reply",
+      "name": "help on a group lists its children, whole words only, within the reply",
       "source": "tests/unit/zcommand_tests.cpp"
     },
     {
@@ -1425,6 +1425,21 @@
     {
       "id": "UNIT-ZCMD-007",
       "name": "A z. line is taken apart once: get or set, the protocol, the key and its value; anything else is not one",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-008",
+      "name": "help lists the groups of z., with / after one that has more under it; a build without Meshtastic has no mt/",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-009",
+      "name": "from a group, a / marks a child with more under it; a key with more under it lists them after its usage",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-010",
+      "name": "every key is reached from help through the groups above it, and every reply fits the remote reply",
       "source": "tests/unit/zcommand_tests.cpp"
     },
     {

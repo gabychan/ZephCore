@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: MIT
- * What every "z." command shares: the on/off value and "<get|set> z.<key> help".
+ * What every "z." command shares: the on/off value, and the help that walks the "z." keys as a tree:
+ * "help" lists the groups, "<get|set> z.<group> help" their children, "<get|set> z.<key> help" the usage.
  * Pure code, host tested.
  */
 
@@ -86,55 +87,62 @@ inline const char *splitValue(const char *key, char *name, size_t cap)
 
 struct Help {
 	const char *key;   /* after "z." */
-	const char *text;
+	const char *text;  /* usage: syntax, what it does, default */
 	bool free_text;    /* "set" takes any text, so "set <key> help" sets it */
 };
 
+/* Every key of the tree, in the order the groups list them. A key that is also a group ("mt.relay" with
+ * "mt.relay.opaque") says so in its usage. */
 inline constexpr Help kHelp[] = {
 #ifdef CONFIG_ZEPHTACORE_MESHTASTIC
-	{"mt.enable", "get|set on|off|1|0: Meshtastic side on or off"},
-	{"mt.role", "get|set client|client_base|router|router_late|repeater (companion: client_mute|client): role in our NodeInfo"},
-	{"mt.relay", "get|set off|essential|all: what is repeated"},
-	{"mt.relay.opaque", "get|set on|off|1|0: also repeat channels we hold no key for"},
-	{"mt.hops", "get|set 0-7: hop_limit of the frames we send"},
-	{"mt.zerohop", "get|set off|auto: keep hop_limit of what a fixed neighbour repeated; set .add|.remove <node>, .clear: nodes listed by hand"},
-	{"mt.nodeinfo", "get|set <seconds>: NodeInfo interval, 0 never or 600-604800"},
-	{"mt.telemetry", "get|set <seconds>: device metrics interval, 0 never or 60-86400 (repeater)"},
-	{"mt.channel", "get|set <name> [default|<base64 key>]: primary channel (repeater)", true},
+	{"mt.enable", "get|set on|off|1|0: Meshtastic side on or off, default on"},
+	{"mt.role", "get|set client|client_base|router|router_late|repeater (companion: client_mute|client): role; default client_base, companion client_mute"},
+	{"mt.relay", "get|set off|essential|all: what is repeated, default essential (companion off)"},
+	{"mt.relay.opaque", "get|set on|off|1|0: also repeat channels we hold no key for, default on"},
+	{"mt.hops", "get|set 0-7: hop_limit of the frames we send, default 7"},
+	{"mt.zerohop", "get|set off|auto: keep hop_limit of what a fixed neighbour repeated, default off"},
+	{"mt.zerohop.add", "set <node>: add a fixed neighbour, 8 hex digits, at most 8 nodes"},
+	{"mt.zerohop.remove", "set <node>: remove a fixed neighbour, 8 hex digits"},
+	{"mt.zerohop.clear", "set: remove all the fixed neighbours"},
+	{"mt.nodeinfo", "get|set 0 or 600-604800: NodeInfo interval in seconds, 0 never, default 43200"},
+	{"mt.telemetry", "get|set 0 or 60-86400: device metrics interval in seconds, 0 never, default 0 (repeater)"},
+	{"mt.channel", "get|set <name> [default|<base64 key>]: primary channel (repeater); default: no name, default key", true},
 	{"mt.channel.add", "set <name> [default|<base64 key>]: add a channel (companion)", true},
 	{"mt.channel.remove", "set <name>: remove a channel (companion)", true},
 	{"mt.channels", "get: the channels and their keys (companion)"},
 	{"mt.stats", "get: heard, relayed, opaque, dropped, shed, long, kept"},
 	{"mt.neighbors", "get [page] [recent]: Meshtastic nodes heard directly, best SNR first"},
-	{"mt.ping.enable", "get|set on [<command>]|off|1 [<command>]|0: bot on (needs a command) or off"},
-	{"mt.ping.trigger", "get|set <command>: text to answer, 1-15 characters, no spaces", true},
+	{"mt.ping.enable", "get|set on [<command>]|off|1 [<command>]|0: bot on (needs a command) or off, default off"},
+	{"mt.ping.trigger", "get|set <command>: text to answer, 1-15 characters, no spaces, default none", true},
 	{"mt.ping.status", "get: state, command, answered and ignored"},
 	{"mt.hopstats", "get: frames heard by hops crossed, ? when the sender set no hop_start (repeater)"},
 	{"mt.relays", "get: relay byte of the frames heard, most frames first (repeater)"},
-	{"mt.fw.drop", "get|set <rule> on|off|1|0 or none: ports dropped: text position nodeinfo telemetry traceroute other (repeater)"},
-	{"mt.fw.gap", "get|set 0-255: minutes between two NodeInfo of one node that are kept, 0 no limit (repeater)"},
-	{"mt.fw.rate", "get|set 0-255: frames a minute from one neighbouring repeater, 0 no limit (repeater)"},
+	{"mt.fw.drop", "get|set <rule> on|off|1|0 or none: ports dropped: text position nodeinfo telemetry traceroute other, default none (repeater)"},
+	{"mt.fw.gap", "get|set 0-255: minutes between two NodeInfo of one node that are kept, default 0 no limit (repeater)"},
+	{"mt.fw.rate", "get|set 0-255: frames a minute from one neighbouring repeater, default 0 no limit (repeater)"},
 	{"mt.fw.stats", "get: frames dropped by each limit since boot (repeater)"},
 #endif
 	{"mc.neighbors", "get [page] [recent]: MeshCore repeaters heard directly, best SNR first"},
-	{"mc.ping.enable", "get|set on [<command>]|off|1 [<command>]|0: bot on (needs a command) or off"},
-	{"mc.ping.trigger", "get|set <command>: text to answer, 1-15 characters, no spaces", true},
+	{"mc.ping.enable", "get|set on [<command>]|off|1 [<command>]|0: bot on (needs a command) or off, default off"},
+	{"mc.ping.trigger", "get|set <command>: text to answer, 1-15 characters, no spaces, default none", true},
 	{"mc.ping.status", "get: state, command, answered and ignored"},
 	{"mc.hopstats", "get: flood frames heard by hops crossed, 7+ at the end (repeater)"},
 	{"mc.relays", "get: last-hop repeater of the flood frames heard, most frames first (repeater)"},
-	{"mc.fw.drop", "get|set <rule> on|off|1|0 or none: payload types dropped: advert request text group ack path trace (repeater)"},
-	{"mc.fw.gap", "get|set 0-255: minutes between two adverts of one key that are kept, 0 no limit (repeater)"},
-	{"mc.fw.rate", "get|set 0-255: flood frames a minute from one neighbouring repeater, 0 no limit (repeater)"},
+	{"mc.fw.drop", "get|set <rule> on|off|1|0 or none: payload types dropped: advert request text group ack path trace, default none (repeater)"},
+	{"mc.fw.gap", "get|set 0-255: minutes between two adverts of one key that are kept, default 0 no limit (repeater)"},
+	{"mc.fw.rate", "get|set 0-255: flood frames a minute from one neighbouring repeater, default 0 no limit (repeater)"},
 	{"mc.fw.stats", "get: frames dropped by each limit since boot (repeater)"},
-	{"ping.snr", "get|set on|off|1|0: show the SNR in the answer"},
-	{"ping.rssi", "get|set on|off|1|0: show the RSSI in the answer"},
-	{"ping.ignore.direct", "get|set on|off|1|0: do not answer pings heard with 0 hops"},
-	{"ping.ignore.remote", "get|set on|off|1|0: do not answer pings heard with 1 or more hops"},
-	{"autoshutdown", "get|set 0|<mV>: power off under this battery voltage, 0 off; wakes again on recovery (boards with a battery wake)"},
+	{"ping.snr", "get|set on|off|1|0: show the SNR in the answer, default on"},
+	{"ping.rssi", "get|set on|off|1|0: show the RSSI in the answer, default off"},
+	{"ping.ignore.direct", "get|set on|off|1|0: do not answer pings heard with 0 hops, default off"},
+	{"ping.ignore.remote", "get|set on|off|1|0: do not answer pings heard with 1 or more hops, default off"},
+	{"autoshutdown", "get|set 0 or 2900-4200 mV: power off under this battery voltage, 0 off, wakes on recovery; default 0 (companion nRF52: 3200)"},
 	{"info", "get: version, uptime, battery, flash, heap and contacts"},
 	{"stats", "get: MeshCore counters, then the Meshtastic ones"},
 	{"tx.stalls", "get: times TX could not go out for 4 s, per cause"},
 };
+
+inline constexpr size_t kHelpCount = sizeof(kHelp) / sizeof(kHelp[0]);
 
 /* The Meshtastic keys exist only in builds that have it. */
 inline bool helpListed(const Help &h, bool meshtastic)
@@ -142,10 +150,104 @@ inline bool helpListed(const Help &h, bool meshtastic)
 	return meshtastic || strncmp(h.key, "mt.", 3) != 0;
 }
 
-/* "<get|set> z.<key> help": the usage of a key, or the keys under a group
- * ("get z.mt help"). False, with reply untouched, when the command is not that,
- * so it goes on to its own handler. "set" leaves a key that takes any text alone:
- * "help" is a valid value for it. */
+/* Whether h is listed under the group key[0..n), n 0 for the root (every listed key). */
+inline bool underGroup(const Help &h, bool meshtastic, const char *key, size_t n)
+{
+	if (!helpListed(h, meshtastic)) {
+		return false;
+	}
+	return n == 0 || (strncmp(h.key, key, n) == 0 && h.key[n] == '.');
+}
+
+/* What h.key is after the group key[0..n) and its dot, n 0 for the root. */
+inline const char *childOf(const Help &h, size_t n)
+{
+	return h.key + (n ? n + 1 : 0);
+}
+
+/* Length of the first dot-separated word of s. */
+inline size_t wordLen(const char *s)
+{
+	size_t n = 0;
+
+	while (s[n] && s[n] != '.') {
+		n++;
+	}
+	return n;
+}
+
+inline bool hasKeysUnder(const char *key, size_t n, bool meshtastic)
+{
+	for (const Help &h : kHelp) {
+		if (underGroup(h, meshtastic, key, n)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* What snprintf left in a buffer of cap bytes, not the length it would have had. */
+inline size_t written(int n, size_t cap)
+{
+	return (size_t)n < cap ? (size_t)n : cap - 1;
+}
+
+/* Appends the children of the group key[0..n) (n 0: the root) to reply, which holds used bytes: each
+ * word once, in table order, with "/" after one that has children. lead goes before the first word.
+ * Stops before a word that does not fit; returns the bytes used. */
+inline size_t appendChildren(char *reply, size_t cap, size_t used, const char *key, size_t n,
+			     bool meshtastic, const char *lead)
+{
+	bool first = true;
+
+	for (size_t i = 0; i < kHelpCount; i++) {
+		if (!underGroup(kHelp[i], meshtastic, key, n)) {
+			continue;
+		}
+		const char *child = childOf(kHelp[i], n);
+		const size_t len = wordLen(child);
+		bool seen = false;
+		bool more = false;
+
+		for (size_t j = 0; j < kHelpCount; j++) {
+			if (!underGroup(kHelp[j], meshtastic, key, n)) {
+				continue;
+			}
+			const char *other = childOf(kHelp[j], n);
+
+			if (wordLen(other) != len || strncmp(other, child, len) != 0) {
+				continue;
+			}
+			seen = seen || j < i;
+			more = more || other[len] == '.';
+		}
+		if (seen) {
+			continue;
+		}
+		const char *pre = first ? lead : "";
+		const size_t add = strlen(pre) + 1 + len + (more ? 1 : 0);
+
+		if (used + add >= cap) {
+			break;
+		}
+		used += (size_t)snprintf(reply + used, cap - used, "%s %.*s%s", pre, (int)len, child,
+					 more ? "/" : "");
+		first = false;
+	}
+	return used;
+}
+
+/* "help" or "?" at the top: the groups of z., and what each one holds, written after lead at used.
+ * Returns the bytes used. */
+inline size_t appendGroups(char *reply, size_t cap, size_t used, const char *lead, bool meshtastic)
+{
+	used += written(snprintf(reply + used, cap - used, "%sz. groups:", lead), cap - used);
+	return appendChildren(reply, cap, used, "", 0, meshtastic, "");
+}
+
+/* "<get|set> z.<key> help": the usage of a key, or the children of a group ("get z.mt help").
+ * False, with reply untouched, when the command is not that, so it goes on to its own handler.
+ * "set" leaves a key that takes any text alone: "help" is a valid value for it. */
 inline bool helpReply(const char *command, bool meshtastic, char *reply, size_t cap)
 {
 	const Parsed parsed = parse(command);
@@ -167,39 +269,29 @@ inline bool helpReply(const char *command, bool meshtastic, char *reply, size_t 
 	while (n > 0 && key[n - 1] == ' ') {
 		n--;
 	}
+	if (n == 0) {
+		return false;
+	}
 
 	for (const Help &h : kHelp) {
 		if (helpListed(h, meshtastic) && strlen(h.key) == n && strncmp(h.key, key, n) == 0) {
 			if (!get && h.free_text) {
 				return false;
 			}
-			snprintf(reply, cap, "> z.%s: %s", h.key, h.text);
+			size_t used = written(snprintf(reply, cap, "> z.%s: %s", h.key, h.text), cap);
+
+			if (hasKeysUnder(h.key, n, meshtastic)) {
+				appendChildren(reply, cap, used, h.key, n, meshtastic, " | more:");
+			}
 			return true;
 		}
 	}
-
-	bool any = false;
-
-	for (const Help &h : kHelp) {
-		any = any || (helpListed(h, meshtastic) && strncmp(h.key, key, n) == 0 && h.key[n] == '.');
-	}
-	if (!any) {
+	if (!hasKeysUnder(key, n, meshtastic)) {
 		return false;
 	}
-	size_t used = (size_t)snprintf(reply, cap, "> z.%.*s:", (int)n, key);
+	const size_t used = written(snprintf(reply, cap, "> z.%.*s:", (int)n, key), cap);
 
-	for (const Help &h : kHelp) {
-		if (!helpListed(h, meshtastic) || strncmp(h.key, key, n) != 0 || h.key[n] != '.') {
-			continue;
-		}
-		const char *name = h.key + n + 1;
-		const size_t len = strlen(name) + 1;
-
-		if (used + len >= cap) {
-			break;
-		}
-		used += (size_t)snprintf(reply + used, cap - used, " %s", name);
-	}
+	appendChildren(reply, cap, used, key, n, meshtastic, "");
 	return true;
 }
 

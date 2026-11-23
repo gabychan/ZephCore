@@ -236,7 +236,7 @@ As upstream, the one setting is `gps` (`0`/`1`), listed only on a board with a G
 
 ## Help for the `z.` commands
 
-Put `help` at the end of any `get` or `set` of a `z.` command to read its usage instead of running it: `get z.mt.relay help` answers `> z.mt.relay: get|set off|essential|all: what is repeated`. On a group it lists the keys under it: `get z.mt help`, `get z.mc help`, `get z.ping help` (the list stops at the last whole name that fits the reply). A line that names no key goes on to its own command: `set z.mt.channel.add Foo help` is an add with the key `help`, which is refused as a bad key. `set` of a key that takes any text (`z.mt.channel`, `z.mt.channel.add`, `z.mt.channel.remove`, `z.mc.ping.trigger`, `z.mt.ping.trigger`) sets that value, so a ping command or a channel can be called `help`; `get` of any of them still answers its usage. Every on/off setting of the `z.` commands takes `on`, `off`, `1` or `0`; `get` keeps answering `on` or `off`. Without Meshtastic in the build there is no `z.mt` help.
+`help` alone, on the repeater, the room server and the companion, lists the groups of the `z.` commands: `z. groups: mt/ mc/ ping/ autoshutdown info stats tx/` (no `mt/` in a build without Meshtastic). A `/` after a name means it has more under it. `get z.mt help` lists the children of a group the same way (`> z.mt: enable role relay/ hops zerohop/ nodeinfo telemetry channel/ channels stats neighbors ping/ hopstats relays fw/`), and `get z.mt.fw help` answers `> z.mt.fw: drop gap rate stats`; the list stops at the last whole name that fits the reply. Put `help` at the end of any `get` or `set` of a `z.` key to read its usage instead of running it: `get z.mt.relay help` answers `> z.mt.relay: get|set off|essential|all: what is repeated, default essential (companion off) | more: opaque`, where `| more:` names the keys under a key that is also a group. A line that names no key goes on to its own command: `set z.mt.channel.add Foo help` is an add with the key `help`, which is refused as a bad key. `set` of a key that takes any text (`z.mt.channel`, `z.mt.channel.add`, `z.mt.channel.remove`, `z.mc.ping.trigger`, `z.mt.ping.trigger`) sets that value, so a ping command or a channel can be called `help`; `get` of any of them still answers its usage. Every on/off setting of the `z.` commands takes `on`, `off`, `1` or `0`; `get` keeps answering `on` or `off`. Without Meshtastic in the build there is no `z.mt` help.
 
 ## Meshtastic (Zephtacore, `CONFIG_ZEPHTACORE_MESHTASTIC`)
 
@@ -380,7 +380,7 @@ Companion builds only. Local only: they run from USB and the app's CLI, and a re
 
 | Command | Description |
 |---------|-------------|
-| `help` / `?` | Lists the commands in this section. There is no global help |
+| `help` / `?` | Lists the commands in this section, then the groups of the `z.` commands (`z. groups: ...`), as the `help` of the repeater and room server does; see [Help for the `z.` commands](#help-for-the-z-commands) |
 | `get v.contact` | Whether the virtual contact that delivers device notices to the app is shown: `v.contact: on` or `off` |
 | `set v.contact <on\|off\|1\|0>` | Default **on**. `off` removes the contact from the app and is the only durable way to disable its notices |
 | `get v.batteryalert` | Low-battery alert threshold: `v.batteryalert: <mV> mV`, `default (<mV> mV)` or `off` |

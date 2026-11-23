@@ -500,6 +500,10 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 	if (zcmd::helpReply(command, IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC), reply, replyCap(sender_timestamp))) {
 		return;
 	}
+	if (strcmp(command, "help") == 0 || strcmp(command, "?") == 0) {
+		zcmd::appendGroups(reply, replyCap(sender_timestamp), 0, "> ", IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC));
+		return;
+	}
 	if (handleRadioCmd(sender_timestamp, command, reply)) {  // is a radio CLI command?
 		return;
 	}
