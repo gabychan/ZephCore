@@ -229,6 +229,7 @@ class Dispatcher {
   void* _wake_user_data;
   uint32_t tx_wake_at;  // ZEPHCORE: when the armed TX wake fires
   bool tx_wake_armed;
+  bool tx_contended;    // ZEPHCORE: a due packet found the channel busy
 
   void processRecvPacket(Packet* pkt);
   void updateTxBudget();
@@ -256,6 +257,8 @@ protected:
 
   virtual uint32_t getCADFailRetryDelay() const;
   virtual uint32_t getCADFailMaxDuration() const;
+  // ZEPHCORE: how long a packet whose turn met a busy channel waits once it is free.
+  virtual uint32_t getContentionDelay(const Packet* packet) { return getCADFailRetryDelay(); }
   virtual int getInterferenceThreshold() const { return 0; }    // disabled by default
   virtual uint32_t getDutyCycleWindowMs() const { return 3600000; }
 
@@ -334,7 +337,8 @@ private:
   bool txBudgetAllowsSend(uint32_t now);
   void onLbtRefused(uint32_t now, int len);
   void armNextScheduledTx(uint32_t now);
-  void checkRecv();
+  void recontend(uint32_t now);
+  bool checkRecv();  // ZEPHCORE: true when a frame was heard
   void checkSend();
 };
 

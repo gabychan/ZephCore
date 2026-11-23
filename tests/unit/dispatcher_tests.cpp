@@ -251,6 +251,7 @@ TEST(dispatch_foreign_queue, "UNIT-DISPATCH-023", "Foreign frames in the queue a
     f.dispatcher.loop();
     CHECK(f.radio.sent.size() == 1 && !f.radio.sent_foreign[0]);   // the MeshCore packet first
     f.complete();
+    f.clock.now += 100;                                            // the wait drawn after our own TX
     f.dispatcher.loop();
     CHECK(f.radio.sent.size() == 2 && f.radio.sent_foreign[1]);     // then the foreign ones
     CHECK(f.dispatcher.getForeignQueued() == 2);
@@ -275,6 +276,33 @@ TEST(dispatch_tx_wake, "UNIT-DISPATCH-028", "A later packet never delays the wak
     g.clock.now = 200; g.dispatcher.loop(); g.complete(); g.dispatcher.loop();
     CHECK(g.dispatcher.wakes.back() == 500);
     g.clock.now = 700; g.dispatcher.loop(); g.complete();
+}
+
+TEST(dispatch_recontend_busy, "UNIT-DISPATCH-029", "A packet whose turn met a busy channel draws its wait again when it comes free, and does not go out with the end of the frame") {
+    Fixture f; f.begin();
+    f.dispatcher.sendPacket(f.packet(), 2, 50);
+    f.radio.receiving = true; f.clock.now = 160; f.dispatcher.loop();
+    CHECK(f.radio.attempts == 0);
+    f.radio.receiving = false; f.clock.now = 500; f.dispatcher.loop();
+    CHECK(f.radio.attempts == 0 && f.pool.getOutboundSchedule(0) == 600);
+    f.clock.now = 599; f.dispatcher.loop(); CHECK(f.radio.attempts == 0);
+    f.clock.now = 600; f.dispatcher.loop(); CHECK(f.radio.attempts == 1);
+    f.complete();
+}
+TEST(dispatch_recontend_frame, "UNIT-DISPATCH-030", "After a frame heard or sent, a due packet waits; one still ahead keeps its slot") {
+    Fixture f; f.begin();
+    f.dispatcher.sendPacket(f.packet(), 2, 0);
+    f.dispatcher.sendPacket(f.packet(), 2, 0);
+    f.dispatcher.sendPacket(f.packet(), 3, 5000);
+    f.dispatcher.loop(); CHECK(f.radio.sent.size() == 1);
+    f.complete();
+    CHECK(f.radio.sent.size() == 1 && f.pool.getOutboundSchedule(0) == 200 && f.pool.getOutboundSchedule(1) == 5100);
+    f.clock.now = 200; f.radio.incoming = {{9, 0, 0xAA}};
+    f.dispatcher.loop();                                           // due as the frame ends: it draws again
+    CHECK(f.radio.sent.size() == 1 && f.pool.getOutboundSchedule(0) == 300 && f.pool.getOutboundSchedule(1) == 5100);
+    f.clock.now = 300; f.dispatcher.loop(); f.complete();
+    CHECK(f.radio.sent.size() == 2);
+    f.clock.now = 5100; f.dispatcher.loop(); f.complete();
 }
 
 TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause with age and longest streak") {

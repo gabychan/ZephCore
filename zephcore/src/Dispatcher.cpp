@@ -45,6 +45,7 @@ Dispatcher::Dispatcher(Radio& radio, MillisecondClock& ms, PacketManager& mgr)
   _wake_user_data = NULL;
   tx_wake_at = 0;
   tx_wake_armed = false;
+  tx_contended = false;
 }
 
 void Dispatcher::begin() {
@@ -157,6 +158,7 @@ void Dispatcher::loop() {
       }
       releasePacket(outbound);  // return to pool
       outbound = NULL;
+      recontend((uint32_t)_ms->getMillis());  // ZEPHCORE
     } else if (!tx_active && millisHasNowPassed(outbound_expiry)) {  // ZEPHCORE: only once the radio has concluded
       MESH_DEBUG_PRINTLN("%s Dispatcher::loop(): WARNING: outbound packed send timed out!", getLogDateTime());
 
@@ -171,7 +173,7 @@ void Dispatcher::loop() {
   }
 
   // ZEPHCORE: no inbound (delayed) queue.
-  checkRecv();
+  if (checkRecv()) recontend((uint32_t)_ms->getMillis());  // ZEPHCORE
   checkSend();
   armNextScheduledTx((uint32_t)_ms->getMillis());  // ZEPHCORE
 }
@@ -185,6 +187,18 @@ void Dispatcher::notifyTxQueued(uint32_t delay_ms) {
   tx_wake_at = at;
   tx_wake_armed = true;
   _tx_queued_cb(delay_ms, _tx_queued_user_data);
+}
+
+// ZEPHCORE: every packet already due draws its wait again, so the nodes that were
+// held by the same frame do not all transmit when it ends.
+void Dispatcher::recontend(uint32_t now) {
+  tx_contended = false;
+  int total = _mgr->getOutboundTotal();
+  for (int i = 0; i < total; i++) {
+    if ((int32_t)(_mgr->getOutboundSchedule(i) - now) <= 0) {
+      _mgr->rescheduleOutbound(i, now + getContentionDelay(_mgr->getOutboundByIdx(i)));
+    }
+  }
 }
 
 // ZEPHCORE: the wake of the soonest packet still in the future.
@@ -291,9 +305,10 @@ bool Dispatcher::tryParsePacket(Packet* pkt, const uint8_t* raw, int len) {
   return true;  // success
 }
 
-void Dispatcher::checkRecv() {
+bool Dispatcher::checkRecv() {
   // ZEPHCORE: drain the whole RX ring per call. The mesh thread wakes on a
   // k_event bit, and several arrivals coalesce into one wake.
+  bool heard = false;
   for (;;) {
     Packet* pkt;
     float score;
@@ -304,6 +319,7 @@ void Dispatcher::checkRecv() {
       if (len <= 0) {
         break;  // ring empty
       }
+      heard = true;
       // ZEPHCORE: a foreign frame is not a MeshCore raw packet: it is not logged as one.
       if (onRecvForeign(raw, len, _radio->getLastSNR(), _radio->getLastRSSI())) {
         rx_air_time += _radio->getEstForeignAirtimeFor(len);  // on the air all the same
@@ -335,6 +351,7 @@ void Dispatcher::checkRecv() {
     }
     processRecvPacket(pkt);  // ZEPHCORE: always immediately (no score-based RX delay)
   }
+  return heard;
 }
 
 void Dispatcher::processRecvPacket(Packet* pkt) {
@@ -385,7 +402,7 @@ bool Dispatcher::txBudgetAllowsSend(uint32_t now) {
 // sensitive and relaxed one step, regardless of cad.auto (persisted via
 // onCadOffsetChanged()). Any successful transmit ends the streak.
 void Dispatcher::onLbtRefused(uint32_t now, int len) {
-  uint32_t retry = getCADFailRetryDelay();
+  uint32_t retry = getContentionDelay(outbound);
   LOG_INF("checkSend: startSendRaw refused (LBT busy), re-queuing delay=%u", retry);
 
   if (lbt_busy_start == 0) {
@@ -437,6 +454,7 @@ void Dispatcher::checkSend() {
   bool is_receiving = _radio->isReceiving();
   bool is_radio_ready = _radio->isRadioReady();
   if (is_receiving || !is_radio_ready) {
+    tx_contended = true;
     if (!millisHasNowPassed(next_tx_time)) {
       notifyTxQueued(next_tx_time - now + 1);
       return;
@@ -456,6 +474,7 @@ void Dispatcher::checkSend() {
       // channel activity has gone on too long... (Radio might be in a bad state)
       // force the pending transmit below...
       _radio->recoverRxState();  // ZEPHCORE: walk the chip REST -> fresh RX first
+      tx_contended = false;
     } else {
       uint32_t retry = getCADFailRetryDelay();
       next_tx_time = futureMillis(retry);
@@ -464,6 +483,12 @@ void Dispatcher::checkSend() {
     }
   }
   cad_busy_start = 0;  // reset busy state
+
+  // ZEPHCORE: the channel just came free: draw again instead of transmitting now.
+  if (tx_contended) {
+    recontend(now);
+    if (_mgr->getOutboundCount(now) == 0) return;
+  }
 
   outbound_priority = _mgr->peekNextOutboundPriority(now);  // ZEPHCORE: kept for a re-queue
   outbound = _mgr->getNextOutbound(now);
@@ -494,7 +519,7 @@ void Dispatcher::checkSend() {
       // ZEPHCORE: final gate, closing the gap since the checks above. Also
       // covers a radio that published its completion but is still re-arming RX.
       if (_radio->isReceiving() || !_radio->isRadioReady() || _radio->isTxActive()) {
-        uint32_t retry = getCADFailRetryDelay();
+        uint32_t retry = getContentionDelay(outbound);
         _mgr->queueOutbound(outbound, outbound_priority, futureMillis((int)retry));
         outbound = NULL;
         notifyTxQueued(retry);
