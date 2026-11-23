@@ -158,7 +158,7 @@ void Dispatcher::loop() {
       }
       releasePacket(outbound);  // return to pool
       outbound = NULL;
-      recontend((uint32_t)_ms->getMillis());  // ZEPHCORE
+      recontend((uint32_t)_ms->getMillis(), true);  // ZEPHCORE
     } else if (!tx_active && millisHasNowPassed(outbound_expiry)) {  // ZEPHCORE: only once the radio has concluded
       MESH_DEBUG_PRINTLN("%s Dispatcher::loop(): WARNING: outbound packed send timed out!", getLogDateTime());
 
@@ -173,7 +173,7 @@ void Dispatcher::loop() {
   }
 
   // ZEPHCORE: no inbound (delayed) queue.
-  if (checkRecv()) recontend((uint32_t)_ms->getMillis());  // ZEPHCORE
+  if (checkRecv()) recontend((uint32_t)_ms->getMillis(), true);  // ZEPHCORE
   checkSend();
   armNextScheduledTx((uint32_t)_ms->getMillis());  // ZEPHCORE
 }
@@ -190,13 +190,15 @@ void Dispatcher::notifyTxQueued(uint32_t delay_ms) {
 }
 
 // ZEPHCORE: every packet already due draws its wait again, so the nodes that were
-// held by the same frame do not all transmit when it ends.
-void Dispatcher::recontend(uint32_t now) {
+// held by the same frame do not all transmit when it ends. After a whole frame a
+// foreign one draws again even if not due: Meshtastic counts its window from the last frame.
+void Dispatcher::recontend(uint32_t now, bool frame_ended) {
   tx_contended = false;
   int total = _mgr->getOutboundTotal();
   for (int i = 0; i < total; i++) {
-    if ((int32_t)(_mgr->getOutboundSchedule(i) - now) <= 0) {
-      _mgr->rescheduleOutbound(i, now + getContentionDelay(_mgr->getOutboundByIdx(i)));
+    Packet* pkt = _mgr->getOutboundByIdx(i);
+    if ((int32_t)(_mgr->getOutboundSchedule(i) - now) <= 0 || (frame_ended && pkt->isForeign())) {
+      _mgr->rescheduleOutbound(i, now + getContentionDelay(pkt));
     }
   }
 }
@@ -486,7 +488,7 @@ void Dispatcher::checkSend() {
 
   // ZEPHCORE: the channel just came free: draw again instead of transmitting now.
   if (tx_contended) {
-    recontend(now);
+    recontend(now, false);
     if (_mgr->getOutboundCount(now) == 0) return;
   }
 
@@ -578,7 +580,8 @@ void Dispatcher::sendPacket(Packet* packet, uint8_t priority, uint32_t delay_mil
 
 // ZEPHCORE: a foreign frame rides the normal queue, so it gets LBT, the duty-cycle
 // budget and the TX thread like any packet; only the radio sync word differs.
-bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis) {
+bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis,
+                             uint8_t tx_window, int8_t snr_x4) {
   if (len <= 0 || len > ForeignTail::MAX_FRAME || !_radio->supportsForeign()) return false;
   int head = len < MAX_PACKET_PAYLOAD ? len : MAX_PACKET_PAYLOAD;
   int tail = len - head;
@@ -594,6 +597,8 @@ bool Dispatcher::sendForeign(const uint8_t* frame, int len, uint8_t priority, ui
   pkt->payload_len = (uint16_t)head;
   pkt->transport_codes[0] = (uint16_t)tail;   // a foreign packet has no transport codes: they hold the tail
   pkt->transport_codes[1] = (uint16_t)slot;
+  pkt->tx_window = tx_window;
+  pkt->_snr = snr_x4;
   memcpy(pkt->payload, frame, head);
   sendPacket(pkt, priority, delay_millis);
   return true;

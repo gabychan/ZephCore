@@ -53,6 +53,7 @@ public:
   uint8_t path[MAX_PATH_SIZE];
   uint8_t payload[MAX_PACKET_PAYLOAD];
   int8_t _snr;
+  uint8_t tx_window;  // ZEPHCORE: the contention window it draws from; set when queued, 0 otherwise
 
   /**
    * \brief calculate the hash of payload + type

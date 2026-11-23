@@ -202,7 +202,6 @@ inline void shortName(const char *name, char out[5])
 	out[n] = '\0';
 }
 
-/* A router sends early; a late router has the client's delay. */
 /* A node number's share of the fingerprint of a set of nodes: the fingerprint is the sum of the
  * shares, so it does not depend on order and changes when one node replaces another. */
 inline uint32_t nodeSetShare(uint32_t node)
@@ -215,6 +214,17 @@ inline uint32_t nodeSetShare(uint32_t node)
 }
 
 inline bool roleSendsEarly(uint8_t role) { return role == ROLE_ROUTER; }
+
+/* The contention window a frame draws from. Origin is a frame of our own; LateHeard is a
+ * late router's repeat once another node was heard sending it. Stored in the queued packet. */
+enum class TxWindow : uint8_t { Origin = 0, Client, Router, Late, LateHeard };
+
+inline TxWindow relayTxWindow(uint8_t role)
+{
+	return roleSendsEarly(role) ? TxWindow::Router
+				    : role == ROLE_ROUTER_LATE ? TxWindow::Late : TxWindow::Client;
+}
+
 /* A muted client repeats nothing, whatever z.mt.relay says. */
 inline bool roleRepeats(uint8_t role) { return role != ROLE_CLIENT_MUTE; }
 

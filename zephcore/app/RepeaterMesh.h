@@ -388,5 +388,6 @@ public:
   uint32_t msUntilNextMaintenance() override;
 #if IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC)
   bool onRecvForeign(const uint8_t raw[], int len, float snr, float rssi) override;
+  uint32_t getForeignContentionDelay(const mesh::Packet* packet) override { return _mtport.contentionDelay(*packet); }
 #endif
 };

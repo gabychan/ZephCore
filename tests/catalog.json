@@ -1319,12 +1319,12 @@
     },
     {
       "id": "UNIT-FOREIGN-002",
-      "name": "A copy heard from another node pushes our repeat back from its own slot, never earlier; another frame leaves it alone",
+      "name": "A queued repeat keeps its window and SNR, and only a copy of the same frame in the named window moves it",
       "source": "tests/unit/foreign_relay_tests.cpp"
     },
     {
       "id": "UNIT-FOREIGN-003",
-      "name": "The dupes of a foreign repeat never reach the flood delay of MeshCore",
+      "name": "A foreign repeat is not tracked, so it never reaches the flood delay of MeshCore",
       "source": "tests/unit/foreign_relay_tests.cpp"
     },
     {
@@ -1354,7 +1354,7 @@
     },
     {
       "id": "UNIT-FOREIGN-004",
-      "name": "A dupe of a MeshCore flood we hold pushes it back by 0.2 x its airtime from its own slot, never earlier, within the cap; a flood not tracked stays",
+      "name": "A dupe of a MeshCore flood we hold pushes a slot still ahead back by 0.2 x its airtime, within the cap; a due slot and a flood not tracked stay",
       "source": "tests/unit/foreign_relay_tests.cpp"
     },
     {
@@ -1383,6 +1383,11 @@
       "source": "tests/unit/dispatcher_tests.cpp"
     },
     {
+      "id": "UNIT-DISPATCH-031",
+      "name": "After a frame every waiting foreign frame draws again, due or not; a MeshCore packet still ahead keeps its slot",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
       "id": "UNIT-MT-066",
       "name": "The decoders read nothing outside their buffer on truncated, flipped or random input, and a sealed payload shorter than its overhead opens to nothing",
       "source": "tests/unit/meshtastic_tests.cpp"
@@ -1391,11 +1396,6 @@
       "id": "UNIT-MT-067",
       "name": "Random Meshtastic-sized frames are taken for MeshCore ones rarely, and the shape of each MeshCore payload type is held",
       "source": "tests/unit/meshtastic_tests.cpp"
-    },
-    {
-      "id": "UNIT-FOREIGN-005",
-      "name": "A repeat waiting longer than the observation window still hears the copy of another node and gives way; once its own wait is over it is no longer tracked",
-      "source": "tests/unit/foreign_relay_tests.cpp"
     },
     {
       "id": "UNIT-FOREIGN-006",
@@ -1450,6 +1450,11 @@
     {
       "id": "UNIT-MT-072",
       "name": "Our own NodeInfo goes out once per node per interval and one per gap overall, whatever the node ids",
+      "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-MT-073",
+      "name": "Each role draws from its window, and a late router that heard a copy goes after the worst case of the client window",
       "source": "tests/unit/meshtastic_tests.cpp"
     },
     {

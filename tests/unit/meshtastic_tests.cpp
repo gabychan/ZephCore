@@ -1083,7 +1083,7 @@ TEST(mt_router_delay, "UNIT-MT-036", "A router waits at most 2 x cw slots, befor
         uint8_t cw = rebroadcastCw((int8_t)snr);
         CHECK(relayWindow((int8_t)snr, true) == 2u * cw && relayWindow((int8_t)snr, false) == (1u << cw));
     }
-    CHECK(relayDelayMs(slot, true, 3) == earlyDelayMs(slot, 3) && relayDelayMs(slot, false, 3) == rebroadcastDelayMs(slot, 3));
+    CHECK(windowDelayMs(TxWindow::Router, 0, slot, 3) == earlyDelayMs(slot, 3) && windowDelayMs(TxWindow::Client, 0, slot, 3) == rebroadcastDelayMs(slot, 3));
     Bridge b = makeNode(0xA1A1A1A1u, "alpha", 1);
     b.setRole(ROLE_ROUTER);
     uint8_t frame[kMaxFrame];
@@ -1097,6 +1097,24 @@ TEST(mt_router_delay, "UNIT-MT-036", "A router waits at most 2 x cw slots, befor
 }
 
 // Node numbers whose last byte is the relay id Meshtastic puts in next_hop.
+TEST(mt_tx_windows, "UNIT-MT-073", "Each role draws from its window, and a late router that heard a copy goes after the worst case of the client window") {
+    CHECK(relayTxWindow(ROLE_ROUTER) == TxWindow::Router);
+    CHECK(relayTxWindow(ROLE_ROUTER_LATE) == TxWindow::Late);
+    CHECK(relayTxWindow(ROLE_CLIENT) == TxWindow::Client && relayTxWindow(ROLE_REPEATER) == TxWindow::Client);
+    CHECK(relayTxWindow(ROLE_CLIENT_BASE) == TxWindow::Client);
+    const uint32_t slot = 12;
+    CHECK(windowSlots(TxWindow::Origin, 40) == 8 && windowDelayMs(TxWindow::Origin, 40, slot, 7) == 7 * slot);
+    for (int snr = -80; snr <= 40; snr += 4) {
+        const int8_t s = (int8_t)snr;
+        const uint32_t w = 1u << rebroadcastCw(s);
+        CHECK(windowSlots(TxWindow::Client, s) == w && windowSlots(TxWindow::Late, s) == w && windowSlots(TxWindow::LateHeard, s) == w);
+        CHECK(windowSlots(TxWindow::Router, s) == 2u * rebroadcastCw(s));
+        CHECK(windowDelayMs(TxWindow::Late, s, slot, w - 1) == (16 + w - 1) * slot);
+        CHECK(windowDelayMs(TxWindow::LateHeard, s, slot, 0) == (32 + w) * slot);      // after the worst case
+        CHECK(windowDelayMs(TxWindow::LateHeard, s, slot, w - 1) < 2 * (16 + w) * slot);  // Meshtastic's clamp
+    }
+}
+
 TEST(mt_next_hop, "UNIT-MT-037", "A frame is repeated when it names no next hop or names us; a fallback flood and an originator retry are repeated again") {
     Bridge a = makeNode(0xA1A1A1A1u, "alpha", 1);
     Bridge r = makeNode(0xD4D4D4D4u, "delta", 2);

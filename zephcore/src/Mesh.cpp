@@ -49,21 +49,12 @@ void Mesh::extendPendingRetransmit(uint32_t hash32) {
   }
 }
 
-// ZEPHCORE: see Mesh.h. A frame we hold is pushed back, never dropped.
-void Mesh::foreignDupeHeard(const uint8_t* raw, int len) {
-  uint32_t now = (uint32_t)_ms->getMillis();
-  uint32_t hash = ContentionTracker::computeForeignHash32(raw, len);
-  if (!_contention.recordDupeIfTracked(hash, now)) return;
-  int i = findForeignQueued(hash);
+// ZEPHCORE: see Mesh.h.
+void Mesh::moveForeignWindow(const uint8_t* raw, int len, uint8_t from, uint8_t to) {
+  int i = findForeignQueued(ContentionTracker::computeForeignHash32(raw, len));
   if (i < 0) return;
-  uint32_t slot = _mgr->getOutboundSchedule(i);
-  if ((int32_t)(slot - now) <= 0) return;
-  uint16_t delay = _contention.getReactiveHeadroom(hash, _radio->getEstForeignAirtimeFor(payloadOnAir(_mgr->getOutboundByIdx(i))));
-  if (delay == 0) return;
-  uint32_t at = slot + delay;
-  _mgr->rescheduleOutbound(i, at);
-  _contention.addReactiveExtension(hash, delay);
-  notifyTxQueued(at - now);
+  Packet* pkt = _mgr->getOutboundByIdx(i);
+  if (pkt->tx_window == from) pkt->tx_window = to;
 }
 
 // ZEPHCORE: index in the outbound queue of the foreign frame with this hash, or -1.
@@ -85,13 +76,10 @@ bool Mesh::foreignWaiting(const uint8_t* frame, size_t len) const {
 }
 
 // ZEPHCORE: see Mesh.h.
-bool Mesh::relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms) {
-  uint32_t hash = ContentionTracker::computeForeignHash32(frame, (int)len);
+bool Mesh::relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms, uint8_t tx_window, int8_t snr_x4) {
   if (foreignWaiting(frame, len)) return true;
   if (getForeignQueued() >= FOREIGN_RELAY_MAX) return false;
-  if (!sendForeign(frame, (int)len, FOREIGN_RELAY_PRIORITY, delay_ms)) return false;
-  _contention.trackRetransmit(hash, (uint32_t)_ms->getMillis(), true, delay_ms);
-  return true;
+  return sendForeign(frame, (int)len, FOREIGN_RELAY_PRIORITY, delay_ms, tx_window, snr_x4);
 }
 
 // Adaptive flood jitter: 5 x airtime x EMA factor, capped at 6 airtimes and
@@ -108,7 +96,7 @@ uint32_t Mesh::computeAdaptiveFloodDelay(const Packet* packet) {
 
 // ZEPHCORE: see Mesh.h.
 uint32_t Mesh::getContentionDelay(const Packet* packet) {
-  if (packet->isForeign()) return getCADFailRetryDelay();
+  if (packet->isForeign()) return getForeignContentionDelay(packet);
   if (packet->isRouteFlood() && packet->getPathHashCount() > 0) return computeAdaptiveFloodDelay(packet);
   return computeAdaptiveDirectDelay(packet);
 }

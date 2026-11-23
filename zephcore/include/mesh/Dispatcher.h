@@ -292,7 +292,9 @@ public:
   void sendPacket(Packet* packet, uint8_t priority, uint32_t delay_millis=0);
   // ZEPHCORE: queues a complete on-air frame of another protocol (len <= MAX_TRANS_UNIT; past
   // MAX_PACKET_PAYLOAD it needs a free ForeignTail slot).
-  bool sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis=0);
+  // tx_window and snr_x4 are what it draws its next wait from.
+  bool sendForeign(const uint8_t* frame, int len, uint8_t priority, uint32_t delay_millis=0,
+                   uint8_t tx_window=0, int8_t snr_x4=0);
   // ZEPHCORE: foreign frames waiting in the outbound queue.
   int getForeignQueued() const;
   // ZEPHCORE: bytes the packet puts on the air as a payload: the foreign frame in full, the payload otherwise.
@@ -344,7 +346,7 @@ private:
   bool txBudgetAllowsSend(uint32_t now);
   void onLbtRefused(uint32_t now, int len);
   void armNextScheduledTx(uint32_t now);
-  void recontend(uint32_t now);
+  void recontend(uint32_t now, bool frame_ended);
   bool checkRecv();  // ZEPHCORE: true when a frame was heard
   void checkSend();
 };

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "MtConfig.h"
 #include "MtPki.h"
 #include "MtPolicy.h"
 #include "MtWire.h"
@@ -45,7 +46,11 @@ uint32_t originDelayMs(uint32_t slot_ms, uint32_t r);
 
 /* Slots to draw r from: 2 x cw for a router (early), 2^cw for a client. */
 uint32_t relayWindow(int8_t snr_x4, bool early);
-uint32_t relayDelayMs(uint32_t slot_ms, bool early, uint32_t r);
+
+/* Slots window w draws from, and the delay of slot r of them. LateHeard goes after the
+ * worst case of the client window, by another draw of it (clampToLateRebroadcastWindow). */
+uint32_t windowSlots(TxWindow w, int8_t snr_x4);
+uint32_t windowDelayMs(TxWindow w, int8_t snr_x4, uint32_t slot_ms, uint32_t r);
 
 class Sink {
 public:

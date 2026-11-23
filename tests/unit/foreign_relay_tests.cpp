@@ -62,42 +62,34 @@ TEST(foreign_relay_queue, "UNIT-FOREIGN-001", "A foreign repeat is queued once, 
     CHECK(g.mesh.getContentionTracker().msUntilNextTick(g.clock.now) == mesh::MAINTENANCE_IDLE);  // nothing tracked
 }
 
-TEST(foreign_relay_defer, "UNIT-FOREIGN-002", "A copy heard from another node pushes our repeat back from its own slot, never earlier; another frame leaves it alone") {
+TEST(foreign_relay_window, "UNIT-FOREIGN-002", "A queued repeat keeps its window and SNR, and only a copy of the same frame in the named window moves it") {
     Fixture f;
     const auto a = frame(1), other = frame(2);
-    CHECK(f.mesh.relayForeign(a.data(), a.size(), 500));
-    const uint32_t slot = f.pool.getOutboundSchedule(0);
-    CHECK(slot == 600);
-    f.mesh.foreignDupeHeard(other.data(), other.size());
-    CHECK(f.pool.getOutboundSchedule(0) == slot);
-    f.mesh.foreignDupeHeard(a.data(), a.size());
-    const uint32_t first = f.pool.getOutboundSchedule(0);
-    CHECK(first > slot);                                           // 0.2 x the foreign airtime (60 ms) later
-    f.clock.now = first + 1000;                                    // our slot passed while the copy arrives
-    f.mesh.foreignDupeHeard(a.data(), a.size());
-    CHECK(f.pool.getOutboundSchedule(0) >= first);
+    const uint8_t late = 3, late_heard = 4, client = 1;
+    CHECK(f.mesh.relayForeign(a.data(), a.size(), 500, late, -8));
+    const mesh::Packet *p = f.pool.getOutboundByIdx(0);
+    CHECK(p->tx_window == late && p->_snr == -8);
+    f.mesh.moveForeignWindow(other.data(), (int)other.size(), late, late_heard);
+    CHECK(p->tx_window == late);
+    f.mesh.moveForeignWindow(a.data(), (int)a.size(), client, late_heard);
+    CHECK(p->tx_window == late);
+    f.mesh.moveForeignWindow(a.data(), (int)a.size(), late, late_heard);
+    CHECK(p->tx_window == late_heard && f.pool.getOutboundSchedule(0) == 600);
+    while (f.pool.getOutboundTotal() > 0) f.pool.free(f.pool.removeOutboundByIdx(0));
 }
 
-TEST(foreign_relay_ema, "UNIT-FOREIGN-003", "The dupes of a foreign repeat never reach the flood delay of MeshCore") {
+TEST(foreign_relay_ema, "UNIT-FOREIGN-003", "A foreign repeat is not tracked, so it never reaches the flood delay of MeshCore") {
     Fixture f;
-    const auto a = frame(1);
     for (uint8_t n = 1; n <= 4; n++) {
         const auto x = frame(n);
         CHECK(f.mesh.relayForeign(x.data(), x.size(), 500));
-        f.mesh.foreignDupeHeard(x.data(), x.size());
     }
-    f.mesh.getContentionTracker().tick(f.clock.now + 11000);
+    CHECK(f.mesh.getContentionTracker().msUntilNextTick(f.clock.now) == mesh::MAINTENANCE_IDLE);
     CHECK(f.mesh.getContentionTracker().getContentionEstimate() == 0.0f);
-    CHECK(!f.mesh.getContentionTracker().isWarmedUp());
-    mesh::ContentionTracker own;
-    own.trackRetransmit(7, 100);
-    own.recordDupeIfTracked(7, 101);
-    own.tick(11000);
-    CHECK(own.getContentionEstimate() > 0.0f);
-    (void)a;
+    while (f.pool.getOutboundTotal() > 0) f.pool.free(f.pool.removeOutboundByIdx(0));
 }
 
-TEST(mesh_extend_pending, "UNIT-FOREIGN-004", "A dupe of a MeshCore flood we hold pushes it back by 0.2 x its airtime from its own slot, never earlier, within the cap; a flood not tracked stays") {
+TEST(mesh_extend_pending, "UNIT-FOREIGN-004", "A dupe of a MeshCore flood we hold pushes a slot still ahead back by 0.2 x its airtime, within the cap; a due slot and a flood not tracked stay") {
     Fixture f;
     auto *p = f.pool.allocNew();
     p->header = (PAYLOAD_TYPE_TXT_MSG << 2) | ROUTE_TYPE_FLOOD;
@@ -134,19 +126,6 @@ TEST(mesh_contention_window, "UNIT-FOREIGN-007", "When the channel comes free a 
     p->setPathHashSizeAndCount(1, 1);
     CHECK(f.mesh.getContentionDelay(p) == f.mesh.computeAdaptiveDirectDelay(p));
     f.pool.free(p);
-}
-
-TEST(foreign_relay_hold, "UNIT-FOREIGN-005", "A repeat waiting longer than the observation window still hears the copy of another node and gives way; once its own wait is over it is no longer tracked") {
-    Fixture f;
-    const auto a = frame(1);
-    CHECK(f.mesh.relayForeign(a.data(), a.size(), 20000));          // SF12, a strong signal: a wait of 20 s
-    const uint32_t slot = f.pool.getOutboundSchedule(0);
-    f.clock.now += 15000;                                           // past the 10 s window, before our slot
-    f.mesh.foreignDupeHeard(a.data(), a.size());
-    CHECK(f.pool.getOutboundSchedule(0) > slot);
-    mesh::ContentionTracker t;
-    t.trackRetransmit(5, 1000, true, 500);
-    CHECK(t.recordDupeIfTracked(5, 1000 + 10400) && !t.recordDupeIfTracked(5, 1000 + 10501));
 }
 
 TEST(foreign_relay_on_air, "UNIT-FOREIGN-006", "A foreign repeat on the air still counts as waiting: hearing the frame again queues no second copy") {

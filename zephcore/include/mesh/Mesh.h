@@ -54,6 +54,8 @@ protected:
   virtual uint32_t getCADFailRetryDelay() const override;
   // ZEPHCORE: a relayed flood draws from the flood window; a packet of our own or a direct one from the short window.
   uint32_t getContentionDelay(const Packet* packet) override;
+  // ZEPHCORE: the same for a foreign frame, in the windows of its protocol.
+  virtual uint32_t getForeignContentionDelay(const Packet* packet) { return getCADFailRetryDelay(); }
 
   /**
    * \brief  Decide what to do with received packet, ie. discard, forward, or hold
@@ -196,9 +198,8 @@ public:
   LocalIdentity self_id;
 
   RNG* getRNG() const { return _rng; }
-  // ZEPHCORE: repeating a foreign (Meshtastic) frame. A copy of it heard from another node
-  // pushes ours back by the reactive backoff, counted from its own slot, never forward.
-  void foreignDupeHeard(const uint8_t* raw, int len);
+  // ZEPHCORE: the waiting foreign frame with this sender and id draws from window to, if it was in from.
+  void moveForeignWindow(const uint8_t* raw, int len, uint8_t from, uint8_t to);
   // ZEPHCORE: a repeat of a foreign frame goes after every MeshCore packet. Foreign frames, ours included,
   // wait at most this many at once; a repeat past that is shed.
   // 0xFF would never be picked: the queue looks for a priority below 0xFF.
@@ -206,9 +207,9 @@ public:
   static constexpr int FOREIGN_RELAY_MAX = 8;
   // True when this foreign frame already waits in the queue or is on the air.
   bool foreignWaiting(const uint8_t* frame, size_t len) const;
-  // Queues a foreign frame to repeat after delay_ms, tracked so its dupes are counted.
+  // Queues a foreign frame to repeat after delay_ms.
   // True when it waits (queued now or already); false when it was not queued.
-  bool relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms);
+  bool relayForeign(const uint8_t* frame, size_t len, uint32_t delay_ms, uint8_t tx_window=0, int8_t snr_x4=0);
   // Index in the outbound queue of the foreign frame with this hash, or -1.
   int findForeignQueued(uint32_t hash32) const;
   RTCClock* getRTCClock() const { return _rtc; }

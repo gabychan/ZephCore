@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: MIT
  * Zephtacore: what the companion and the repeater share of the Meshtastic
  * side, driven by the same mt. settings: hears a frame through the bridge,
- * repeats it with the timing of the role, lets a repeat give way to an echo,
+ * repeats it with the timing of the role,
  * and sends what we originate (NodeInfo, and what the role adds).
  */
 
@@ -20,7 +20,7 @@ public:
 	struct Policy {
 		bool enabled;    /* off: nothing is heard or repeated as Meshtastic */
 		bool relay_all;  /* false: all but mt::RelayClass::Other */
-		bool early;      /* router timing: before every client */
+		mt::TxWindow relay_window;  /* the window of this role's repeats */
 		bool zerohop;    /* hops are kept for what a fixed neighbour repeated */
 		const uint32_t *zerohop_nodes;  /* mt::kZeroHopNodesMax nodes listed by hand */
 	};
@@ -69,6 +69,9 @@ public:
 	/* A frame we originate, after 0 to 7 slots. */
 	bool send(const uint8_t *frame, size_t len);
 
+	/* The next wait of a queued frame, in its window. */
+	uint32_t contentionDelay(const mesh::Packet &packet) const;
+
 	const Stats &stats() const { return _stats; }
 	/* The nodes heard directly: hop_start set and equal to hop_limit. */
 	neighbours::Table &neighbours() { return _neighbours; }
@@ -87,6 +90,7 @@ private:
 	mt::Timer _nodeinfo, _telemetry;
 
 	uint32_t slotMs() const;
+	uint32_t drawDelay(mt::TxWindow window, int8_t snr_x4) const;
 	void noteDirect(const uint8_t raw[], int len, int8_t snr_x4);
 	void keepHop(const uint8_t raw[], int len, uint8_t *relay, const Policy &policy);
 	void echoHeard(const uint8_t raw[], int len);

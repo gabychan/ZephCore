@@ -219,9 +219,30 @@ uint32_t relayWindow(int8_t snr_x4, bool early)
 	return early ? 2U * cw : 1U << cw;
 }
 
-uint32_t relayDelayMs(uint32_t slot_ms, bool early, uint32_t r)
+uint32_t windowSlots(TxWindow w, int8_t snr_x4)
 {
-	return early ? earlyDelayMs(slot_ms, r) : rebroadcastDelayMs(slot_ms, r);
+	switch (w) {
+	case TxWindow::Origin:
+		return originWindow();
+	case TxWindow::Router:
+		return relayWindow(snr_x4, true);
+	default:
+		return relayWindow(snr_x4, false);
+	}
+}
+
+uint32_t windowDelayMs(TxWindow w, int8_t snr_x4, uint32_t slot_ms, uint32_t r)
+{
+	switch (w) {
+	case TxWindow::Origin:
+		return originDelayMs(slot_ms, r);
+	case TxWindow::Router:
+		return earlyDelayMs(slot_ms, r);
+	case TxWindow::LateHeard:
+		return rebroadcastDelayMs(slot_ms, 2U * kCwMax + relayWindow(snr_x4, false) + r);
+	default:
+		return rebroadcastDelayMs(slot_ms, r);
+	}
 }
 
 RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink &sink,

@@ -305,6 +305,18 @@ TEST(dispatch_recontend_frame, "UNIT-DISPATCH-030", "After a frame heard or sent
     f.clock.now = 5100; f.dispatcher.loop(); f.complete();
 }
 
+TEST(dispatch_recontend_foreign, "UNIT-DISPATCH-031", "After a frame every waiting foreign frame draws again, due or not; a MeshCore packet still ahead keeps its slot") {
+    Fixture f; f.begin();
+    std::vector<uint8_t> frame(30, 9);
+    CHECK(f.dispatcher.sendForeign(frame.data(), (int)frame.size(), 0xFE, 5000, 2, -8));
+    f.dispatcher.sendPacket(f.packet(), 2, 5000);
+    CHECK(f.pool.getOutboundByIdx(0)->tx_window == 2 && f.pool.getOutboundByIdx(0)->_snr == -8);
+    f.clock.now = 1000; f.radio.incoming = {{9, 0, 0xAA}};
+    f.dispatcher.loop();
+    CHECK(f.pool.getOutboundSchedule(0) == 1100 && f.pool.getOutboundSchedule(1) == 5100);
+    while (f.pool.getOutboundTotal() > 0) f.pool.free(f.pool.removeOutboundByIdx(0));
+}
+
 TEST(dispatch_tx_stalls, "UNIT-DISPATCH-020", "TX stalls are counted per cause with age and longest streak") {
     mesh::TxStall lbt, rx;
     char buf[96];

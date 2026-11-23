@@ -25,10 +25,7 @@ public:
 	 * computePacketHash32() of the queued frame gives the same value. */
 	static uint32_t computeForeignHash32(const uint8_t *frame, int len);
 
-	/* ZEPHCORE: foreign is a Meshtastic frame: its dupes defer our copy like any other, but
-	 * the sample never reaches the EMA that sets the MeshCore flood delay. hold_ms is the delay
-	 * before our copy goes out: the dupes are watched for that long on top of the window. */
-	void trackRetransmit(uint32_t hash32, uint32_t now_ms, bool foreign = false, uint32_t hold_ms = 0);
+	void trackRetransmit(uint32_t hash32, uint32_t now_ms);
 
 	/* Returns true if packet matched a tracked retransmit (dupe recorded). */
 	bool recordDupeIfTracked(uint32_t hash32, uint32_t now_ms);
@@ -94,9 +91,7 @@ private:
 		uint32_t first_seen_ms;
 		uint8_t dupe_count;
 		uint16_t reactive_added_ms;
-		uint16_t hold_ms;  /* ZEPHCORE: watched this much longer than WINDOW_MS */
 		bool active;
-		bool foreign;
 	};
 
 	Entry _ring[RING_SIZE];
@@ -107,7 +102,6 @@ private:
 	uint32_t _last_decay_ms;
 	float _backoff_multiplier;
 
-	static uint32_t windowOf(const Entry &e) { return WINDOW_MS + e.hold_ms; }
 	void finalizeEntry(int idx);
 	int findEntry(uint32_t hash32) const;
 };

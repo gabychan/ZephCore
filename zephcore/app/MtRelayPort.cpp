@@ -81,7 +81,7 @@ static constexpr uint32_t kFirstTelemetryMs = 60000;
 
 MtRelayPort::Policy MtRelayPort::policyFor(const mt::RepeaterPrefs &p)
 {
-	return {p.enable != 0, p.relay == mt::RELAY_ALL, mt::roleSendsEarly(p.role),
+	return {p.enable != 0, p.relay == mt::RELAY_ALL, mt::relayTxWindow(p.role),
 		p.zerohop == mt::ZEROHOP_AUTO, p.zerohop_nodes};
 }
 
@@ -158,9 +158,8 @@ void MtRelayPort::formatStats(char *out, size_t cap) const
 
 bool MtRelayPort::send(const uint8_t *frame, size_t len)
 {
-	const uint32_t r = _mesh.getRNG()->nextInt(0, mt::originWindow());
-
-	if (!_mesh.sendForeign(frame, (int)len, 1, mt::originDelayMs(slotMs(), r))) {
+	if (!_mesh.sendForeign(frame, (int)len, 1, drawDelay(mt::TxWindow::Origin, 0),
+			       (uint8_t)mt::TxWindow::Origin)) {
 		LOG_WRN("mt: frame not queued (len=%u)", (unsigned)len);
 		return false;
 	}
@@ -172,6 +171,18 @@ uint32_t MtRelayPort::slotMs() const
 	const mesh::Radio *radio = _mesh.getRadio();
 
 	return mt::slotTimeMs(radio->getActiveSpreadingFactor(), radio->getActiveBandwidthKHzX10() / 10.0f);
+}
+
+uint32_t MtRelayPort::drawDelay(mt::TxWindow window, int8_t snr_x4) const
+{
+	const uint32_t r = (uint32_t)_mesh.getRNG()->nextInt(0, (int)mt::windowSlots(window, snr_x4));
+
+	return mt::windowDelayMs(window, snr_x4, slotMs(), r);
+}
+
+uint32_t MtRelayPort::contentionDelay(const mesh::Packet &packet) const
+{
+	return drawDelay((mt::TxWindow)packet.tx_window, packet._snr);
 }
 
 /* Queues the repeat of a heard frame with the delay of the role. */
@@ -186,10 +197,8 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, const int8_t snr_x4,
 	if (_mesh.foreignWaiting(relay, len)) {
 		return;  /* already queued or on the air: not a new repeat */
 	}
-	const uint32_t slot = slotMs();
-	const uint32_t r = (uint32_t)_mesh.getRNG()->nextInt(0, (int)mt::relayWindow(snr_x4, policy.early));
-
-	if (!_mesh.relayForeign(relay, len, mt::relayDelayMs(slot, policy.early, r))) {
+	if (!_mesh.relayForeign(relay, len, drawDelay(policy.relay_window, snr_x4),
+				(uint8_t)policy.relay_window, snr_x4)) {
 		LOG_WRN("mt: relay not queued (len=%u)", (unsigned)len);
 		_stats.shed++;
 		return;
@@ -197,8 +206,8 @@ void MtRelayPort::queue(const uint8_t *relay, size_t len, const int8_t snr_x4,
 	_stats.relayed++;
 }
 
-/* Heard again with nothing to repeat. From a repeater, while we hold the frame: our copy
- * moves out of its way. The originator sending it again leaves our copy alone. */
+/* Heard again with nothing to repeat. From a repeater, a late router's copy goes to the end
+ * of its window. The originator sending it again changes nothing. */
 void MtRelayPort::echoHeard(const uint8_t raw[], int len)
 {
 	mt::Header h;
@@ -206,7 +215,7 @@ void MtRelayPort::echoHeard(const uint8_t raw[], int len)
 	if (!mt::parseHeader(raw, (size_t)len, h) || h.fromOrigin()) {
 		return;
 	}
-	_mesh.foreignDupeHeard(raw, len);
+	_mesh.moveForeignWindow(raw, len, (uint8_t)mt::TxWindow::Late, (uint8_t)mt::TxWindow::LateHeard);
 }
 
 mt::RxResult MtRelayPort::unopened(const uint8_t raw[], int len, uint32_t self)

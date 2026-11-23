@@ -125,7 +125,9 @@ void init_pool() {
 
 mesh::Packet* StaticPoolPacketManager::allocNew() {
   init_pool();  // ZEPHCORE
-  return unused.removeByIdx(0);  // just get first one (returns NULL if empty)
+  mesh::Packet* packet = unused.removeByIdx(0);  // just get first one (returns NULL if empty)
+  if (packet) packet->tx_window = 0;  // ZEPHCORE
+  return packet;
 }
 
 void StaticPoolPacketManager::free(mesh::Packet* packet) {
