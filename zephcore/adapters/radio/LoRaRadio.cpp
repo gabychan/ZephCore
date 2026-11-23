@@ -202,6 +202,8 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 				atomic_set(&self->_tx_complete, 1);
 			}
 			self->_board->onAfterTransmit();
+			/* The chip left RX for the TX: this start programs the current word. */
+			atomic_set(&self->_rx_word_pending, 0);
 			self->startReceive();
 			atomic_set(&self->_tx_active, 0);
 			self->applyPendingRxWord();
@@ -218,6 +220,7 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 			LOG_ERR("TX wait: TIMEOUT after %u ms (len=%u) — packet lost",
 				budget_ms, (unsigned)self->_tx_len);
 			self->_board->onAfterTransmit();
+			atomic_set(&self->_rx_word_pending, 0);
 			self->startReceive();
 			atomic_set(&self->_tx_active, 0);
 			self->applyPendingRxWord();
@@ -240,6 +243,7 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 				atomic_set(&self->_tx_complete, 1);
 			}
 			self->_board->onAfterTransmit();
+			atomic_set(&self->_rx_word_pending, 0);
 			self->startReceive();
 			atomic_set(&self->_tx_active, 0);
 			self->applyPendingRxWord();
@@ -258,6 +262,7 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 				ret, events[0].state);
 			k_poll_signal_reset(&self->_tx_signal);
 			self->_board->onAfterTransmit();
+			atomic_set(&self->_rx_word_pending, 0);
 			self->startReceive();
 			atomic_set(&self->_tx_active, 0);
 			self->applyPendingRxWord();
