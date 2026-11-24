@@ -221,8 +221,11 @@ def summary(boards):
     rows = ["| Platform | Boards | With published firmware |", "|---|---|---|"]
     for platform, label in SUMMARY_GROUPS:
         group = [b for b in boards if b.platform == platform]
+        # A board counts as published only when its Zephtacore variant exists:
+        # that is the one build this fork ships (see published_variants()).
         rows.append("| %s | %d | %d |" % (label, len(group),
-                                         sum(b.release is not None for b in group)))
+                                         sum(1 for b in group
+                                             if b.release is not None and published_variants(b))))
     return "<!-- boards:summary -->\n%s\n<!-- /boards -->" % "\n".join(rows)
 
 

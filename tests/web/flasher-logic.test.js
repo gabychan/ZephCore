@@ -107,7 +107,12 @@ test("the formatter is the .uf2 beside the .zip the catalog names, from the firm
 
 test("each catalog file carries the erase package of its firmware option", () => {
   const cat = { device: [{ firmware: [{ role: "x", erase: CDN + "SoftDevice_v7_formatter.zip", version: { "1.0": { files: [{ name: "a.uf2", url: CDN + "a.uf2" }] } } }] }] };
-  assert.deepEqual(L.catalogFiles(cat), [{ name: "a.uf2", url: CDN + "a.uf2", erase: CDN + "SoftDevice_v7_formatter.zip" }]);
+  assert.deepEqual(L.catalogFiles(cat), [{ name: "a.uf2", url: CDN + "a.uf2", erase: CDN + "SoftDevice_v7_formatter.zip", erase_sha256: undefined }]);
+});
+
+test("the formatter's digest travels with the firmware option, so a clean install checks it too", () => {
+  const cat = { device: [{ firmware: [{ role: "x", erase: CDN + "SoftDevice_v7_formatter.zip", erase_sha256: "ab12", version: { "1.0": { files: [{ name: "a.uf2", url: CDN + "a.uf2" }] } } }] }] };
+  assert.equal(L.catalogFiles(cat)[0].erase_sha256, "ab12");
 });
 
 test("the DFU zip of a board is found by kind, and the formatter has a .zip and a .uf2", () => {

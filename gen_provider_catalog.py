@@ -264,6 +264,11 @@ def build(assets, url_base, version, digests=None):
             opt["subTitle"] = subtitle
         if erase:
             opt["erase"] = erase   # spec §4a: on the firmware option, not the device
+            # Outside the spec, like every other extra: the formatter writes the
+            # whole flash, so it is checked like the firmware.
+            fmt_name = erase.rsplit("/", 1)[-1]
+            if fmt_name in digests:
+                opt["erase_sha256"] = digests[fmt_name]
         dev["firmware"].append(opt)
         used_roles.add(role)
 

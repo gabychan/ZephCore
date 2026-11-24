@@ -46,7 +46,7 @@ Dispatcher::Dispatcher(Radio& radio, MillisecondClock& ms, PacketManager& mgr)
   _wake_user_data = NULL;
   tx_wake_at = 0;
   tx_wake_armed = false;
-  tx_contended = false;
+  tx_contended = false;  // ZEPHCORE: ADR 0019, a due packet found the channel busy
   tx_hold = false;
 }
 

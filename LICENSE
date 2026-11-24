@@ -34,7 +34,9 @@ file keeps its header.
   Covers `zephcore/patches/zephyr/*.patch`, which modify Zephyr files and are
   applied to the Zephyr tree fetched by `west update`, and
   `zephcore/patches/zephyr-new/drivers/entropy/fake_entropy_native_sim.c`, which
-  replaces a Zephyr file and keeps its Oticon A/S notice. The Apache-2.0 text is
+  replaces a Zephyr file and keeps its Oticon A/S notice, and
+  `zephcore/boards/nrf54l/seeed_lr2021_evk/support/openocd.cfg`, taken from
+  Zephyr main. The Apache-2.0 text is
   in [LICENSE-Apache-2.0.txt](LICENSE-Apache-2.0.txt).
 - **Monocypher** (BSD-2-Clause OR CC0-1.0). Copyright (c) 2017-2020 Loup Vaillant.
   `zephcore/lib/monocypher/` (see file headers).

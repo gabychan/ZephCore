@@ -101,6 +101,9 @@ Notes on the mapping:
   is published too as the manual drag-and-drop fallback.
   - `erase` goes on the **firmware option**, never the device object — a device-level `erase` is an
     official-only field that providers get silently ignored + warned for (§4a).
+  - The option also carries `erase_sha256`, the formatter's digest, outside the spec like the rest of
+    the extras. The formatter writes the whole flash, so the page checks it exactly as it checks a
+    firmware download before writing anything.
   - ESP32 has no `erase` (the field is nRF52-only); `flash-wipe` already reinstalls cleanly.
   - Users can still factory-reset on-device without the flasher: the `erase` command over the USB
     serial CLI, the app's factory reset, or a reflash (ZephCore auto-formats on first boot when it

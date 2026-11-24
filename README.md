@@ -9,6 +9,13 @@
 
 <p align="center"><b>MeshCore, but it runs on Zephyr.</b></p>
 
+> [!NOTE]
+> **This fork adds Zephtacore.** Every firmware published from here also speaks Meshtastic: the same radio hears,
+> repeats and bridges both networks, while a MeshCore node on the air sees no difference. What it does, what it costs
+> and what it does not do is in [docs/zephtacore/README.md](docs/zephtacore/README.md); the settings are the `z.mt.*`
+> commands of [ADR 0014](docs/adr/0014-cli-z-namespace.md). Upstream ZephCore, without the Meshtastic side, is
+> [liquidraver/ZephCore](https://github.com/liquidraver/ZephCore).
+
 <p align="center">
   <a href="https://github.com/liquidraver/ZephCore/actions/workflows/build.yml"><img src="https://github.com/liquidraver/ZephCore/actions/workflows/build.yml/badge.svg" alt="build"></a>
   <a href="https://github.com/liquidraver/ZephCore/actions/workflows/tests.yml"><img src="https://github.com/liquidraver/ZephCore/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
@@ -102,12 +109,15 @@ All of this is local behaviour. Nothing here changes the wire protocol, so mixed
 | Platform | Boards | With published firmware |
 |---|---|---|
 | nRF52840 | 22 | 21 |
-| ESP32 family | 16 | 14 |
+| ESP32 family | 16 | 12 |
 | nRF54L | 4 | 3 |
 | EFR32MG24 | 1 | 1 |
-| STM32WL | 1 | 1 |
-| Native Linux (presets) | 3 | 3 |
+| STM32WL | 1 | 0 |
+| Native Linux (presets) | 3 | 0 |
 <!-- /boards -->
+
+The right-hand column counts the boards whose firmware this fork publishes: the Zephtacore build of each. A board
+without that variant has no firmware here, whatever upstream publishes for it.
 
 RAK4631, SenseCAP T1000-E, Wio Tracker L1, Heltec T114 and V3/V4, XIAO ESP32-S3, nRF54L15 and MG24, Seeed
 LoRa-E5, Femtofox, Raspberry Pi with a RAK6421 HAT, and more. The full list with exact build strings is in
