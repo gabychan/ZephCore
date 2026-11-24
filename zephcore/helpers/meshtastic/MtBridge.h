@@ -17,9 +17,15 @@ namespace mt {
 
 static constexpr int kMaxChannels = 8;
 static constexpr int kDedupSize = 64;
-/* Largest frame we queue: MeshCore's payload limit (MAX_PACKET_PAYLOAD). */
-static constexpr size_t kMaxTxFrame = 184;
+/* Largest frame we build: a frame on the air can be MAX_TRANS_UNIT (255) bytes. What does not
+ * fit MeshCore's 184-byte payload waits in a foreign tail slot until its frame is sent. */
+static constexpr size_t kMaxTxFrame = 255;
+/* Largest frame on a channel: it stays within MeshCore's payload, MAX_PACKET_PAYLOAD, so
+ * only a direct text needs the foreign tail. */
+static constexpr size_t kMaxChannelFrame = 184;
 static constexpr uint8_t kNoChannel = 0xFF;
+/* hop_limit of a frame we start on our own account: the configured one. */
+static constexpr uint8_t kOwnHopLimit = 0xFF;
 
 /* Meshtastic's contention slot on sub-GHz LoRa (RadioInterface::computeSlotTimeMsec):
  * a 2-symbol CAD plus half a symbol, plus 7.6 ms of propagation, TX/RX
@@ -43,6 +49,10 @@ uint32_t earlyDelayMs(uint32_t slot_ms, uint32_t r);
  * (RadioInterface::getTxDelayMsec). */
 uint32_t originWindow();
 uint32_t originDelayMs(uint32_t slot_ms, uint32_t r);
+
+/* Hop limit of the frame that answers one which crossed hops_away hops: two more than it
+ * used, and never more than our own (RoutingModule::getHopLimitForResponse). */
+uint8_t responseHopLimit(uint8_t hops_away, uint8_t own);
 
 /* Slots to draw r from: 2 x cw for a router (early), 2^cw for a client. */
 uint32_t relayWindow(int8_t snr_x4, bool early);
@@ -69,16 +79,28 @@ public:
 		(void)from; (void)id; (void)reply_id; (void)want_ack;
 		(void)text; (void)len; (void)snr_x4; (void)hops;
 	}
+	/* A frame for us that we already took came again, heard straight from its sender and
+	 * asking for an ACK: answer its ACK again. Nothing is delivered twice. */
+	virtual void onDirectRepeat(uint32_t from, uint32_t id, int8_t snr_x4, uint8_t hops)
+	{
+		(void)from; (void)id; (void)snr_x4; (void)hops;
+	}
 	/* An ACK (error_reason 0) or NAK for a packet of ours, from a node. */
 	virtual void onAck(uint32_t from, uint32_t request_id, uint32_t error_reason)
 	{
 		(void)from; (void)request_id; (void)error_reason;
 	}
-	/* A node sent us its NodeInfo asking for ours. channel_id is the channel it
-	 * came on, kNoChannel when it came as PKI. */
-	virtual void onNodeInfoRequest(uint8_t channel_id, uint32_t from)
+	/* An ACK for one of our packets that asks for an ACK of its own: the node repeats it
+	 * until it hears one, so a hop limit 0 ACK ends that (ReliableRouter). */
+	virtual void onAckForAck(uint32_t from, uint32_t request_id, int8_t snr_x4)
 	{
-		(void)channel_id; (void)from;
+		(void)from; (void)request_id; (void)snr_x4;
+	}
+	/* A node sent us its NodeInfo asking for ours. channel_id is the channel it
+	 * came on, kNoChannel when it came as PKI. snr_x4 and hops are the request's. */
+	virtual void onNodeInfoRequest(uint8_t channel_id, uint32_t from, int8_t snr_x4, uint8_t hops)
+	{
+		(void)channel_id; (void)from; (void)snr_x4; (void)hops;
 	}
 	/* A PKI message for us from a node whose key we do not hold. */
 	virtual void onUnknownKey(uint32_t from) { (void)from; }
@@ -141,6 +163,7 @@ public:
 	void setRelayOpaque(bool on) { _relay_opaque = on; }
 	/* hop_limit and hop_start of the frames we originate, 0 to 7. */
 	void setHopLimit(uint8_t hops) { _hops = hops > 7 ? 7 : hops; }
+	uint8_t hopLimit() const { return _hops; }
 
 	/* relay_out (kMaxFrame bytes) receives the frame to repeat; *relay_len is
 	 * its length, 0 when nothing is to be repeated. *relay_class, when given,
@@ -157,9 +180,10 @@ public:
 	size_t buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap);
 	size_t buildPosition(uint8_t channel_id, const Position &pos, uint8_t *out, size_t cap);
 	size_t buildTelemetry(uint8_t channel_id, const DeviceMetrics &m, uint8_t *out, size_t cap);
-	/* Our NodeInfo to one node, asking for theirs when want_response. */
+	/* Our NodeInfo to one node, asking for theirs when want_response. hop_limit is the
+	 * header's; kOwnHopLimit (the default) keeps the configured one. */
 	size_t buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_response, uint8_t *out,
-			       size_t cap);
+			       size_t cap, uint8_t hop_limit = kOwnHopLimit);
 	/* PKI frames to a node whose public key is peer_pub. 0 without PKI or on a weak key.
 	 * packet_id 0 takes a new id; a retry passes the id of the first try, which the node's
 	 * ACK answers and which a node that already has the frame drops as a duplicate. */
@@ -167,7 +191,7 @@ public:
 			       uint8_t *out, size_t cap, uint32_t reply_id = 0, bool want_ack = false,
 			       uint32_t packet_id = 0);
 	size_t buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,
-			size_t cap);
+			size_t cap, uint8_t hop_limit = kOwnHopLimit);
 
 private:
 	struct Channel {
@@ -227,12 +251,16 @@ private:
 		uint32_t packet_id = 0;
 		bool want_response = false;
 		bool want_ack = false;
+		uint8_t hops = kOwnHopLimit;  /* hop_limit and hop_start of this frame */
 	};
 	size_t buildFrame(const TxSpec &t, uint8_t *out, size_t cap);
-	void deliverData(const Header &h, const Data &d, uint8_t channel_id, Sink &sink);
+	void deliverData(const Header &h, const Data &d, uint8_t channel_id, int8_t snr_x4, Sink &sink);
 	bool openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sink, uint8_t *buf,
 		     Data &d);
 	void deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink);
+	/* A copy of a frame we already took, heard straight from its sender and asking for an
+	 * ACK: ask the sink to answer it again. Only a copy that opens counts. */
+	void repeatAck(const Header &h, const uint8_t *raw, size_t plen, int8_t snr_x4, Sink &sink);
 };
 
 } /* namespace mt */

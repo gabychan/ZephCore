@@ -113,7 +113,12 @@ void RepeaterMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t to
 				  uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
 				  uint8_t hops, uint8_t relay)
 {
-	(void)to; (void)reply_id;
+	/* A unicast text on a channel is a legacy direct message, which Meshtastic drops rather
+	 * than answer it as a channel message. */
+	if (to != mt::kBroadcast) {
+		return;
+	}
+	(void)reply_id;
 	if (channel_id == kBotChannel) {
 		m.mtPing(text, len, id, snr_x4, hops, relay, hops == 0 && relay != 0 && (uint8_t)from != relay);
 	}

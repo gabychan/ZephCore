@@ -329,9 +329,12 @@ private:
 		void onPosition(uint32_t from, const mt::Position &pos) override;
 		void onDirectText(uint32_t from, uint32_t id, uint32_t reply_id, bool want_ack,
 				  const char *text, size_t len, int8_t snr_x4, uint8_t hops) override;
+		void onDirectRepeat(uint32_t from, uint32_t id, int8_t snr_x4, uint8_t hops) override;
 		bool peerKey(uint32_t node, uint8_t key[32]) override;
 		void onAck(uint32_t from, uint32_t request_id, uint32_t error_reason) override;
-		void onNodeInfoRequest(uint8_t channel_id, uint32_t from) override;
+		void onAckForAck(uint32_t from, uint32_t request_id, int8_t snr_x4) override;
+		void onNodeInfoRequest(uint8_t channel_id, uint32_t from, int8_t snr_x4,
+				       uint8_t hops) override;
 		void onUnknownKey(uint32_t from) override;
 		void onPkiFailed(uint32_t from) override;
 	};
@@ -368,9 +371,14 @@ private:
 	static constexpr int MT_RELAYS_KEEP = 8;
 	MtSent _mt_sent[MT_SENT_KEEP] = {};
 	uint8_t _mt_sent_next = 0;
-	struct MtLastDirect {
+	/* The last direct texts we sent, so a retry of an earlier one goes out with the id of its
+	 * first try: a node drops a frame it already has by (from, id) and would show it twice. */
+	struct MtDirect {
 		uint32_t node, timestamp, id;
-	} _mt_last_direct = {};
+	};
+	static constexpr int MT_DIRECT_KEEP = 4;
+	MtDirect _mt_direct[MT_DIRECT_KEEP] = {};
+	uint8_t _mt_direct_next = 0;
 	/* Who wrote the last texts on Meshtastic channels (ours included), by Meshtastic
 	 * packet id: a reply names its target by id in Meshtastic and by "@[name] "
 	 * in MeshCore. */
@@ -411,15 +419,24 @@ private:
 	/* A retry (attempt > 0 of the same timestamp) goes out with the packet id of the first try. */
 	bool mtSendDirectText(const ContactInfo &contact, uint32_t timestamp, uint8_t attempt,
 			      const char *text, size_t len, bool &sent, uint32_t &ack);
+	/* The packet id of the first try of the direct text (node, timestamp), 0 when it is not kept. */
+	uint32_t mtDirectId(uint32_t node, uint32_t timestamp) const;
+	void mtNoteDirect(uint32_t node, uint32_t timestamp, uint32_t id);
 	void mtStoreKey(uint32_t node, const uint8_t key[32]);
 	bool mtKeyInUse(uint32_t node);
 	uint32_t mtKeyUsers();
-	void mtSendAck(uint32_t to, uint32_t request_id);
+	/* An ACK is an answer: it goes out in the client window at the SNR of the frame it answers,
+	 * with the hop limit given. */
+	void mtSendAck(uint32_t to, uint32_t request_id, int8_t snr_x4, uint8_t hop_limit);
 	/* Our NodeInfo to a node on a channel (kNoChannel: the first one), asking for
-	 * its own (name and public key) when want_response. */
-	void mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool want_response);
+	 * its own (name and public key) when want_response. hop_limit kOwnHopLimit keeps the
+	 * configured one; snr_x4 answers a heard frame instead of being sent unasked. */
+	void mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool want_response,
+			      uint8_t hop_limit = mt::kOwnHopLimit, const int8_t *snr_x4 = nullptr);
 	/* Same, once per node per hour, for NodeInfo we send unasked. */
-	void mtSendNodeInfoLimited(uint32_t node, uint8_t channel_id, bool want_response);
+	void mtSendNodeInfoLimited(uint32_t node, uint8_t channel_id, bool want_response,
+				   uint8_t hop_limit = mt::kOwnHopLimit,
+				   const int8_t *snr_x4 = nullptr);
 	bool mtFavouriteAsks(const ContactInfo &existing, uint8_t new_flags, uint32_t node);
 	int mtContactIndex(const ContactInfo &contact);
 	void mtForgetContact(const ContactInfo &contact);

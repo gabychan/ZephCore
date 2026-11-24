@@ -145,10 +145,18 @@ struct Capture : Sink {
     }
     struct Ack { uint32_t from, id, reason; };
     std::vector<Ack> acks;
+    std::vector<std::pair<uint32_t, uint32_t>> repeats;  // (from, packet id) of a frame it already took
+    std::vector<std::pair<uint32_t, uint32_t>> acks_for_ack;  // (from, request id)
     std::vector<std::pair<uint8_t, uint32_t>> info_requests;  // (channel, from)
+    std::vector<uint8_t> info_request_hops;
     std::vector<uint32_t> unknown_keys;
     void onAck(uint32_t from, uint32_t id, uint32_t reason) override { acks.push_back({from, id, reason}); }
-    void onNodeInfoRequest(uint8_t ch, uint32_t from) override { info_requests.push_back({ch, from}); }
+    void onDirectRepeat(uint32_t from, uint32_t id, int8_t, uint8_t) override { repeats.push_back({from, id}); }
+    void onAckForAck(uint32_t from, uint32_t id, int8_t) override { acks_for_ack.push_back({from, id}); }
+    void onNodeInfoRequest(uint8_t ch, uint32_t from, int8_t, uint8_t hops) override {
+        info_requests.push_back({ch, from});
+        info_request_hops.push_back(hops);
+    }
     void onUnknownKey(uint32_t from) override { unknown_keys.push_back(from); }
     bool peerKey(uint32_t node, uint8_t key[32]) override {
         for (auto& k : keys) if (k.first == node) { std::memcpy(key, k.second.data(), 32); return true; }
@@ -676,7 +684,7 @@ TEST(mt_pki_direct, "UNIT-MT-020", "A PKI direct text reaches only its addressee
     std::memcpy(weak, hex("ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f").data(), 32);
     CHECK(a.buildDirectText(0xB2B2B2B2u, weak, "x", 1, frame, sizeof(frame)) == 0);
     CHECK(a.buildDirectText(0xB2B2B2B2u, qb, "", 0, frame, sizeof(frame)) == 0);
-    std::string big(200, 'z');
+    std::string big(240, 'z');
     CHECK(a.buildDirectText(0xB2B2B2B2u, qb, big.data(), big.size(), frame, sizeof(frame)) == 0);
     Bridge nopki = makeNode(0xE5E5E5E5u, "eps", 5);
     CHECK(nopki.buildDirectText(0xB2B2B2B2u, qb, "x", 1, frame, sizeof(frame)) == 0);
@@ -1972,4 +1980,117 @@ TEST(mt_key_cache, "UNIT-MT-071", "The key cache answers the nodes it holds, a n
     CHECK(c.get(30, out) && memcmp(out, k1, 32) == 0 && !c.get(10, out) && c.get(20, out));
     c.clear();
     CHECK(!c.get(20, out) && !c.get(30, out));
+}
+
+TEST(mt_direct_max_text, "UNIT-MT-074", "A direct text of the app's maximum length is built and arrives whole past MeshCore's payload size, and a text too long for the frame is refused") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    // MAX_TEXT_LEN bytes of UTF-8 ('é' is two bytes): what the app sends, and more than a Packet holds.
+    std::string text;
+    while (text.size() < 160) text += "\xc3\xa9";
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, text.data(), text.size(), frame, sizeof(frame), 0, true);
+    Header h;
+    CHECK(n > (size_t)MAX_PACKET_PAYLOAD && n <= kMaxFrame && parseHeader(frame, n, h));
+    CHECK(h.to == 0xB2B2B2B2u && h.from == 0xA1A1A1A1u && h.channel == 0 && h.wantAck());
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_HANDLED && relay_len == 0);
+    CHECK(t.cb.directs.size() == 1 && t.cb.directs[0].text == text && t.cb.directs[0].want_ack);
+    // Past what the frame holds nothing is built.
+    std::string big(240, 'z');
+    CHECK(t.a.buildDirectText(0xB2B2B2B2u, t.qb, big.data(), big.size(), frame, sizeof(frame)) == 0);
+}
+
+TEST(mt_direct_repeat, "UNIT-MT-075", "A direct frame sent again by its sender asks for its ACK again and is delivered once; a copy through a repeater or one that does not open asks for nothing") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    size_t n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "hola", 4, frame, sizeof(frame), 0, true);
+    Header h;
+    CHECK(n > 0 && parseHeader(frame, n, h));
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.cb.directs.size() == 1 && t.cb.repeats.empty());
+    // Sent again with the same id: its ACK is asked for again, the text is not delivered.
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_DUPLICATE);
+    CHECK(t.cb.directs.size() == 1 && t.cb.repeats.size() == 1 && t.cb.repeats[0].first == 0xA1A1A1A1u &&
+          t.cb.repeats[0].second == h.id);
+    // Heard through a repeater (a hop spent): nothing is confirmed, a forged copy travels that way.
+    uint8_t relayed[kMaxFrame];
+    std::memcpy(relayed, frame, n);
+    relayed[12] = (uint8_t)((h.flags & ~0x07) | (uint8_t)(h.hopLimit() - 1));
+    t.cb.repeats.clear();
+    CHECK(t.b.handleFrame(relayed, n, 0, t.cb, relay, &relay_len) == RX_DUPLICATE);
+    CHECK(t.cb.repeats.empty() && t.cb.directs.size() == 1);
+    // A copy that carries the id but does not open is not confirmed either.
+    uint8_t forged[kMaxFrame];
+    std::memcpy(forged, frame, n);
+    forged[n - 1] ^= 0x01;
+    CHECK(t.b.handleFrame(forged, n, 0, t.cb, relay, &relay_len) == RX_DUPLICATE);
+    CHECK(t.cb.repeats.empty());
+    // A frame that asks for no ACK is not answered twice.
+    n = t.a.buildDirectText(0xB2B2B2B2u, t.qb, "sin", 3, frame, sizeof(frame), 0, false);
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.b.handleFrame(frame, n, 0, t.cb, relay, &relay_len) == RX_DUPLICATE);
+    CHECK(t.cb.repeats.empty() && t.cb.directs.size() == 2);
+}
+
+TEST(mt_ack_wants_ack, "UNIT-MT-076", "An ACK for us that asks for an ACK is answered; one that does not ask, or that came through a repeater and names no next hop, is not") {
+    PkiPair t;
+    uint8_t frame[kMaxFrame], relay[kMaxFrame];
+    size_t relay_len;
+    Header h;
+    // A node repeats its ACK until it hears one: a copy heard directly is answered.
+    size_t n = t.b.buildAck(0xA1A1A1A1u, 0x1001u, t.qa, frame, sizeof(frame));
+    CHECK(n > 0 && parseHeader(frame, n, h) && !h.wantAck());
+    frame[12] |= 0x08;
+    CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.acks.size() == 1 && t.ca.acks[0].id == 0x1001u);
+    CHECK(t.ca.acks_for_ack.size() == 1 && t.ca.acks_for_ack[0].first == 0xB2B2B2B2u &&
+          t.ca.acks_for_ack[0].second == 0x1001u);
+    // Without want_ack there is nothing to answer.
+    n = t.b.buildAck(0xA1A1A1A1u, 0x1002u, t.qa, frame, sizeof(frame));
+    CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.acks.size() == 2 && t.ca.acks_for_ack.size() == 1);
+    // A hop spent and no route: a repeat of some other node's ACK.
+    n = t.b.buildAck(0xA1A1A1A1u, 0x1003u, t.qa, frame, sizeof(frame));
+    CHECK(parseHeader(frame, n, h));
+    frame[12] = (uint8_t)((h.flags & ~0x07) | (uint8_t)(h.hopLimit() - 1) | 0x08);
+    CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.acks.size() == 3 && t.ca.acks_for_ack.size() == 1);
+    // The same with our relay byte as next hop is routed to us and is answered.
+    n = t.b.buildAck(0xA1A1A1A1u, 0x1004u, t.qa, frame, sizeof(frame));
+    CHECK(parseHeader(frame, n, h));
+    frame[12] = (uint8_t)((h.flags & ~0x07) | (uint8_t)(h.hopLimit() - 1) | 0x08);
+    frame[14] = relayByte(0xA1A1A1A1u);
+    CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.acks_for_ack.size() == 2 && t.ca.acks_for_ack[1].second == 0x1004u);
+    // A NodeInfo request carries the hops it used, for the answer's hop limit.
+    n = t.b.buildNodeInfoTo(3, 0xA1A1A1A1u, true, frame, sizeof(frame));
+    CHECK(parseHeader(frame, n, h));
+    frame[12] = (uint8_t)((h.flags & ~0x07) | (uint8_t)(h.hopLimit() - 1));
+    CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
+    CHECK(t.ca.info_request_hops.size() == 1 && t.ca.info_request_hops[0] == 1);
+}
+
+TEST(mt_response_hop_limit, "UNIT-MT-077", "An answer to a request carries the hops it used plus two, never more than our own hop limit, and a frame we start keeps ours") {
+    CHECK(responseHopLimit(0, 7) == 2);
+    CHECK(responseHopLimit(1, 7) == 3);
+    CHECK(responseHopLimit(5, 7) == 7);
+    CHECK(responseHopLimit(6, 7) == 7);
+    CHECK(responseHopLimit(0, 1) == 1);
+    PkiPair t;
+    uint8_t frame[kMaxFrame];
+    Header h;
+    t.b.setHopLimit(7);
+    size_t n = t.b.buildAck(0xA1A1A1A1u, 1, t.qa, frame, sizeof(frame), responseHopLimit(1, 7));
+    CHECK(n > 0 && parseHeader(frame, n, h) && h.hopLimit() == 3 && h.hopStart() == 3);
+    // An ACK to an ACK goes out with hop limit 0: it travels no further.
+    n = t.b.buildAck(0xA1A1A1A1u, 2, t.qa, frame, sizeof(frame), 0);
+    CHECK(n > 0 && parseHeader(frame, n, h) && h.hopLimit() == 0 && h.hopStart() == 0);
+    // No limit given: ours.
+    n = t.b.buildAck(0xA1A1A1A1u, 3, t.qa, frame, sizeof(frame));
+    CHECK(n > 0 && parseHeader(frame, n, h) && h.hopLimit() == 7 && h.hopStart() == 7);
+    n = t.b.buildNodeInfoTo(3, 0xA1A1A1A1u, true, frame, sizeof(frame), responseHopLimit(0, 7));
+    CHECK(n > 0 && parseHeader(frame, n, h) && h.to == 0xA1A1A1A1u && h.hopLimit() == 2 && h.hopStart() == 2);
+    n = t.b.buildNodeInfoTo(3, 0xA1A1A1A1u, true, frame, sizeof(frame));
+    CHECK(n > 0 && parseHeader(frame, n, h) && h.hopLimit() == 7);
 }

@@ -12,7 +12,7 @@ is the client. Status: **MVP, not yet verified on air**. See [Verification](#ver
 | Send text | A message the app sends on a `#mt-` channel leaves as a Meshtastic broadcast. |
 | Repeats heard | When a Meshtastic node repeats a text we sent, the app gets the same message as a MeshCore group packet, which it counts as a heard repeat. The packet carries the repeater's `relay_node` byte as a 1-byte path, so each repeater is one heard (up to 8 per text). Incoming texts carry their real hop count (`hop_start - hop_limit`). The last 3 sent texts are kept for this. |
 | Replies | A reply written in the app (`@[name] text`) leaves as a Meshtastic text with `reply_id` set to the newest text by that name, tag dropped. A Meshtastic reply or reaction reaches the app as `@[name] text`, `name` being the author of the answered text. Authors are known for the last 8 texts on `#mt-` channels (ours included); older targets lose the tag on the way in and leave the reply unlinked on the way out. |
-| Direct messages | A message to a Meshtastic contact leaves as a Meshtastic PKI message (X25519 with the node's key, AES-256-CCM, channel 0), as Meshtastic 2.5+ nodes expect. It needs the node's public key, learned from its NodeInfo; without it the app gets an error. A PKI message addressed to us reaches the app as a message of that contact, and is answered with an ACK when it asks for one. Our messages ask for an ACK: when the node answers (by PKI or on a shared channel, from that node only), the app gets the confirmation, and times out after 20 s otherwise. |
+| Direct messages | A message to a Meshtastic contact leaves as a Meshtastic PKI message (X25519 with the node's key, AES-256-CCM, channel 0), as Meshtastic 2.5+ nodes expect. It needs the node's public key, learned from its NodeInfo; without it the app gets an error. A PKI message addressed to us reaches the app as a message of that contact, and is answered with an ACK when it asks for one. A direct message heard again is acknowledged again without being delivered twice, and an ACK that itself asks for confirmation is answered once at zero hops, as a Meshtastic node expects. Our messages ask for an ACK: when the node answers (by PKI or on a shared channel, from that node only), the app gets the confirmation, and times out after 20 s otherwise. |
 | Node keys | The public key of a node is kept in the `mtkeys` file (36 bytes per node, next to `contacts3`: `/ext` when there is external flash, `/lfs` otherwise), written once per node. A node that later sends another key keeps the first, as Meshtastic does; removing the contact in the app drops its key. Our own key is derived from the node identity and goes out in our NodeInfo. |
 | Exchanging keys | Marking a Meshtastic contact as favourite, when it still has no name or no key, sends it our NodeInfo with `want_response`, once. We also send our NodeInfo, at most once per node per hour and one every 5 s for all nodes together: when a node asks for ours (a unicast NodeInfo with `want_response`), when a node answers `PKI_UNKNOWN_PUBKEY`, and (asking for theirs too) when a PKI message for us arrives from a node whose key we do not hold. |
 | Nodes in the contact list | A NodeInfo with a name and a public key creates a contact `<long name> (MT)`, and so does a direct text we can open (`!<node number> (MT)`); a Position does not. |
@@ -32,7 +32,8 @@ west build -b wio_tracker_l1 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/co
 
 Repeating is the `z.mt.relay` setting (see `docs/CLI_commands.md`), not a build option. `CONFIG_ZEPHTACORE_MT_HOP_LIMIT`
 is the default of `z.mt.hops`, the hop limit of the frames we originate: 3 as in Meshtastic, and 7 in
-`boards/common/zephtacore.conf`, with the network of its default channels.
+`boards/common/zephtacore.conf`, with the network of its default channels. A reply we send (an ACK, our NodeInfo)
+uses the hops its request spent plus two instead, never above this limit, as Meshtastic does.
 
 SX127x boards build, but cannot pick the sync word per frame, so Meshtastic is neither heard nor sent there.
 On LR1110 and LR2021 the sync word is the 8-bit LoRa word: MeshCore `0x12`, Meshtastic `0x2B`, hybrid receive `0x22`
@@ -84,7 +85,12 @@ only when a firmware raises the revision. Existing channels and radio settings a
 - A PKI message from a node whose key we do not hold is not opened (it is lost; our NodeInfo request gets the key for the next one). No `PKI_UNKNOWN_PUBKEY` reply, no ACK proof, no admin messages. An ACK is trusted by packet id and sender, without Meshtastic's ACK proof.
 - A frame heard again is told from a new one by a table of the last 64 `(sender, packet id)` pairs, as Meshtastic does with its recent packets. A frame captured and replayed after 64 other frames have passed is delivered again; a direct message is acknowledged again.
 - PKI is used for text only (not NodeInfo, Position or routing, as in Meshtastic), except our ACKs, which are PKI too.
-- A frame we send is at most 184 bytes (MeshCore's payload limit), about 164 characters of text. A frame we repeat can be up to 255: the bytes past the 184th wait in one of `CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS` slots of 71 bytes (4 by default).
+- A frame we send on a channel is at most 184 bytes (MeshCore's payload limit), about 164 characters of text. A
+direct message uses the full 255 the air allows, about 224 characters, whether it fits the payload or not. A frame we
+repeat can be up to 255: the bytes past the 184th wait in one of `CONFIG_ZEPHTACORE_FOREIGN_TAIL_SLOTS` slots of 71
+bytes (4 by default).
+- A text encrypted with a channel key but addressed to one node is not a channel message: it is dropped, in the
+companion and in the repeater, instead of being shown or answered in public.
 - Our position is not broadcast.
 - Text sent from the device UI (joystick) still goes out as MeshCore; only app messages are bridged.
 - A repeated frame waits as a Meshtastic client does: 16 slots left to routers, then a random slot in a window of
@@ -110,8 +116,9 @@ radio RX (hybrid sync 0x14B4) -> Dispatcher::checkRecv
 app message on a #mt- channel -> mt::Bridge::buildText -> Dispatcher::sendForeign
 app message to a Meshtastic contact -> mt::Bridge::buildDirectText (PKI) -> same TX queue
     -> normal TX queue (LBT, duty cycle) -> LoRaRadio writes sync 0x24B4 for the frame
-(a retry of a direct message, same timestamp and attempt > 0, keeps the first try's packet id, so the node's ACK
- still answers the code the app holds and a node that has the frame drops the copy)
+(a retry of a direct message, same timestamp and attempt > 0, takes the packet id of the first try from the last four
+direct messages sent to that contact, so the node's ACK still answers the code the app holds and a node that has the
+frame drops the copy)
 ```
 
 | Piece | File |

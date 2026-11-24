@@ -520,8 +520,11 @@ void CompanionMesh::MtSink::onText(uint8_t channel_id, uint32_t from, uint32_t t
 				   uint32_t reply_id, const char *text, size_t len, int8_t snr_x4,
 				   uint8_t hops, uint8_t relay)
 {
-	(void)to;
-
+	/* A unicast text on a channel is a legacy direct message, which Meshtastic drops rather
+	 * than show it as a channel message. */
+	if (to != mt::kBroadcast) {
+		return;
+	}
 	ChannelDetails ch;
 
 	if (!m.getChannel(channel_id, ch)) {
@@ -647,9 +650,17 @@ void CompanionMesh::MtSink::onAck(uint32_t from, uint32_t request_id, uint32_t e
 	}
 }
 
-void CompanionMesh::MtSink::onNodeInfoRequest(uint8_t channel_id, uint32_t from)
+void CompanionMesh::MtSink::onAckForAck(uint32_t from, uint32_t request_id, int8_t snr_x4)
 {
-	m.mtSendNodeInfoLimited(from, channel_id, false);
+	/* The node repeats its ACK until one answers it: hop limit 0 ends that. */
+	m.mtSendAck(from, request_id, snr_x4, 0);
+}
+
+void CompanionMesh::MtSink::onNodeInfoRequest(uint8_t channel_id, uint32_t from, int8_t snr_x4,
+					      uint8_t hops)
+{
+	m.mtSendNodeInfoLimited(from, channel_id, false, mt::responseHopLimit(hops, m._mt.hopLimit()),
+				&snr_x4);
 }
 
 void CompanionMesh::MtSink::onUnknownKey(uint32_t from)
@@ -708,8 +719,14 @@ void CompanionMesh::MtSink::onDirectText(uint32_t from, uint32_t id, uint32_t re
 		m.releasePacket(pkt);
 	}
 	if (want_ack) {
-		m.mtSendAck(from, id);
+		m.mtSendAck(from, id, snr_x4, mt::responseHopLimit(hops, m._mt.hopLimit()));
 	}
+}
+
+void CompanionMesh::MtSink::onDirectRepeat(uint32_t from, uint32_t id, int8_t snr_x4, uint8_t hops)
+{
+	/* It reached us on the first try and its ACK was lost: answer it again, deliver nothing. */
+	m.mtSendAck(from, id, snr_x4, mt::responseHopLimit(hops, m._mt.hopLimit()));
 }
 
 void CompanionMesh::MtSink::onPosition(uint32_t from, const mt::Position &pos)
@@ -884,24 +901,40 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, uint32_t timest
 		return true;
 	}
 	uint8_t frame[mt::kMaxTxFrame];
-	const bool retry = attempt > 0 && _mt_last_direct.id != 0 && _mt_last_direct.node == node &&
-			   _mt_last_direct.timestamp == timestamp;
-	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame), 0, true,
-				       retry ? _mt_last_direct.id : 0);
+	/* A retry of a text we sent before goes out with the id of its first try: a node drops a
+	 * frame it already has by (from, id) and would otherwise deliver it twice. */
+	const uint32_t retry_id = attempt > 0 ? mtDirectId(node, timestamp) : 0;
+	size_t n = _mt.buildDirectText(node, key, text, len, frame, sizeof(frame), 0, true, retry_id);
 	mt::Header h;
 
 	if (n > 0 && mt::parseHeader(frame, n, h)) {
 		/* The packet id is what the node's ACK answers: the app's ack code. */
 		sent = _mtport.send(frame, n);
 		if (sent) {
-			if (!retry) {
+			if (retry_id == 0) {
 				addPendingAck(h.id, mtContactIndex(contact));
-				_mt_last_direct = {node, timestamp, h.id};
+				mtNoteDirect(node, timestamp, h.id);
 			}
 			ack = h.id;
 		}
 	}
 	return true;
+}
+
+uint32_t CompanionMesh::mtDirectId(uint32_t node, uint32_t timestamp) const
+{
+	for (const MtDirect &d : _mt_direct) {
+		if (d.id != 0 && d.node == node && d.timestamp == timestamp) {
+			return d.id;
+		}
+	}
+	return 0;
+}
+
+void CompanionMesh::mtNoteDirect(uint32_t node, uint32_t timestamp, uint32_t id)
+{
+	_mt_direct[_mt_direct_next] = {node, timestamp, id};
+	_mt_direct_next = (uint8_t)((_mt_direct_next + 1) % MT_DIRECT_KEEP);
 }
 
 int CompanionMesh::mtContactIndex(const ContactInfo &contact)
@@ -977,21 +1010,22 @@ void CompanionMesh::mtStoreKey(uint32_t node, const uint8_t key[32])
 	}
 }
 
-void CompanionMesh::mtSendAck(uint32_t to, uint32_t request_id)
+void CompanionMesh::mtSendAck(uint32_t to, uint32_t request_id, int8_t snr_x4, uint8_t hop_limit)
 {
 	uint8_t key[32], frame[mt::kMaxTxFrame];
 
 	if (!_store || !_store->getMtKey(to, key)) {
 		return;
 	}
-	size_t n = _mt.buildAck(to, request_id, key, frame, sizeof(frame));
+	size_t n = _mt.buildAck(to, request_id, key, frame, sizeof(frame), hop_limit);
 
 	if (n > 0) {
-		_mtport.send(frame, n);
+		_mtport.sendReply(frame, n, snr_x4);
 	}
 }
 
-void CompanionMesh::mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool want_response)
+void CompanionMesh::mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool want_response,
+				     uint8_t hop_limit, const int8_t *snr_x4)
 {
 	if (!prefs.mt.enable) {
 		return;
@@ -1000,19 +1034,24 @@ void CompanionMesh::mtSendNodeInfoTo(uint32_t node, uint8_t channel_id, bool wan
 									   : (int)channel_id;
 	uint8_t frame[mt::kMaxTxFrame];
 	size_t n = ch < 0 ? 0 : _mt.buildNodeInfoTo((uint8_t)ch, node, want_response, frame,
-						    sizeof(frame));
+						    sizeof(frame), hop_limit);
 
 	if (n > 0) {
-		_mtport.send(frame, n);
+		if (snr_x4) {
+			_mtport.sendReply(frame, n, *snr_x4);
+		} else {
+			_mtport.send(frame, n);
+		}
 	}
 }
 
 static constexpr uint32_t kMtNodeInfoIntervalMs = 3600UL * 1000UL;
 
-void CompanionMesh::mtSendNodeInfoLimited(uint32_t node, uint8_t channel_id, bool want_response)
+void CompanionMesh::mtSendNodeInfoLimited(uint32_t node, uint8_t channel_id, bool want_response,
+					  uint8_t hop_limit, const int8_t *snr_x4)
 {
 	if (_mt_info_limit.allow(node, (uint32_t)_ms->getMillis(), kMtNodeInfoIntervalMs)) {
-		mtSendNodeInfoTo(node, channel_id, want_response);
+		mtSendNodeInfoTo(node, channel_id, want_response, hop_limit, snr_x4);
 	}
 }
 

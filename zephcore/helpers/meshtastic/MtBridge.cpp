@@ -207,6 +207,13 @@ uint32_t originDelayMs(uint32_t slot_ms, uint32_t r)
 	return r * slot_ms;
 }
 
+uint8_t responseHopLimit(uint8_t hops_away, uint8_t own)
+{
+	const uint8_t hops = (uint8_t)(hops_away + 2);
+
+	return hops < own ? hops : own;
+}
+
 uint32_t earlyDelayMs(uint32_t slot_ms, uint32_t r)
 {
 	return originDelayMs(slot_ms, r);
@@ -269,6 +276,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 	 * channel whose hash is 0. */
 	if (_pki && h.channel == 0 && h.to == _self && plen > kPkiOverhead) {
 		if (h.from == _self || findSeen(h.from, h.id)) {
+			repeatAck(h, raw, plen, snr_x4, sink);
 			return RX_DUPLICATE;
 		}
 		if (openPki(h, raw, plen, sink, buf, d)) {
@@ -342,7 +350,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 				    (const char *)d.payload, d.payload_len, snr_x4, hops, h.relay);
 		}
 	} else {
-		deliverData(h, d, match->id, sink);
+		deliverData(h, d, match->id, snr_x4, sink);
 	}
 	return RX_HANDLED;
 }
@@ -383,6 +391,22 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 	return decodeData(buf, (size_t)n, d);
 }
 
+/* A copy of a frame we already took. A sender repeats a frame until it hears its ACK, so one
+ * heard straight from it and asking for an ACK is answered again; a copy that does not open is
+ * never confirmed, and nothing is delivered twice. */
+void Bridge::repeatAck(const Header &h, const uint8_t *raw, size_t plen, int8_t snr_x4, Sink &sink)
+{
+	uint8_t buf[kMaxFrame];
+	Data d;
+
+	if (h.from == _self || !h.wantAck() || h.hopsAway() != 0) {
+		return;
+	}
+	if (openPki(h, raw, plen, sink, buf, d)) {
+		sink.onDirectRepeat(h.from, h.id, snr_x4, h.hopsAway());
+	}
+}
+
 void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink)
 {
 	if (d.portnum == PORT_TEXT) {
@@ -394,11 +418,12 @@ void Bridge::deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sin
 		}
 		return;
 	}
-	deliverData(h, d, kNoChannel, sink);
+	deliverData(h, d, kNoChannel, snr_x4, sink);
 }
 
 /* What a decrypted Data carries besides text: NodeInfo, Position, ACKs. */
-void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, Sink &sink)
+void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int8_t snr_x4,
+			 Sink &sink)
 {
 	if (d.portnum == PORT_NODEINFO) {
 		User u;
@@ -406,7 +431,7 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, Sin
 		if (decodeUser(d.payload, d.payload_len, u)) {
 			sink.onNodeInfo(h.from, u);
 			if (d.want_response && h.to == _self) {
-				sink.onNodeInfoRequest(channel_id, h.from);
+				sink.onNodeInfoRequest(channel_id, h.from, snr_x4, h.hopsAway());
 			}
 		}
 	} else if (d.portnum == PORT_POSITION) {
@@ -422,6 +447,11 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, Sin
 
 		if (decodeRouting(d.payload, d.payload_len, reason)) {
 			sink.onAck(h.from, d.request_id, reason);
+			/* A node repeats its ACK until it hears one: answer this one, with no hops in
+			 * reserve that would make it flood. */
+			if (h.wantAck() && (h.hopsAway() == 0 || h.next_hop == relayByte(_self))) {
+				sink.onAckForAck(h.from, d.request_id, snr_x4);
+			}
 		}
 	}
 }
@@ -442,7 +472,8 @@ size_t Bridge::buildFrame(const TxSpec &t, uint8_t *out, size_t cap)
 	d.request_id = t.request_id;
 	d.want_response = t.want_response;
 
-	size_t room = (cap < kMaxTxFrame ? cap : kMaxTxFrame) - kHeaderLen;
+	size_t limit = pki_key ? kMaxTxFrame : kMaxChannelFrame;
+	size_t room = (cap < limit ? cap : limit) - kHeaderLen;
 
 	if (pki_key) {
 		room = room > kPkiOverhead ? room - kPkiOverhead : 0;
@@ -457,7 +488,9 @@ size_t Bridge::buildFrame(const TxSpec &t, uint8_t *out, size_t cap)
 	h.to = t.to;
 	h.from = _self;
 	h.id = t.packet_id ? t.packet_id : nextId();
-	h.flags = (uint8_t)(_hops | (_hops << 5) | (t.want_ack ? 0x08 : 0));
+	const uint8_t hops = t.hops == kOwnHopLimit ? _hops : t.hops;
+
+	h.flags = (uint8_t)(hops | (hops << 5) | (t.want_ack ? 0x08 : 0));
 	h.channel = pki_key ? 0 : ch->hash;
 	h.next_hop = 0;
 	h.relay = relayByte(_self);
@@ -500,7 +533,7 @@ size_t Bridge::buildNodeInfo(uint8_t channel_id, uint8_t *out, size_t cap)
 }
 
 size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_response, uint8_t *out,
-			       size_t cap)
+			       size_t cap, uint8_t hop_limit)
 {
 	const Channel *ch = find(channel_id);
 	uint8_t pb[104];
@@ -518,6 +551,7 @@ size_t Bridge::buildNodeInfoTo(uint8_t channel_id, uint32_t to, bool want_respon
 	t.payload = pb;
 	t.payload_len = n;
 	t.want_response = want_response;
+	t.hops = hop_limit;
 	return n ? buildFrame(t, out, cap) : 0;
 }
 
@@ -547,7 +581,7 @@ size_t Bridge::buildDirectText(uint32_t to, const uint8_t peer_pub[32], const ch
 }
 
 size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub[32], uint8_t *out,
-			size_t cap)
+			size_t cap, uint8_t hop_limit)
 {
 	/* Routing { error_reason = NONE }. */
 	static const uint8_t kRoutingAck[] = {0x18, 0x00};
@@ -564,6 +598,7 @@ size_t Bridge::buildAck(uint32_t to, uint32_t request_id, const uint8_t peer_pub
 	t.payload = kRoutingAck;
 	t.payload_len = sizeof(kRoutingAck);
 	t.request_id = request_id;
+	t.hops = hop_limit;
 	size_t n = buildFrame(t, out, cap);
 
 	crypto_wipe(key, sizeof(key));
