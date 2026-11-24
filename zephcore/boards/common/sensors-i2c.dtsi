@@ -39,9 +39,10 @@
  *  defined.  We use BME280 as default (its driver also handles BMP280).
  *  Boards with BME680 should override this node in their overlay.
  *
- *  Note: BMP280 uses the BME280 driver (same register set). 0x77 carries
- *  two nodes, bme280_alt and bmp388: each driver checks its chip ID, so
- *  only the part actually fitted comes up.
+ *  Note: BMP280 uses the BME280 driver (same register set). The nodes below
+ *  are candidates: a driver whose init writes before it reads the chip ID is
+ *  not listed here, because on a board without that part the write would land
+ *  on whatever shares the address.
  *
  * ─── Power Monitor Sensors (voltage / current / power) ───
  *
@@ -85,8 +86,8 @@ bme280: bme280@76 {
 };
 
 /* The same parts strapped to their other address (the Adafruit breakouts'
- * default), as upstream 2a6eabe1 probes both. Shares 0x77 with bmp388: each
- * driver checks its chip ID, so only the part actually fitted comes up. */
+ * default), as upstream 2a6eabe1 probes both. The BME280 driver reads its ID
+ * before it writes, so a part that is not there is left alone. */
 bme280_alt: bme280@77 {
 	compatible = "bosch,bme280";
 	reg = <0x77>;
@@ -99,10 +100,10 @@ lps22hb: lps22hb@5c {
 	reg = <0x5c>;
 };
 
-bmp388: bmp388@77 {
-	compatible = "bosch,bmp388";
-	reg = <0x77>;
-};
+/* No bmp388 node here: its Zephyr driver soft-resets 0x7E before reading the
+ * chip ID, so a BME280/BME680/SPA06 at the default 0x77 (the address
+ * bme280_alt covers) would get an undocumented write at boot. A board that
+ * really carries a BMP388 declares the node itself. */
 
 /* ── Power Monitors ── */
 

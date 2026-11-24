@@ -314,11 +314,6 @@
 	#include "../../common/rtc-i2c.dtsi"
 };
 
-/* T-Echo BME280 sits at I2C 0x77 (alt address), conflicting with the
- * BMP388 node from sensors-i2c.dtsi. Remove BMP388 and replace with
- * BME280 at 0x77 (same bosch,bme280 driver). */
-/delete-node/ &bmp388;
-
 &i2c0 {
 	bme280_alt: bme280@77 {
 		compatible = "bosch,bme280";
