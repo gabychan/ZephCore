@@ -7,6 +7,7 @@
 #include <mesh/Maintenance.h>  // ZEPHCORE: deadline-driven maintenance
 #include <mesh/TxStall.h>  // ZEPHCORE: per-cause TX stalls
 #include <mesh/ForeignTail.h>  // ZEPHCORE: tail of a foreign frame longer than a Packet
+#include <errno.h>
 #include <string.h>
 
 namespace mesh {
@@ -53,6 +54,15 @@ public:
    * \returns true if successfully started
   */
   virtual bool startSendRaw(const uint8_t* bytes, int len) = 0;
+
+  /**
+   * \brief  ZEPHCORE: why the last startSendRaw() returned false.
+   * \returns -EBUSY when a busy channel refused it (the driver's LBT), another
+   *          negative code when the transmit failed for a reason that says
+   *          nothing about the channel. A radio that reports no reason keeps
+   *          upstream's meaning, where every refusal was contention.
+  */
+  virtual int txStartRefusal() const { return -EBUSY; }
 
   /**
    * \brief  ZEPHCORE: selects the protocol of the next startSendRaw() (true: Meshtastic).
@@ -346,7 +356,7 @@ private:
   // refusal escalation).
   uint32_t getMaxTxBudgetMs() const;
   bool txBudgetAllowsSend(uint32_t now);
-  void onLbtRefused(uint32_t now, int len);
+  void onTxRefused(uint32_t now, int reason, int len);
   void armNextScheduledTx(uint32_t now);
   void recontend(uint32_t now, bool frame_ended);
   // ZEPHCORE: hold every transmit until t. The only writer of next_tx_time after begin().

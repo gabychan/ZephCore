@@ -1718,12 +1718,12 @@ static void lr11xx_recalibrate_locked(struct lr11xx_data *data)
 /* Redo the frequency-dependent calibrations after temperature drift. Not
  * an AGC reset: that is an SX126x remedy, and on this part it cost packets.
  * Leaves the driver out of RX; the caller must startReceive(). */
-void lr11xx_recalibrate(const struct device *dev)
+bool lr11xx_recalibrate(const struct device *dev)
 {
 	struct lr11xx_data *data = dev->data;
 
 	if (!data->configured) {
-		return;
+		return false;
 	}
 
 	/* Bounded, for the same reason sx126x_reset_agc() bounds its own: a long
@@ -1731,12 +1731,12 @@ void lr11xx_recalibrate(const struct device *dev)
 	 * stall the dispatcher thread for all of it. */
 	if (k_mutex_lock(&data->spi_mutex, K_MSEC(50)) != 0) {
 		LOG_DBG("recalibrate: mutex busy, deferring");
-		return;
+		return false;
 	}
 	if (lr11xx_dc_rx_in_flight(data)) {
 		LOG_DBG("recalibrate: reception in flight, deferring");
 		k_mutex_unlock(&data->spi_mutex);
-		return;
+		return false;
 	}
 
 	/* Own the cycle across the whole sequence.  This opens with SetSleep,
@@ -1749,6 +1749,7 @@ void lr11xx_recalibrate(const struct device *dev)
 
 	lr11xx_dc_resume(data, armed);
 	k_mutex_unlock(&data->spi_mutex);
+	return true;
 }
 
 /* ── Driver API: CAD ────────────────────────────────────────────────── */

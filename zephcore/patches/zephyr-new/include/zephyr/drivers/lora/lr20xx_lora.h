@@ -73,9 +73,10 @@ void lr20xx_set_tx_preamble_len(const struct device *dev, uint16_t len);
 int lr20xx_configure_side_detectors(const struct device *dev,
 				    const uint8_t *sfs, uint8_t num);
 
-/* Redo the frequency-dependent calibrations after temperature drift. Leaves the
- * driver out of RX: the caller must restart it. */
-void lr20xx_recalibrate(const struct device *dev);
+/* Redo the frequency-dependent calibrations after temperature drift. When it
+ * runs it leaves the driver out of RX, so the caller must restart it; false
+ * means nothing was calibrated (SPI mutex held or an RX in flight). */
+bool lr20xx_recalibrate(const struct device *dev);
 
 /* Adaptive CAD. The offset is added to the base detPeak (DS Table 6-19) on
  * every LBT CAD from the next one on, clamped to [lr20xx_cad_peak_min(),

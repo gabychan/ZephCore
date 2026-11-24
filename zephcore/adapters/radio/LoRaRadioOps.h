@@ -47,9 +47,10 @@ struct LoRaRadioOps {
 
 	/* Receiver hygiene. Non-NULL means the family needs it: reset_agc for
 	 * the jammed-AGC fault (SX126x), recalibrate for temperature drift (LR).
-	 * Both leave the driver out of RX. */
+	 * Both leave the driver out of RX when they run. recalibrate returns
+	 * false when the driver deferred it (nothing was calibrated). */
 	void (*reset_agc)(const struct device *dev);
-	void (*recalibrate)(const struct device *dev);
+	bool (*recalibrate)(const struct device *dev);
 
 	/* Adaptive CAD (see CadController / LoRaRadio::cadMaintenance). NULL
 	 * probe or rx_timeout_ms: no probing. NULL base_peak: no adaptive CAD. */

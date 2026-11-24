@@ -1546,6 +1546,11 @@
       "id": "UNIT-DISPATCH-034",
       "name": "Releasing a slot that carries another use's transport codes never hands back a foreign tail",
       "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-RADIO-001",
+      "name": "Only a busy channel relaxes the CAD, a driver error is re-queued without touching it",
+      "source": "tests/unit/radio_tests.cpp"
     }
   ]
 }

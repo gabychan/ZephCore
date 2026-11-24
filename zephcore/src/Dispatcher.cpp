@@ -409,13 +409,25 @@ bool Dispatcher::txBudgetAllowsSend(uint32_t now) {
   return false;
 }
 
-// ZEPHCORE: the driver's LBT refused the transmit (a TRUE reading of a busy
-// channel: re-queue, never force). Warn every getCADFailMaxDuration(); after
-// getTxStarvationDuration() of nothing but refusals the detector is judged too
-// sensitive and relaxed one step, regardless of cad.auto (persisted via
-// onCadOffsetChanged()). Any successful transmit ends the streak.
-void Dispatcher::onLbtRefused(uint32_t now, int len) {
+// ZEPHCORE: the driver refused the transmit. A -EBUSY refusal is a TRUE reading
+// of a busy channel: re-queue, never force. Warn every getCADFailMaxDuration();
+// after getTxStarvationDuration() of nothing but refusals the detector is judged
+// too sensitive and relaxed one step, regardless of cad.auto (persisted via
+// onCadOffsetChanged()). Any successful transmit ends the streak. Any other code
+// is a driver error: re-queued the same way, but it says nothing about the
+// channel, so the LBT bookkeeping (and the threshold) is left alone.
+void Dispatcher::onTxRefused(uint32_t now, int reason, int len) {
   uint32_t retry = getContentionDelay(outbound);
+
+  if (reason != -EBUSY) {
+    LOG_WRN("checkSend: startSendRaw failed (%d), re-queuing delay=%u", reason, retry);
+    logTxFail(outbound, outbound->getRawLength());
+    _mgr->queueOutbound(outbound, outbound_priority, futureMillis((int)retry));
+    outbound = NULL;
+    notifyTxQueued(retry);
+    return;
+  }
+
   LOG_INF("checkSend: startSendRaw refused (LBT busy), re-queuing delay=%u", retry);
 
   if (lbt_busy_start == 0) {
@@ -553,7 +565,9 @@ void Dispatcher::checkSend() {
       _radio->setNextTxForeign(outbound->isForeign());  // ZEPHCORE
       bool success = _radio->startSendRaw(raw, len);
       if (!success) {
-        onLbtRefused(now, len);  // ZEPHCORE: re-queue (upstream drops the packet)
+        // ZEPHCORE: re-queue (upstream drops the packet), and only a busy
+        // channel is written down as one.
+        onTxRefused(now, _radio->txStartRefusal(), len);
         return;
       }
       outbound_expiry = futureMillis(max_airtime);

@@ -47,9 +47,10 @@ uint32_t lr11xx_get_wakeup_time_us(const struct device *dev);
 uint32_t lr11xx_get_dc_timeout_restarts(const struct device *dev);
 void lr11xx_reset_dc_timeout_restarts(const struct device *dev);
 
-/* Redo the frequency-dependent calibrations after temperature drift. Leaves the
- * driver out of RX: the caller must restart it. */
-void lr11xx_recalibrate(const struct device *dev);
+/* Redo the frequency-dependent calibrations after temperature drift. When it
+ * runs it leaves the driver out of RX, so the caller must restart it; false
+ * means nothing was calibrated (SPI mutex held or an RX in flight). */
+bool lr11xx_recalibrate(const struct device *dev);
 
 /* Adaptive CAD. The offset is added to the base detPeak on every LBT CAD from
  * the next one on, clamped to [lr11xx_cad_peak_min(), lr11xx_cad_peak_max()]. */

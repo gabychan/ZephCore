@@ -94,7 +94,7 @@ void LoRaRadio::applyTxPreamble()
 LoRaRadio::LoRaRadio(const struct device *lora_dev, MainBoard &board)
 	: _ops(kLoRaRadioOps),
 	  _dev(lora_dev), _prefs(nullptr), _board(&board),
-	  _in_recv_mode(0), _tx_active(0), _tx_complete(0),
+	  _in_recv_mode(0), _tx_active(0), _tx_complete(0), _tx_refusal(0),
 	  _last_rssi(0), _last_snr(0),
 	  _rx_head(0), _rx_tail(0),
 	  _calibration_threshold(0),
@@ -330,8 +330,6 @@ void LoRaRadio::rxCallbackStatic(const struct device *dev, uint8_t *data,
 	pkt->snr = snr;
 
 	atomic_set(&self->_rx_head, next_head);
-	self->_last_rssi = (float)rssi;
-	self->_last_snr = (float)snr;
 	atomic_inc(&self->_packets_recv);
 
 	/* Activity LED: after the error return, so it blinks on valid packets only. */
@@ -735,16 +733,19 @@ int LoRaRadio::recvRaw(uint8_t *bytes, int sz)
 bool LoRaRadio::startSendRaw(const uint8_t *bytes, int len)
 {
 	if (len > (int)sizeof(_tx_buf)) {
+		_tx_refusal = -EINVAL;
 		return false;
 	}
 
 	/* Defensive gate: callers should defer TX while radio is BUSY. */
 	if (!isRadioReady()) {
+		_tx_refusal = -EAGAIN;
 		return false;
 	}
 
 	/* Final gate before leaving RX: the same isReceiving() as the dispatcher. */
 	if (isReceiving()) {
+		_tx_refusal = -EBUSY;
 		return false;
 	}
 
@@ -753,6 +754,7 @@ bool LoRaRadio::startSendRaw(const uint8_t *bytes, int len)
 	 * re-queue. Before onBeforeTransmit() so a refusal lights no LED. */
 	if (!atomic_cas(&_tx_active, 0, 1)) {
 		LOG_DBG("startSendRaw: previous transmit still winding down");
+		_tx_refusal = -EAGAIN;
 		return false;
 	}
 	/* An uncollected completion belongs to the previous packet. */
@@ -786,6 +788,7 @@ bool LoRaRadio::startSendRaw(const uint8_t *bytes, int len)
 		} else {
 			LOG_ERR("hwSendAsync failed: %d", ret);
 		}
+		_tx_refusal = ret;
 		_board->onAfterTransmit();
 		atomic_set(&_tx_active, 0);
 		zc_pm_unblock_sleep();
@@ -1241,10 +1244,18 @@ void LoRaRadio::imageCalMaintenance(uint32_t now)
 		return;
 	}
 
-	_image_cal_confirming = false;
 	LOG_INF("imagecal: chip temp moved %d C (%d -> %d) — recalibrating",
 		delta, (int)_image_cal_last_temp_c, (int)temp_c);
-	hwRecalibrate();
+
+	/* A deferred recalibration did nothing: keep the reference and the
+	 * confirmed delta, and retry on the next pass instead of the next poll
+	 * window. */
+	if (!hwRecalibrate()) {
+		_image_cal_wait_ms = IMAGE_CAL_CONFIRM_MS;
+		return;
+	}
+
+	_image_cal_confirming = false;
 	startReceive();
 	_image_cal_last_temp_c = temp_c;
 }

@@ -53,6 +53,7 @@ public:
 	uint32_t getEstForeignAirtimeFor(int len_bytes) override;
 	float packetScore(float snr, int packet_len) override;
 	bool startSendRaw(const uint8_t *bytes, int len) override;
+	int txStartRefusal() const override { return _tx_refusal; }
 	void setNextTxForeign(bool foreign) override { _tx_foreign = foreign; }
 	void setMtListen(bool on) override;
 	bool supportsForeign() const override;
@@ -218,7 +219,9 @@ private:
 	bool hwNeedsAgcReset() const { return _ops.reset_agc != nullptr; }
 	void hwResetAgc() { if (_ops.reset_agc) { _ops.reset_agc(_dev); } }
 	bool hwHasDriftRecal() const { return _ops.recalibrate != nullptr; }
-	void hwRecalibrate() { if (_ops.recalibrate) { _ops.recalibrate(_dev); } }
+	/* False when the driver deferred it: nothing was calibrated and the chip
+	 * is still in RX, so the caller must not stamp the temperature. */
+	bool hwRecalibrate() { return _ops.recalibrate ? _ops.recalibrate(_dev) : false; }
 
 	/* Deaf time per duty-cycle wake (context restore + PLL + TCXO start), in
 	 * us, counted against the catch budget (DS §13.1.7). 1500 suits XTAL
@@ -249,6 +252,11 @@ private:
 	 * by isSendComplete(), cleared by startSendRaw() (upstream's
 	 * STATE_INT_READY). _tx_active cannot serve: failures clear it too. */
 	atomic_t _tx_complete;
+	/* Why the last startSendRaw() returned false: the errno the refusal came
+	 * from, so the dispatcher can tell a busy channel from a driver error. */
+	int _tx_refusal;
+	/* Metrics of the packet recvRaw() last handed out: only recvRaw() writes
+	 * them, so a newer arrival cannot relabel the packet being processed. */
 	volatile float _last_rssi;   /* word-aligned: atomic on ARM */
 	volatile float _last_snr;    /* word-aligned: atomic on ARM */
 

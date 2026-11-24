@@ -677,7 +677,9 @@ static void lr20xx_hardware_reset(struct lr20xx_data *data,
 	 * conclusion still holds via Table 6-26: simo_usage 0x00 SIMO_OFF is the
 	 * reset default and we never issue SetRegMode.) */
 
-	if (cfg->tcxo_voltage_mv > 0) {
+	/* A board that already fell back to XTAL stays there: re-entering TCXO
+	 * mode fails HF_XOSC_START and every later command is rejected. */
+	if (cfg->tcxo_voltage_mv > 0 && !data->tcxo_disabled) {
 		/* Timeout in RTC ticks (30.52 µs/tick) */
 		lr20xx_system_set_tcxo_mode(ctx,
 					    get_tcxo_voltage(cfg->tcxo_voltage_mv),
@@ -1108,23 +1110,23 @@ static void lr20xx_recalibrate_locked(struct lr20xx_data *data)
 /* Redo the frequency-dependent calibrations after temperature drift (warm
  * sleep, Calibrate, RX-boost re-apply, CalibFE). Not an AGC reset. Leaves
  * the driver out of RX; the caller must startReceive(). */
-void lr20xx_recalibrate(const struct device *dev)
+bool lr20xx_recalibrate(const struct device *dev)
 {
 	struct lr20xx_data *data = dev->data;
 
 	if (!data->configured) {
-		return;
+		return false;
 	}
 
 	if (k_mutex_lock(&data->spi_mutex, K_MSEC(50)) != 0) {
 		LOG_DBG("recalibrate: mutex busy, deferring");
-		return;
+		return false;
 	}
 
 	if (lr20xx_dc_rx_in_flight(data)) {
 		LOG_DBG("recalibrate: reception in flight, deferring");
 		k_mutex_unlock(&data->spi_mutex);
-		return;
+		return false;
 	}
 
 	/* Own the cycle across the sequence: it opens with SetSleep, which is
@@ -1136,6 +1138,7 @@ void lr20xx_recalibrate(const struct device *dev)
 
 	lr20xx_dc_resume(data, armed);
 	k_mutex_unlock(&data->spi_mutex);
+	return true;
 }
 
 static bool lr20xx_apply_rx_duty_cycle(struct lr20xx_data *data)

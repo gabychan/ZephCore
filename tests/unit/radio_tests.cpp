@@ -1,3 +1,4 @@
+#include "dispatcher_fixture.h"
 #include "test.h"
 #include <CadController.h>
 #include <NoiseFloorEstimator.h>
@@ -20,6 +21,31 @@ void feed(CadController& c, int8_t level, int probes, int busy, int fp) {
     for (int i = 0; i < probes; ++i) c.recordProbe(level, i < busy);
     for (int i = 0; i < fp; ++i) { c.setPending(level, 0); c.resolvePending(2); }
 }
+
+// A radio that refuses the transmit and says why: only -EBUSY is the channel.
+struct RefusingRadio : test_support::Radio {
+    int reason = -EIO;
+    int txStartRefusal() const override { return reason; }
+};
+struct RefusalCase {
+    test_support::Clock clock;
+    RefusingRadio radio;
+    StaticPoolPacketManager pool;
+    test_support::Dispatcher dispatcher{radio, clock, pool};
+    RefusalCase() { auto p = pool.allocNew(); CHECK(p != nullptr); pool.free(p); }
+    void begin() { dispatcher.begin(); radio.accept = false; }
+    // Drives `ms` of refused transmits from where the clock stands.
+    void starve(uint32_t ms) {
+        uint32_t start = clock.now;
+        for (uint32_t t = 0; t <= ms; t += 100) { clock.now = start + t; dispatcher.loop(); }
+    }
+    mesh::Packet* packet() {
+        auto p = dispatcher.obtainNewPacket(); CHECK(p != nullptr);
+        p->header = (PAYLOAD_TYPE_TXT_MSG << 2) | ROUTE_TYPE_FLOOD;
+        p->transport_codes[0] = p->transport_codes[1] = 0;
+        p->payload_len = 1; p->payload[0] = 0xAA; return p;
+    }
+};
 }  // namespace
 
 TEST(noise_seed, "UNIT-NOISE-001", "Noise floor seeds from the first sample within the clamp window") {
@@ -197,4 +223,24 @@ TEST(cad_pending, "UNIT-CAD-008", "Pending verdicts book tp or fp, unresolved on
     CHECK(c.stats(3).probes == 0x7FF9 && c.stats(3).busy == 1);
     c.decayStats();
     CHECK(c.stats(3).probes == 0x3FFC && c.stats(3).busy == 0);
+}
+
+TEST(tx_refusal_reason, "UNIT-RADIO-001", "Only a busy channel relaxes the CAD, a driver error is re-queued without touching it") {
+    RefusalCase f; f.begin(); f.dispatcher.sendPacket(f.packet(), 1);
+
+    // A driver error is not contention: the packet is retried and accounted,
+    // and nothing about the CAD threshold or its starvation bookkeeping moves.
+    f.radio.reason = -EIO;
+    f.starve(61000);
+    CHECK(f.radio.attempts > 1);
+    CHECK(f.dispatcher.getNumSentFlood() == 0 && f.pool.getOutboundTotal() == 1);
+    CHECK(f.dispatcher.failures == f.radio.attempts);
+    CHECK(f.radio.relaxations == 0);
+    CHECK((f.dispatcher.getErrFlags() & ERR_EVENT_CAD_TIMEOUT) == 0);
+
+    // The same refusal reported as a busy channel still relaxes, once.
+    f.radio.reason = -EBUSY;
+    f.starve(61000);
+    CHECK(f.radio.relaxations == 1);
+    CHECK((f.dispatcher.getErrFlags() & ERR_EVENT_CAD_TIMEOUT) != 0);
 }
