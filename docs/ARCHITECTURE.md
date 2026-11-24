@@ -810,8 +810,7 @@ and xiao_esp32c3. Build with `boards/common/kiss_modem.conf`.
 ### 6.6 CommonCLI Commands
 
 System: `ver`, `board`, `reboot`, `start dfu`, `start ota`, `erase`
-Config: `set name/freq/radio/tx/flood.max/password/...`, corresponding getters
-System (power): `poweroff`/`shutdown`, `get pwrmgt.support/source/bootreason/bootmv`
+Config: `set name/freq/radio/tx/flood.max/password/...`, corresponding getters. A companion answers `Error: not supported on companion` to the settings it neither applies nor stores (`password`, `set guest.password`, `set owner.info`, `set flood.max{,.unscoped,.advert}`, `set advert.interval`, `set flood.advert.interval`), and a `set` whose `prefs.json` write fails replaces its `OK` with the not-saved error of §7.2.System (power): `poweroff`/`shutdown`, `get pwrmgt.support/source/bootreason/bootmv`
 GPS: `gps`, `gps on/off/sync/setloc/advert`, `get gps`, `set gps duty <sec>`
 Sensors: `sensor get/set/list` (upstream's `SensorManager` settings: `gps`)
 Companion extras: `get|set autoshutdown`, `get|set v.contact`, `get|set v.batteryalert`, `help`
@@ -883,7 +882,9 @@ A marker file `/lfs/_zc_init` is written after the first clean ZephCore boot. On
 2. **Valid ZephCore prefs + `/lfs/settings` present** → NVS-only erase (`formatNVSOnly()`). ZephCore ≤1.16.1 stored BLE bonds in `/lfs/settings` (file backend); ≤1.16.1 used 0xD0000 as app code, so bytes there may pass NVS sector validation and hang `settings_load()`. Identity/prefs/contacts are preserved; re-pairing is required.
 3. **Valid ZephCore prefs + no `/lfs/settings`** → skip format entirely. NVS was already initialised by ZephCore ≥1.16.2; bonds survive the upgrade.
 
-Loading also range-checks `freq`/`sf`/`bw` and falls back to the compile-time defaults on out-of-range values, so a misread file never corrupts the radio config.
+Loading also range-checks `freq`/`sf`/`bw` and falls back to the compile-time defaults on out-of-range values, so a misread file never corrupts the radio config. The check is written as "not inside" so a `NaN` read from an edited or corrupted file is caught too, and a read error on the identity file is not treated as inconsistent content: it neither renames the file away nor generates a new key, and a save refuses to overwrite an identity it cannot read back.
+
+**Writes that can fail.** The ACL and the region map are written through `<path>.tmp` and renamed on close, and only when no write came up short and `fs_sync()` succeeded, so an interrupted or failed save leaves the previous file in place instead of a truncated one. `ZephyrDataStore::savePrefs` reports whether the write landed; when it did not, the change lives in RAM until the next reboot and the CLI replies `Error: not saved - reverts at the next reboot` instead of `OK`. An unreadable `prefs.json` is logged in `ERR` together with the settings the node is starting with.
 
 ### 7.3 GPS (`adapters/gps/`)
 

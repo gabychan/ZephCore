@@ -99,7 +99,7 @@ inline constexpr Help kHelp[] = {
 	{"mt.role", "get|set client|client_base|router|router_late|repeater (companion: client_mute|client): role; default client_base, companion client_mute"},
 	{"mt.relay", "get|set off|essential|all: what is repeated, default essential (companion off)"},
 	{"mt.relay.opaque", "get|set on|off|1|0: also repeat channels we hold no key for, default on"},
-	{"mt.hops", "get|set 0-7: hop_limit of the frames we send, default 7"},
+	{"mt.hops", "get|set 0-7: hop_limit of the frames we send, default 3 (7 on the Zephtacore build)"},
 	{"mt.zerohop", "get|set off|auto: keep hop_limit of what a fixed neighbour repeated, default off"},
 	{"mt.zerohop.add", "set <node>: add a fixed neighbour, 8 hex digits, at most 8 nodes"},
 	{"mt.zerohop.remove", "set <node>: remove a fixed neighbour, 8 hex digits"},

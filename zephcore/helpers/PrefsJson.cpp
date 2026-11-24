@@ -333,6 +333,7 @@ protected:
 		ZcCommonJson::structure();
 		def("tz_offset", _p->tz_offset);
 		def("backoff", _p->backoff_multiplier);
+		def("buzz_q", _p->buzzer_quiet);
 		def("disc_ts", _p->discovery_mod_timestamp);
 		def("gps_set", _p->gps_enabled_set);
 		/* `set z.autoshutdown`. The companion's aoff_set marks its 3300 mV
@@ -392,9 +393,12 @@ public:
 
 void saneRadio(NodePrefs &p)
 {
-	if (p.freq < ZC_RADIO_FREQ_MIN_MHZ || p.freq > ZC_RADIO_FREQ_MAX_MHZ ||
-	    p.sf < 5 || p.sf > 12 ||
-	    p.bw < ZC_RADIO_BW_MIN_KHZ || p.bw > ZC_RADIO_BW_MAX_KHZ) {
+	/* Written as "not inside": every comparison against NaN is false, so a
+	 * `freq: nan` from a corrupted file would pass a plain range test and
+	 * reach the radio. */
+	if (!(p.freq >= ZC_RADIO_FREQ_MIN_MHZ && p.freq <= ZC_RADIO_FREQ_MAX_MHZ) ||
+	    !(p.bw >= ZC_RADIO_BW_MIN_KHZ && p.bw <= ZC_RADIO_BW_MAX_KHZ) ||
+	    p.sf < 5 || p.sf > 12) {
 		p.freq = mesh::LoRaConfig::FREQ_MHZ;
 		p.bw = mesh::LoRaConfig::BANDWIDTH_KHZ;
 		p.sf = mesh::LoRaConfig::SPREADING_FACTOR;

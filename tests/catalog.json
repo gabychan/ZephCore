@@ -328,6 +328,16 @@
       "source": "tests/unit/prefs_json_tests.cpp"
     },
     {
+      "id": "UNIT-PJSON-015",
+      "name": "A radio preset of nan in prefs.json falls back to the defaults",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
+      "id": "UNIT-PJSON-016",
+      "name": "A server's buzzer mode survives prefs.json; a file without the key keeps the default",
+      "source": "tests/unit/prefs_json_tests.cpp"
+    },
+    {
       "id": "UNIT-LPP-001",
       "name": "Values round to the nearest step (3850 mV is 3.85 V, not the library's 3.84)",
       "source": "tests/unit/lpp_tests.cpp"
@@ -1470,6 +1480,11 @@
     {
       "id": "UNIT-ZCMD-010",
       "name": "every key is reached from help through the groups above it, and every reply fits the remote reply",
+      "source": "tests/unit/zcommand_tests.cpp"
+    },
+    {
+      "id": "UNIT-ZCMD-011",
+      "name": "the usage of z.mt.hops names the default the firmware boots with, not the Zephtacore variant's",
       "source": "tests/unit/zcommand_tests.cpp"
     },
     {

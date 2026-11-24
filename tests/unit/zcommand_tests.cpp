@@ -120,6 +120,16 @@ TEST(zcmd_help_tree, "UNIT-ZCMD-009", "from a group, a / marks a child with more
     CHECK(help("get z.ping.ignore help") == "> z.ping.ignore: direct remote");
 }
 
+TEST(zcmd_help_default, "UNIT-ZCMD-011", "the usage of z.mt.hops names the default the firmware boots with, not the Zephtacore variant's") {
+    // zephcore/Kconfig: ZEPHTACORE_MT_HOP_LIMIT default 3. The Zephtacore build
+    // overrides it to 7 in boards/common/zephtacore.conf, so the usage names the
+    // default and says where the 7 comes from.
+    const std::string usage = help("get z.mt.hops help");
+    CHECK(usage.find("default 3") != std::string::npos);
+    CHECK(usage.find("default 7") == std::string::npos);
+    CHECK(usage.find("Zephtacore") != std::string::npos);
+}
+
 TEST(zcmd_help_reach, "UNIT-ZCMD-010", "every key is reached from help through the groups above it, and every reply fits the remote reply") {
     for (const zcmd::Help &h : zcmd::kHelp) {
         if (!zcmd::helpListed(h, true)) {

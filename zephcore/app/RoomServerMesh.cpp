@@ -1116,10 +1116,11 @@ void RoomServerMesh::loop() {
 
 /* ---- ZEPHCORE: methods upstream does not have ---- */
 
-void RoomServerMesh::savePrefs() {
+bool RoomServerMesh::savePrefs() {
   if (_store) {
-    _store->savePrefs(_prefs);
+    return _store->savePrefs(_prefs);
   }
+  return false;
 }
 
 void RoomServerMesh::freezeRadioParams(float freq, float bw, uint8_t sf, uint8_t cr) {

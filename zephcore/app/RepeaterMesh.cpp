@@ -1651,10 +1651,11 @@ void RepeaterMesh::loop() {
 
 /* ---- ZEPHCORE: methods upstream does not have ---- */
 
-void RepeaterMesh::savePrefs() {
+bool RepeaterMesh::savePrefs() {
   if (_store) {
-    _store->savePrefs(_prefs);
+    return _store->savePrefs(_prefs);
   }
+  return false;
 }
 
 void RepeaterMesh::freezeRadioParams(float freq, float bw, uint8_t sf, uint8_t cr) {

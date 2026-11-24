@@ -327,6 +327,37 @@ TEST(pjson_fw, "UNIT-PJSON-013", "The MeshCore receive limits survive prefs.json
     CHECK(r.fw.advert_gap_min == 0 && r.fw.hop_rate == 0 && r.mtfw.drop == 0 && r.mtfw.hop_rate == 0);
 }
 
+TEST(pjson_nan_radio, "UNIT-PJSON-015", "A radio preset of nan in prefs.json falls back to the defaults") {
+    MemStream s("{name:\"Z\",radio:{freq:nan,bw:nan,sf:9,cr:6,tx:14}}");
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.freq == mesh::LoRaConfig::FREQ_MHZ);
+    CHECK(q.bw == mesh::LoRaConfig::BANDWIDTH_KHZ);
+    CHECK(q.sf == mesh::LoRaConfig::SPREADING_FACTOR);
+    CHECK(q.cr == mesh::LoRaConfig::CODING_RATE);
+    CHECK(q.tx_power_dbm == mesh::LoRaConfig::TX_POWER_DBM);
+    CHECK(std::strcmp(q.node_name, "Z") == 0);
+}
+
+TEST(pjson_server_buzzer, "UNIT-PJSON-016", "A server's buzzer mode survives prefs.json; a file without the key keeps the default") {
+    NodePrefs p = defaults();
+    p.buzzer_quiet = 1;   // silent, as `set buzzer 0` stores it
+    MemStream s;
+    CHECK(serverPrefsToJson(p, s));
+    NodePrefs q = defaults();
+    CHECK(serverPrefsFromJson(q, s));
+    CHECK(q.buzzer_quiet == 1);
+
+    // 0 (audible) is a choice too, not a missing key.
+    p.buzzer_quiet = 0;
+    MemStream t;
+    CHECK(serverPrefsToJson(p, t));
+    NodePrefs r = defaults();
+    r.buzzer_quiet = 1;
+    CHECK(serverPrefsFromJson(r, t));
+    CHECK(r.buzzer_quiet == 0);
+}
+
 TEST(pjson_server_autoshutdown, "UNIT-PJSON-014", "A repeater's auto-shutdown threshold survives prefs.json; a file without it keeps the default") {
     NodePrefs p = defaults();
     p.auto_shutdown_mv = 3400;

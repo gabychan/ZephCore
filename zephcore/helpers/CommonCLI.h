@@ -34,7 +34,9 @@ class MeshTimeSync;
 
 class CommonCLICallbacks {
 public:
-	virtual void savePrefs() = 0;
+	/* False when the datastore could not write the prefs: the change is live
+	 * in RAM only and reverts at the next reboot. */
+	virtual bool savePrefs() = 0;
 	virtual const char* getFirmwareVer() = 0;
 	virtual const char* getBuildDate() = 0;
 	virtual const char* getRole() = 0;
@@ -152,9 +154,14 @@ class CommonCLI {
 	static void rebootWorkHandler(struct k_work *work);
 
 	uint8_t _reply_hdr_used;  /* see setReplyHeaderUsed() */
+	/* Set by savePrefs() when the callback could not write: the reply in hand
+	 * must not report the change as stored. */
+	bool _save_failed;
 
 	mesh::RTCClock* getRTCClock() { return _rtc; }
-	void savePrefs();
+	bool savePrefs();
+	/* Replace a success reply with an error when the save behind it failed. */
+	void replyIfUnsaved(char* reply);
 	void scheduleReboot(uint8_t type);
 	bool handleRadioCmd(uint32_t sender_timestamp, const char* command, char* reply);
 	bool handleMtCmd(uint32_t sender_timestamp, const char* command, char* reply);
@@ -171,7 +178,8 @@ public:
 		  RegionMap* region_map, ClientACL* acl, NodePrefs* prefs, CommonCLICallbacks* callbacks)
 		: _board(&board), _rtc(&rtc), _sensors(&sensors), _region_map(region_map), _acl(acl),
 		  _prefs(prefs), _callbacks(callbacks),
-		  _pending_reboot(REBOOT_NONE), _reboot_deadline_ms(0), _reply_hdr_used(0)
+		  _pending_reboot(REBOOT_NONE), _reboot_deadline_ms(0), _reply_hdr_used(0),
+		  _save_failed(false)
 	{
 		k_work_init_delayable(&_reboot_work, rebootWorkHandler);
 	}

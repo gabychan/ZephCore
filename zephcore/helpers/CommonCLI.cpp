@@ -32,6 +32,7 @@ extern "C" void power_diag_line(int n, char *out, size_t cap);  /* TEMPORARY: he
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 #include <time.h>
 
 #if IS_ENABLED(CONFIG_ZEPHCORE_WIFI_OTA)
@@ -242,11 +243,26 @@ static bool isValidName(const char* n) {
 
 #define MIN_LOCAL_ADVERT_INTERVAL   60
 
-void CommonCLI::savePrefs() {
+bool CommonCLI::savePrefs() {
 	if (_prefs->advert_interval * 2 < MIN_LOCAL_ADVERT_INTERVAL) {
 		_prefs->advert_interval = 0;  // turn off, now that device has been manually configured
 	}
-	_callbacks->savePrefs();
+	if (_callbacks->savePrefs()) {
+		return true;
+	}
+	/* The `set` reply is written by the caller after this returns, so record the
+	 * failure here; replyIfUnsaved() replaces that reply. */
+	_save_failed = true;
+	return false;
+}
+
+/* A change the datastore could not write is live in RAM only and is gone at the
+ * next reboot: say so instead of answering OK. Called where a dispatch reports
+ * success, after the branch has written its own reply. */
+void CommonCLI::replyIfUnsaved(char* reply) {
+	if (_save_failed) {
+		strcpy(reply, "Error: not saved - reverts at the next reboot");
+	}
 }
 
 /* Drop everything the adaptive-CAD controller has learned: on `set
@@ -364,6 +380,7 @@ bool CommonCLI::handleMtCmd(uint32_t sender_timestamp, const char* command, char
 		_callbacks->onMtPrefsChanged();
 		savePrefs();
 	}
+	replyIfUnsaved(reply);
 	return r.handled;
 #else
 	(void)sender_timestamp; (void)command; (void)reply;
@@ -432,6 +449,7 @@ bool CommonCLI::handleZCmd(uint32_t sender_timestamp, const char* command, char*
 #else
 		snprintf(reply, replyCap(sender_timestamp), "Error: not available on this board");
 #endif
+		replyIfUnsaved(reply);
 		return true;
 	}
 	if (strcmp(command, "get z.info") == 0) {
@@ -460,6 +478,7 @@ bool CommonCLI::handleZCmd(uint32_t sender_timestamp, const char* command, char*
 			_callbacks->onPingPrefsChanged();
 			savePrefs();
 		}
+		replyIfUnsaved(reply);
 		return true;
 	}
 	if (rxstats::isCommand(command)) {
@@ -491,12 +510,14 @@ bool CommonCLI::handleZCmd(uint32_t sender_timestamp, const char* command, char*
 		if (fw::handleCommand(fwprefs, *firewall, rules, command, reply, replyCap(sender_timestamp)).changed) {
 			savePrefs();
 		}
+		replyIfUnsaved(reply);
 		return true;
 	}
 	return false;
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, char* reply) {
+	_save_failed = false;
 	if (zcmd::helpReply(command, IS_ENABLED(CONFIG_ZEPHTACORE_MESHTASTIC), reply, replyCap(sender_timestamp))) {
 		return;
 	}
@@ -601,7 +622,11 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		strcpy(reply, "OK - Advert sent");
 	} else if (memcmp(command, "clock sync", 10) == 0) {
 		uint32_t curr = getRTCClock()->getCurrentTime();
-		if (sender_timestamp > curr) {
+		/* 0xFFFFFFFF + 1 wraps to 0, which would put the clock back in 1970:
+		 * the one thing this command must never do. */
+		if (sender_timestamp == UINT32_MAX) {
+			strcpy(reply, "ERR: bad timestamp");
+		} else if (sender_timestamp > curr) {
 			getRTCClock()->setCurrentTime(sender_timestamp + 1);
 			time_sync_report(TIME_SYNC_CLI);
 			MeshTimeSync* ts = _callbacks->getMeshTimeSync();
@@ -621,9 +646,17 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		snprintf(reply, CLI_REPLY_SIZE, "%02d:%02d - %d/%d/%d UTC",
 			 tm->tm_hour, tm->tm_min, tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900);
 	} else if (memcmp(command, "time ", 5) == 0) {
-		uint32_t secs = _atoi(&command[5]);
+		/* strtoul, not _atoi: _atoi wrapped silently past ten digits and set
+		 * the clock to the wrapped value. */
+		const char* arg = cliSkipSpace(&command[5]);
+		char* end = nullptr;
+		errno = 0;
+		unsigned long parsed = strtoul(arg, &end, 10);
+		uint32_t secs = (uint32_t)parsed;
 		uint32_t curr = getRTCClock()->getCurrentTime();
-		if (secs > curr) {
+		if (end == arg || *cliSkipSpace(end) != '\0' || errno == ERANGE) {
+			strcpy(reply, "Error: expected a Unix timestamp");
+		} else if (secs > curr) {
 			getRTCClock()->setCurrentTime(secs);
 			time_sync_report(TIME_SYNC_CLI);
 			MeshTimeSync* ts = _callbacks->getMeshTimeSync();
@@ -659,18 +692,24 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 		int num = mesh::Utils::parseTextParts(tmp, parts, 5);
 		float freq = num > 0 ? strtof(parts[0], nullptr) : 0.0f;
 		float bw = num > 1 ? strtof(parts[1], nullptr) : 0.0f;
-		uint8_t sf = num > 2 ? atoi(parts[2]) : 0;
-		uint8_t cr = num > 3 ? atoi(parts[3]) : 0;
+		/* long, not uint8_t: a cast before the range test truncated 263 to
+		 * 7 and accepted it. */
+		long sf = num > 2 ? strtol(parts[2], nullptr, 10) : 0L;
+		long cr = num > 3 ? strtol(parts[3], nullptr, 10) : 0L;
 		int temp_timeout_mins = num > 4 ? atoi(parts[4]) : 0;
 		if (freq >= ZC_RADIO_FREQ_MIN_MHZ && freq <= ZC_RADIO_FREQ_MAX_MHZ && sf >= 5 && sf <= 12 &&
 		    cr >= 5 && cr <= 8 && bw >= ZC_RADIO_BW_MIN_KHZ && bw <= ZC_RADIO_BW_MAX_KHZ && temp_timeout_mins > 0) {
-			_callbacks->applyTempRadioParams(freq, bw, sf, cr, temp_timeout_mins);
+			_callbacks->applyTempRadioParams(freq, bw, (uint8_t)sf, (uint8_t)cr, temp_timeout_mins);
 			snprintf(reply, CLI_REPLY_SIZE, "OK - temp params for %d mins", temp_timeout_mins);
 		} else {
 			snprintf(reply, CLI_REPLY_SIZE, "Error: freq 150-2500, bw %s, sf 5-12, cr 5-8, timeout>0", ZC_RADIO_BW_RANGE_STR);
 		}
 	} else if (memcmp(command, "password ", 9) == 0) {
-		if (command[9] == 0) {
+		/* A companion has no admin login and no key for it in prefs.json:
+		 * accept it and it silently reverts at the next reboot. */
+		if (strcmp(_callbacks->getRole(), "companion") == 0) {
+			strcpy(reply, "Error: not supported on companion");
+		} else if (command[9] == 0) {
 			strcpy(reply, "Error: empty admin password");	/* would disable admin login by password */
 		} else {
 			StrHelper::strzcpy(_prefs->password, &command[9], sizeof(_prefs->password));
@@ -913,6 +952,7 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 	} else {
 		strcpy(reply, "Unknown command");
 	}
+	replyIfUnsaved(reply);
 }
 
 /* Radio keys, first, as upstream's CommonRadioPrefs::handleCommand. The
@@ -1023,6 +1063,8 @@ bool CommonCLI::handleRadioCmd(uint32_t sender_timestamp, const char* command, c
 				long v;
 				if (!cliNum(&config[11], cliDefaults()->interference_threshold, &v)) {
 					strcpy(reply, "Error: expected a number or default");
+				} else if (v < 0 || v > 255) {
+					strcpy(reply, "Error: range 0-255, or default");
 				} else {
 					_prefs->interference_threshold = (uint8_t)v;
 					savePrefs();
@@ -1052,8 +1094,10 @@ bool CommonCLI::handleRadioCmd(uint32_t sender_timestamp, const char* command, c
 			bool want_def = (num == 1 && cliIsDefault(parts[0]));
 			float freq = want_def ? cliDefaults()->freq : (num > 0 ? strtof(parts[0], nullptr) : 0.0f);
 			float bw = want_def ? cliDefaults()->bw : (num > 1 ? strtof(parts[1], nullptr) : 0.0f);
-			uint8_t sf = want_def ? cliDefaults()->sf : (num > 2 ? (uint8_t)atoi(parts[2]) : 0);
-			uint8_t cr = want_def ? cliDefaults()->cr : (num > 3 ? (uint8_t)atoi(parts[3]) : 0);
+			/* long, not uint8_t: a cast before the range test truncated 263
+			 * to 7 and accepted it. */
+			long sf = want_def ? (long)cliDefaults()->sf : (num > 2 ? strtol(parts[2], nullptr, 10) : 0L);
+			long cr = want_def ? (long)cliDefaults()->cr : (num > 3 ? strtol(parts[3], nullptr, 10) : 0L);
 			if (freq >= ZC_RADIO_FREQ_MIN_MHZ && freq <= ZC_RADIO_FREQ_MAX_MHZ && sf >= 5 && sf <= 12 &&
 			    cr >= 5 && cr <= 8 && bw >= ZC_RADIO_BW_MIN_KHZ && bw <= ZC_RADIO_BW_MAX_KHZ) {
 				/* Snapshot old params, then mutate _prefs and save so later
@@ -1067,10 +1111,12 @@ bool CommonCLI::handleRadioCmd(uint32_t sender_timestamp, const char* command, c
 				uint8_t old_cr   = _prefs->cr;
 				_prefs->freq = freq;
 				_prefs->bw   = bw;
-				_prefs->sf   = sf;
-				_prefs->cr   = cr;
+				_prefs->sf   = (uint8_t)sf;
+				_prefs->cr   = (uint8_t)cr;
 				mesh::offgridFreqEdited(*_prefs);
-				_callbacks->savePrefs();
+				if (!_callbacks->savePrefs()) {
+					_save_failed = true;
+				}
 				_callbacks->freezeRadioParams(old_freq, old_bw, old_sf, old_cr);
 				/* Anything that moves the channel or the detPeak base table
 				 * invalidates the learned CAD offset and every statistic
@@ -1084,7 +1130,9 @@ bool CommonCLI::handleRadioCmd(uint32_t sender_timestamp, const char* command, c
 					strcpy(reply, "OK - reboot to apply");
 				}
 			} else {
-				strcpy(reply, "Error: freq 150-2500, bw 7-500, sf 5-12, cr 5-8, or default");
+				snprintf(reply, CLI_REPLY_SIZE,
+					 "Error: freq 150-2500, bw %s, sf 5-12, cr 5-8, or default",
+					 ZC_RADIO_BW_RANGE_STR);
 			}
 		} else if (memcmp(config, "rxdelay ", 8) == 0) {
 			_prefs->rx_delay_base = cliIsDefault(&config[8]) ? cliDefaults()->rx_delay_base
@@ -1186,6 +1234,7 @@ bool CommonCLI::handleRadioCmd(uint32_t sender_timestamp, const char* command, c
 		} else {
 			return false;
 		}
+		replyIfUnsaved(reply);
 		return true;
 	}
 	return false;
@@ -1650,35 +1699,53 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, const char* command, cha
 		}
 #endif
 	} else if (memcmp(config, "flood.advert.interval ", 22) == 0) {
-		long hours;
-		if (!cliNum(&config[22], cliDefaults()->flood_advert_interval, &hours)) {
-			strcpy(reply, "Error: expected 0, 3-168 hours, or default");
-		} else if ((hours > 0 && hours < 3) || (hours > 168)) {
-			strcpy(reply, "Error: interval range is 3-168 hours");
+		/* A companion has no flood advert timer (CompanionCLI's
+		 * updateFloodAdvertTimer() is a no-op) and CompanionJson has no key
+		 * for it. */
+		if (strcmp(_callbacks->getRole(), "companion") == 0) {
+			strcpy(reply, "Error: not supported on companion");
 		} else {
-			_prefs->flood_advert_interval = (uint8_t)hours;
-			_callbacks->updateFloodAdvertTimer();
-			savePrefs();
-			strcpy(reply, "OK");
+			long hours;
+			if (!cliNum(&config[22], cliDefaults()->flood_advert_interval, &hours)) {
+				strcpy(reply, "Error: expected 0, 3-168 hours, or default");
+			} else if (hours < 0 || (hours > 0 && hours < 3) || (hours > 168)) {
+				strcpy(reply, "Error: interval range is 3-168 hours");
+			} else {
+				_prefs->flood_advert_interval = (uint8_t)hours;
+				_callbacks->updateFloodAdvertTimer();
+				savePrefs();
+				strcpy(reply, "OK");
+			}
 		}
 	} else if (memcmp(config, "advert.interval ", 16) == 0) {
-		long mins;
-		if (!cliNum(&config[16], (long)cliDefaults()->advert_interval * 2, &mins)) {
-			snprintf(reply, CLI_REPLY_SIZE,
-				 "Error: expected 0, %d-240 minutes, or default",
-				 MIN_LOCAL_ADVERT_INTERVAL);
-		} else if ((mins > 0 && mins < MIN_LOCAL_ADVERT_INTERVAL) || (mins > 240)) {
-			snprintf(reply, CLI_REPLY_SIZE, "Error: interval range is %d-240 minutes", MIN_LOCAL_ADVERT_INTERVAL);
+		/* A companion has no advert timer (CompanionCLI's updateAdvertTimer()
+		 * is a no-op) and CompanionJson has no adv_int, so an OK here would
+		 * be a lie. */
+		if (strcmp(_callbacks->getRole(), "companion") == 0) {
+			strcpy(reply, "Error: not supported on companion");
 		} else {
-			_prefs->advert_interval = (uint8_t)(mins / 2);
-			_callbacks->updateAdvertTimer();
+			long mins;
+			if (!cliNum(&config[16], (long)cliDefaults()->advert_interval * 2, &mins)) {
+				snprintf(reply, CLI_REPLY_SIZE,
+					 "Error: expected 0, %d-240 minutes, or default",
+					 MIN_LOCAL_ADVERT_INTERVAL);
+			} else if (mins < 0 || (mins > 0 && mins < MIN_LOCAL_ADVERT_INTERVAL) || (mins > 240)) {
+				snprintf(reply, CLI_REPLY_SIZE, "Error: interval range is %d-240 minutes", MIN_LOCAL_ADVERT_INTERVAL);
+			} else {
+				_prefs->advert_interval = (uint8_t)(mins / 2);
+				_callbacks->updateAdvertTimer();
+				savePrefs();
+				strcpy(reply, "OK");
+			}
+		}
+	} else if (memcmp(config, "guest.password ", 15) == 0) {
+		if (strcmp(_callbacks->getRole(), "companion") == 0) {
+			strcpy(reply, "Error: not supported on companion");
+		} else {
+			StrHelper::strzcpy(_prefs->guest_password, &config[15], sizeof(_prefs->guest_password));
 			savePrefs();
 			strcpy(reply, "OK");
 		}
-	} else if (memcmp(config, "guest.password ", 15) == 0) {
-		StrHelper::strzcpy(_prefs->guest_password, &config[15], sizeof(_prefs->guest_password));
-		savePrefs();
-		strcpy(reply, "OK");
 	} else if (memcmp(config, "prv.key ", 8) == 0) {
 		uint8_t prv_key[PRV_KEY_SIZE];
 		bool success = mesh::Utils::fromHex(prv_key, PRV_KEY_SIZE, &config[8]);
@@ -1721,18 +1788,33 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, const char* command, cha
 			strcpy(reply, "Error: must be on or off");
 		}
 	} else if (memcmp(config, "lat ", 4) == 0) {
-		_prefs->node_lat = cliIsDefault(&config[4]) ? cliDefaults()->node_lat
-													: atof(&config[4]);
-		savePrefs();
-		strcpy(reply, "OK");
+		float lat;
+		if (!cliFloat(&config[4], cliDefaults()->node_lat, &lat) ||
+		    lat < -90.0f || lat > 90.0f) {
+			strcpy(reply, "Error: latitude is -90 to 90 degrees, or default");
+		} else {
+			_prefs->node_lat = lat;
+			savePrefs();
+			strcpy(reply, "OK");
+		}
 	} else if (memcmp(config, "lon ", 4) == 0) {
-		_prefs->node_lon = cliIsDefault(&config[4]) ? cliDefaults()->node_lon
-													: atof(&config[4]);
-		savePrefs();
-		strcpy(reply, "OK");
+		float lon;
+		if (!cliFloat(&config[4], cliDefaults()->node_lon, &lon) ||
+		    lon < -180.0f || lon > 180.0f) {
+			strcpy(reply, "Error: longitude is -180 to 180 degrees, or default");
+		} else {
+			_prefs->node_lon = lon;
+			savePrefs();
+			strcpy(reply, "OK");
+		}
+	/* flood.max*: a companion never checks the hop limit of a flood it
+	 * relays (RoutingPolicy.h is read only by the server roles) and
+	 * CompanionJson has no key for it. */
 	} else if (memcmp(config, "flood.max.advert ", 17) == 0) {
 		long m;
-		if (cliNum(&config[17], cliDefaults()->flood_max_advert, &m) && m >= 0 && m <= 64) {
+		if (strcmp(_callbacks->getRole(), "companion") == 0) {
+			strcpy(reply, "Error: not supported on companion");
+		} else if (cliNum(&config[17], cliDefaults()->flood_max_advert, &m) && m >= 0 && m <= 64) {
 			_prefs->flood_max_advert = (uint8_t)m;
 			savePrefs();
 			strcpy(reply, "OK");
@@ -1741,7 +1823,9 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, const char* command, cha
 		}
 	} else if (memcmp(config, "flood.max.unscoped ", 19) == 0) {
 		long m;
-		if (cliNum(&config[19], cliDefaults()->flood_max_unscoped, &m) && m >= 0 && m <= 64) {
+		if (strcmp(_callbacks->getRole(), "companion") == 0) {
+			strcpy(reply, "Error: not supported on companion");
+		} else if (cliNum(&config[19], cliDefaults()->flood_max_unscoped, &m) && m >= 0 && m <= 64) {
 			_prefs->flood_max_unscoped = (uint8_t)m;
 			savePrefs();
 			strcpy(reply, "OK");
@@ -1750,7 +1834,9 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, const char* command, cha
 		}
 	} else if (memcmp(config, "flood.max ", 10) == 0) {
 		long m;
-		if (cliNum(&config[10], cliDefaults()->flood_max, &m) && m >= 0 && m <= 64) {
+		if (strcmp(_callbacks->getRole(), "companion") == 0) {
+			strcpy(reply, "Error: not supported on companion");
+		} else if (cliNum(&config[10], cliDefaults()->flood_max, &m) && m >= 0 && m <= 64) {
 			_prefs->flood_max = (uint8_t)m;
 			savePrefs();
 			strcpy(reply, "OK");
@@ -1781,15 +1867,21 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, const char* command, cha
 			}
 		}
 	} else if (memcmp(config, "owner.info ", 11) == 0) {
-		config += 11;
-		char* dp = _prefs->owner_info;
-		while (*config && dp - _prefs->owner_info < (int)sizeof(_prefs->owner_info) - 1) {
-			*dp++ = (*config == '|') ? '\n' : *config;
-			config++;
+		/* Only the server roles answer it (contact info); CompanionJson has
+		 * no key for it. */
+		if (strcmp(_callbacks->getRole(), "companion") == 0) {
+			strcpy(reply, "Error: not supported on companion");
+		} else {
+			config += 11;
+			char* dp = _prefs->owner_info;
+			while (*config && dp - _prefs->owner_info < (int)sizeof(_prefs->owner_info) - 1) {
+				*dp++ = (*config == '|') ? '\n' : *config;
+				config++;
+			}
+			*dp = 0;
+			savePrefs();
+			strcpy(reply, "OK");
 		}
-		*dp = 0;
-		savePrefs();
-		strcpy(reply, "OK");
 	} else if (memcmp(config, "loop.detect ", 12) == 0) {
 		/* Loop detection runs only in the Repeater/RoomServer forward
 		 * path — companions never consult loop_detect. */

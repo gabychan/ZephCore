@@ -54,8 +54,8 @@ The text CLI of every ZephCore role. Commands are sent over USB serial (CDC-ACM)
 | Command | Description |
 |---------|-------------|
 | `clock` | Display current UTC time |
-| `clock sync` | Sync clock from the sender's timestamp (only advances, cannot go backwards). Arms the 7-day mesh-time-sync suppression window. |
-| `time <unix_timestamp>` | Set RTC to a specific Unix timestamp (cannot go backwards). Arms the 7-day mesh-time-sync suppression window. |
+| `clock sync` | Sync clock from the sender's timestamp (only advances, cannot go backwards). Arms the 7-day mesh-time-sync suppression window. A `sender_timestamp` of `0xFFFFFFFF` is refused (`ERR: bad timestamp`): `+1` wraps to 0 and would send the clock back to 1970. |
+| `time <unix_timestamp>` | Set RTC to a specific Unix timestamp (cannot go backwards). Arms the 7-day mesh-time-sync suppression window. Text that is not a number, or that does not fit a 32-bit timestamp, is refused (`Error: expected a Unix timestamp`). |
 
 Every clock set (these commands, GPS, the app, mesh time sync, SNTP) is also written to the board's hardware RTC when it has one, so the time survives a power-off.
 
@@ -522,6 +522,12 @@ four radio parameters together, since they are one interop-critical set.
 > `rxduty`) that silently disabled the feature and still answered `OK`.
 > Unparseable input is now rejected with an error instead.
 
+> [!NOTE]
+> **Settings a companion does not have.** A companion neither applies nor stores the server-only settings or the admin password: `password`, `set guest.password`, `set owner.info`, `set flood.max`, `set flood.max.unscoped`, `set flood.max.advert`, `set advert.interval` and `set flood.advert.interval` answer `Error: not supported on companion` instead of a false `OK`, as `set int.thresh`, `set backoff.multiplier` and `set loop.detect` already did.
+
+> [!NOTE]
+> **A write that fails.** When `prefs.json` cannot be written, the change lives in RAM until the next reboot and the reply replaces its `OK` with `Error: not saved - reverts at the next reboot`. It covers every `set` and `z.` command that persists.
+
 | Command | Constraints | Description |
 |---------|-------------|-------------|
 | `set name <name>` | No `[ ] \ : , ? *` | Set node name |
@@ -529,8 +535,8 @@ four radio parameters together, since they are one interop-critical set.
 | `set radio <freq>,<bw>,<sf>,<cr>` | freq 150–2500, bw 7–500 (7–1000 on LR2021), sf 5–12, cr 5–8 | **Comma-separated**, not space-separated — spaces parse as a single argument and the command is rejected. Set radio params *(reboot required)*. If freq, bw or sf actually changed, this also performs a full `set cad.reset` and replies `OK - reboot to apply (CAD reset)` — the learned detPeak offset and its probe statistics belong to the old preset. The radio keeps running the old preset, at its learned offset, until the reboot; CAD adaptation is suspended in the meantime so it cannot re-dirty the reset. A cr-only change resets nothing. |
 | `set freq <mhz>` | 150–2500 *(USB only)* | Set frequency alone *(reboot required)*. Same CAD reset as `set radio` when the frequency actually changes. On LR2021 boards a frequency at or above 1500 MHz also moves the radio to its 2.4 GHz front end — see the note below the table. |
 | `set tx <dbm>` | −9 to board max (default 30) | Set TX power |
-| `set lat <latitude>` | | Set stored latitude |
-| `set lon <longitude>` | | Set stored longitude |
+| `set lat <latitude>` | −90 to 90 | Set stored latitude. Text that is not a number, or outside the range, is refused (`Error: latitude is -90 to 90 degrees, or default`) |
+| `set lon <longitude>` | −180 to 180 | Set stored longitude. Text that is not a number, or outside the range, is refused (`Error: longitude is -180 to 180 degrees, or default`) |
 | `set dutycycle <pct>` | 10–100 | Set duty cycle percentage (converted to airtime factor internally as `(100/pct)-1`). The floor is 10%, not Arduino's 1%: the stored airtime factor is bounded to 0–9 on load, so a lower duty cycle would run until the next reboot and then silently become 10%. |
 | `set af <value>` | float, 0–9 | Set raw airtime factor directly. Out-of-range values are rejected: the duty cycle is computed as `100/(af+1)`, so `af = -1` is a divide-by-zero and `af < -1` wraps negative. |
 | `set txdelay <value>` | | Accepted for prefs compatibility — **ignored** (txdelay is adaptive) |
@@ -540,12 +546,12 @@ four radio parameters together, since they are one interop-critical set.
 | `set flood.max <count>` | 0–64 | Maximum flood retransmit hops |
 | `set flood.max.unscoped <count>` | 0–64 | Hop limit for un-scoped floods only, including transport floods with code `0` (default 64 = same as flood.max); scoped/transport floods still use flood.max |
 | `set flood.max.advert <count>` | 0–64 | Hop limit for ADVERT floods only (default 8); curbs advert churn independent of flood.max |
-| `set flood.advert.interval <hours>` | `0` (off) or 3–168 | How often the repeater floods its own advertisement. `0` disables periodic flood adverts. With `advert.interval` also `0` the repeater is hidden: it stops answering node discovery requests (`discover.neighbors`, the app's discover) as well. |
-| `set advert.interval <mins>` | `0` (off) or min–240 | How often the repeater sends local (zero-hop) advertisements. `0` — the default — disables them. Stored halved (the pref holds minutes/2), so odd values round down. |
+| `set flood.advert.interval <hours>` | `0` (off) or 3–168 | How often the repeater floods its own advertisement. `0` disables periodic flood adverts. With `advert.interval` also `0` the repeater is hidden: it stops answering node discovery requests (`discover.neighbors`, the app's discover) as well. A negative value is refused. |
+| `set advert.interval <mins>` | `0` (off) or 60–240 | How often the repeater sends local (zero-hop) advertisements. `0` — the default — disables them. Stored halved (the pref holds minutes/2), so odd values round down. A negative value is refused. |
 | `set allow.read.only <on\|off>` | | *(room server only)* Allow or deny read-only client connections |
 | `set guest.password <pwd>` | | Set guest access password |
 | `set owner.info <text>` | Use `\|` for newlines | Owner/contact information |
-| `set int.thresh <value>` | | Interference detection threshold |
+| `set int.thresh <value>` | 0–255 | Interference detection threshold. Out of range replies `Error: range 0-255, or default`. |
 | `set buzzer <0\|1\|2\|3>` | or `off` / `on` / `vibrate` / `sound` | *(ZephCore only; room server only)* `0`/`off` silent, `1`/`on` sound + vibration, `2`/`vibrate` vibration only, `3`/`sound` sound only. Modes 2 and 3 need a vibration motor; without one the node replies `Error: no vibration motor on this board - use 0 or 1`. Applied live and persisted. Compiled out on repeater builds. |
 | `set leds <on\|off\|1\|0>` | default **on** | *(ZephCore only)* Master switch for every LED on the node, applied live and persisted: heartbeat, unread-message and LoRa TX-activity LEDs, plus the message and shutdown flashes. Works on every role, including headless repeaters where the TX LED is the only one that ever lights. Does **not** cover the display backlight, which is a separate UI brightness setting. |
 | `set leds.radio <tx\|rx\|all\|off>` | default **tx** | *(ZephCore only)* What the LoRa activity LED reacts to, applied live and persisted. `tx` lights it for the duration of each transmit (the behaviour before this setting existed), `rx` gives a 30 ms blink per valid packet received, `all` does both, `off` keeps it dark. Sits **below** `set leds`: the master switch off keeps it dark whatever this says. Only boards defining a `lora-tx-led` or `lora-tx-pwm-led` alias have this LED; elsewhere the value is stored but does nothing, and the reply says so. |

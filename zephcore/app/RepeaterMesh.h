@@ -299,7 +299,7 @@ public:
     return _prefs.advert_interval == 0 && _prefs.flood_advert_interval == 0;
   }
 
-  void savePrefs() override;  // ZEPHCORE: through RepeaterDataStore
+  bool savePrefs() override;  // ZEPHCORE: through RepeaterDataStore
 
   void sendFloodScoped(const TransportKey& scope, mesh::Packet* pkt, uint32_t delay_millis, uint8_t path_hash_size);
 

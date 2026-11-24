@@ -12,11 +12,13 @@
 
 #include <zephyr/logging/log.h>
 #include <helpers/NodePrefs.h>
+#include <helpers/ui/ui_task.h>
+#include "buzzer_gate.h"
 #include "led_gate.h"
 #include "ZephyrGPSManager.h"
 
-/* Push the prefs that drive hardware directly (LED gate, GPS duty) into their
- * managers. Call after loadPrefs(), after ui_init() and after the GPS
+/* Push the prefs that drive hardware directly (LED and buzzer gates, GPS duty)
+ * into their managers. Call after loadPrefs(), after ui_init() and after the GPS
  * callbacks are registered. gps_time_sync: repeater (time-sync-only) GPS mode
  * plus prefs.gps_enabled; only roles that own the GPS pass true. */
 static inline void apply_boot_prefs(const NodePrefs *p, bool gps_time_sync)
@@ -28,6 +30,19 @@ static inline void apply_boot_prefs(const NodePrefs *p, bool gps_time_sync)
 	zephcore_leds_set_hb_mode(p->leds_hb_mode);
 	zephcore_led_set_brightness_pct(p->led_brightness);
 	LOG_INF("LEDs: %s (from prefs)", leds_off ? "disabled" : "enabled");
+
+	/* Notification mode: the gate the buzzer sounds through and the mode the
+	 * display page shows. The gate starts on, so without this a node left
+	 * silent with `set buzzer` is audible again after every reboot. */
+#if IS_ENABLED(CONFIG_ZEPHCORE_UI_BUZZER)
+	{
+		uint8_t bmode = zephcore_buzzer_mode_from_prefs(p->buzzer_quiet);
+
+		zephcore_buzzer_set_mode(bmode, false);
+		ui_set_buzzer_mode(bmode);
+		LOG_INF("buzzer: mode=%u (from prefs)", bmode);
+	}
+#endif
 
 	if (gps_time_sync && gps_is_available()) {
 		gps_set_poll_interval_sec(p->gps_interval);
