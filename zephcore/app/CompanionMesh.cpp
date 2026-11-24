@@ -1042,6 +1042,12 @@ void CompanionMesh::onCLICommandRecv(const ContactInfo &contact, mesh::Packet *p
 {
 	markConnectionActive(contact);  // in case this is from a server, and we have a connection
 	if (contact.isRemoteCLIAllowed()) {
+		/* A real sender never stamps 0, and handleCommand reads that as the
+		 * local console (privileged commands) with replyCap(0) sizing the
+		 * reply past onPeerDataRecv's temp[166]. Drop it unexecuted. */
+		if (sender_timestamp == 0) {
+			return;
+		}
 		if (!handleCommand(text, sender_timestamp, reply)) {
 			strcat(reply, "Unknown command");  // reply may have cmd prefix from 'text'
 		}
