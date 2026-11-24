@@ -153,12 +153,23 @@ void ZephyrDataStore::migrateToExternalFS()
 		}
 	}
 
+	/* Migrate the Meshtastic node keys: mtKeysFile() follows /ext */
+	if (!zephcore_fs_exists(EXT_MTKEYS_FILE) && zephcore_fs_exists(INT_MTKEYS_FILE)) {
+		LOG_INF("Migrating mtkeys to QSPI");
+		if (copyFile(INT_MTKEYS_FILE, EXT_MTKEYS_FILE)) {
+			zephcore_fs_remove(INT_MTKEYS_FILE);
+		}
+	}
+
 	/* Clean up old files on internal if they exist on external */
 	if (zephcore_fs_exists(EXT_CONTACTS_FILE) && zephcore_fs_exists(INT_CONTACTS_FILE)) {
 		zephcore_fs_remove(INT_CONTACTS_FILE);
 	}
 	if (zephcore_fs_exists(EXT_CHANNELS_FILE) && zephcore_fs_exists(INT_CHANNELS_FILE)) {
 		zephcore_fs_remove(INT_CHANNELS_FILE);
+	}
+	if (zephcore_fs_exists(EXT_MTKEYS_FILE) && zephcore_fs_exists(INT_MTKEYS_FILE)) {
+		zephcore_fs_remove(INT_MTKEYS_FILE);
 	}
 	if (zephcore_fs_exists(EXT_ADV_BLOBS_FILE) && zephcore_fs_exists(INT_ADV_BLOBS_FILE)) {
 		zephcore_fs_remove(INT_ADV_BLOBS_FILE);
@@ -344,6 +355,13 @@ void ZephyrDataStore::loadPrefs(NodePrefs &prefs)
 	}
 	bool had_json = zephcore_fs_exists(PREFS_JSON_FILE);
 
+	/* The file is there but unusable: name the settings this boot runs on and
+	 * the file it is about to replace them with. */
+	if (had_json) {
+		LOG_ERR("%s does not parse - using %s", PREFS_JSON_FILE,
+			zephcore_fs_exists(PREFS_FILE) ? PREFS_FILE : "the defaults");
+	}
+
 	/* No usable prefs.json: the legacy binary file, read once and migrated.
 	 * It is kept, so firmware from before prefs.json still boots with the
 	 * settings as they were at the upgrade. */
@@ -357,7 +375,9 @@ void ZephyrDataStore::loadPrefs(NodePrefs &prefs)
 		 * revert) can trust flash without a "first run" special case. */
 		LOG_DBG("loadPrefs: no prefs file found, persisting defaults");
 	}
-	savePrefs(prefs);
+	if (!savePrefs(prefs)) {
+		LOG_ERR("loadPrefs: %s not written", PREFS_JSON_FILE);
+	}
 }
 
 bool ZephyrDataStore::loadLegacyPrefs(NodePrefs &prefs)
@@ -391,12 +411,16 @@ bool ZephyrDataStore::loadLegacyPrefs(NodePrefs &prefs)
 	return true;
 }
 
-void ZephyrDataStore::savePrefs(const NodePrefs &prefs)
+bool ZephyrDataStore::savePrefs(const NodePrefs &prefs)
 {
 	bool ok = zephcore_prefs_json_save(PREFS_JSON_FILE, prefs, companionPrefsToJson);
 
-	LOG_DBG("savePrefs: wrote %s, ok=%d, name='%.16s'", PREFS_JSON_FILE, ok ? 1 : 0,
-		prefs.node_name);
+	if (!ok) {
+		LOG_ERR("savePrefs: %s not written, name='%.16s'", PREFS_JSON_FILE,
+			prefs.node_name);
+	}
+	LOG_DBG("savePrefs: wrote %s, ok=%d", PREFS_JSON_FILE, ok ? 1 : 0);
+	return ok;
 }
 
 /* ── Contacts: contacts3 (152B records, Arduino-compatible) ────────── */
@@ -638,11 +662,24 @@ bool ZephyrDataStore::rewriteMtKeys(MtKeyKeep keep, void *ctx, uint32_t *kept)
 
 		fs_file_t_init(&src);
 		if (fs_open(&src, r->src, FS_O_READ) < 0) {
-			return true;
+			LOG_ERR("rewriteMtKeys: fs_open(%s) failed", r->src);
+			return false;
 		}
 		bool ok = true;
 
-		while (ok && fs_read(&src, rec, MTKEY_REC_SZ) == (ssize_t)MTKEY_REC_SZ) {
+		for (;;) {
+			ssize_t n = fs_read(&src, rec, MTKEY_REC_SZ);
+
+			/* A read error or a partial record means the keys after it were
+			 * not copied: refuse the rewrite instead of truncating the file. */
+			if (n == 0) {
+				break;
+			}
+			if (n != (ssize_t)MTKEY_REC_SZ) {
+				LOG_ERR("rewriteMtKeys: read of %s failed: %d", r->src, (int)n);
+				ok = false;
+				break;
+			}
 			uint32_t rn;
 
 			memcpy(&rn, rec, 4);
@@ -651,6 +688,9 @@ bool ZephyrDataStore::rewriteMtKeys(MtKeyKeep keep, void *ctx, uint32_t *kept)
 			}
 			ok = fs_write(dst, rec, MTKEY_REC_SZ) == (ssize_t)MTKEY_REC_SZ;
 			r->kept += ok ? 1 : 0;
+			if (!ok) {
+				break;
+			}
 		}
 		fs_close(&src);
 		return ok;
@@ -824,11 +864,17 @@ uint8_t ZephyrDataStore::getBlobByKey(const uint8_t key[], int key_len, uint8_t 
 	BlobRec tmp;
 	uint8_t len = 0;
 	while (fs_read(&file, (uint8_t *)&tmp, sizeof(tmp)) == (ssize_t)sizeof(tmp)) {
-		if (memcmp(key, tmp.key, 7) == 0) {
-			len = tmp.len;
-			memcpy(dest_buf, tmp.data, len);
+		if (memcmp(key, tmp.key, 7) != 0) {
+			continue;
+		}
+		/* A damaged length is a damaged record: it says nothing about the blob. */
+		if (tmp.len > MAX_ADVERT_PKT_LEN) {
+			LOG_WRN("getBlobByKey: record length %u is invalid", tmp.len);
 			break;
 		}
+		len = tmp.len;
+		memcpy(dest_buf, tmp.data, len);
+		break;
 	}
 	fs_close(&file);
 	return len;

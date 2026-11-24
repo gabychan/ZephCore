@@ -20,7 +20,14 @@ bool zephcore_identity_load(const char *path, mesh::LocalIdentity &id)
 	uint8_t buf[PRV_KEY_SIZE + PUB_KEY_SIZE + 32];
 	size_t len = 0;
 
-	if (zephcore_fs_read_file(path, buf, sizeof(buf), &len) && len >= PRV_KEY_SIZE) {
+	if (!zephcore_fs_read_file(path, buf, sizeof(buf), &len)) {
+		/* An unreadable file is not an incoherent one: keep the key where it is,
+		 * so a transient error does not change this node's identity. */
+		LOG_ERR("%s: read failed - left untouched, not regenerated", path);
+		return false;
+	}
+
+	if (len >= PRV_KEY_SIZE) {
 		if (id.readFromStorage(buf, len)) {
 			return true;
 		}
@@ -57,6 +64,17 @@ bool zephcore_identity_save(const char *path, const mesh::LocalIdentity &id)
 
 	if (n == 0) {
 		return false;
+	}
+	/* Never overwrite a file that cannot be read back: the private key in it is
+	 * the only copy, and an I/O error is not evidence that it is corrupt. */
+	if (zephcore_fs_exists(path)) {
+		uint8_t check[sizeof(buf)];
+		size_t check_len = 0;
+
+		if (!zephcore_fs_read_file(path, check, sizeof(check), &check_len)) {
+			LOG_ERR("%s: existing file unreadable - not replaced", path);
+			return false;
+		}
 	}
 	return zephcore_fs_atomic_replace(path, buf, n, "identity");
 }

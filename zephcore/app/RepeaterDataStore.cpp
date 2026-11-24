@@ -93,6 +93,14 @@ bool RepeaterDataStore::loadPrefs(NodePrefs& prefs) {
 	 * (e.g. tempradio revert) can trust it without a "first run" case. */
 	char legacy[48];
 	snprintf(legacy, sizeof(legacy), "%s/prefs", BASE_PATH);
+
+	/* The file is there but unusable: name the settings this boot runs on and
+	 * the file it is about to replace them with. */
+	if (had_json) {
+		LOG_ERR("%s does not parse - using %s", path,
+			zephcore_fs_exists(legacy) ? legacy : "the defaults");
+	}
+
 	if (zephcore_fs_exists(legacy)) {
 		if (loadLegacyPrefs(legacy, prefs)) {
 			LOG_INF("loadPrefs: %s %s from %s", had_json ? "recovered" : "migrated",
@@ -101,7 +109,9 @@ bool RepeaterDataStore::loadPrefs(NodePrefs& prefs) {
 	} else {
 		LOG_DBG("No prefs file at %s, saving the role defaults", path);
 	}
-	savePrefs(prefs);
+	if (!savePrefs(prefs)) {
+		LOG_ERR("loadPrefs: %s not written", path);
+	}
 	return true;
 }
 
@@ -162,6 +172,7 @@ bool RepeaterDataStore::savePrefs(const NodePrefs& prefs) {
 	char path[48];
 	snprintf(path, sizeof(path), "%s/prefs.json", BASE_PATH);
 	if (!zephcore_prefs_json_save(path, prefs, serverPrefsToJson)) {
+		LOG_ERR("savePrefs: %s not written", path);
 		return false;
 	}
 	LOG_INF("Saved prefs to %s", path);
