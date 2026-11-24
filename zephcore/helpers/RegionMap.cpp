@@ -159,7 +159,7 @@ RegionEntry* RegionMap::putRegion(const char* name, uint16_t parent_id, uint16_t
 
     region->parent = parent_id;   // re-parent / move this region in the hierarchy
   } else {
-    if (id == 0 && num_regions >= MAX_REGION_ENTRIES) return NULL;  // full!
+    if (num_regions >= MAX_REGION_ENTRIES) return NULL;  // ZEPHCORE: full, whatever id was asked for
 
     region = &regions[num_regions++];   // alloc new RegionEntry
     region->flags = REGION_DENY_FLOOD;     // DENY by default

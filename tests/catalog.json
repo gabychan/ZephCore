@@ -413,6 +413,21 @@
       "source": "tests/unit/chat_contacts_tests.cpp"
     },
     {
+      "id": "UNIT-CHAT-004",
+      "name": "A flood that already carries 63 one-byte hops is not forwarded",
+      "source": "tests/unit/chat_contacts_tests.cpp"
+    },
+    {
+      "id": "UNIT-CHAT-005",
+      "name": "A second import before the loop-back ran is refused and leaks no slot",
+      "source": "tests/unit/chat_contacts_tests.cpp"
+    },
+    {
+      "id": "UNIT-CHAT-006",
+      "name": "A direct packet with no recorded hops is not forwarded, so no hop is invented in the path it returns",
+      "source": "tests/unit/chat_contacts_tests.cpp"
+    },
+    {
       "id": "UNIT-OFFGRID-001",
       "name": "Off-grid frequency: the three allowed, nearest per band, none above sub-GHz",
       "source": "tests/unit/policy_tests.cpp"
@@ -1510,6 +1525,11 @@
     {
       "id": "UNIT-DISPATCH-033",
       "name": "Budget refill survives a long silence and keeps the division remainder",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-034",
+      "name": "Releasing a slot that carries another use's transport codes never hands back a foreign tail",
       "source": "tests/unit/dispatcher_tests.cpp"
     }
   ]

@@ -630,6 +630,8 @@ uint8_t BaseChatMesh::exportContact(const ContactInfo& contact, uint8_t dest_buf
 }
 
 bool BaseChatMesh::importContact(const uint8_t src_buf[], uint8_t len) {
+  if (_pendingLoopback) return false;  // ZEPHCORE: one loop-back at a time; a second would leak the first
+
   auto pkt = obtainNewPacket();
   if (pkt) {
     if (pkt->readFrom(src_buf, len) && pkt->getPayloadType() == PAYLOAD_TYPE_ADVERT) {

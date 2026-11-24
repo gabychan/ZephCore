@@ -126,7 +126,13 @@ void init_pool() {
 mesh::Packet* StaticPoolPacketManager::allocNew() {
   init_pool();  // ZEPHCORE
   mesh::Packet* packet = unused.removeByIdx(0);  // just get first one (returns NULL if empty)
-  if (packet) packet->tx_window = 0;  // ZEPHCORE
+  if (packet) {
+    // ZEPHCORE: a recycled slot must not look like a foreign frame, nor carry transport
+    // codes from its last use. Only sendForeign() leaves a packet holding a tail slot.
+    packet->header = 0;
+    packet->transport_codes[0] = 0;
+    packet->tx_window = 0;
+  }
   return packet;
 }
 

@@ -404,6 +404,37 @@ TEST(dispatch_hold_no_stale, "UNIT-DISPATCH-032", "A live transmit hold ends at 
     CHECK(g.radio.attempts == 1); g.complete(); CHECK(g.pool.getFreeCount() == 32);
 }
 
+TEST(dispatch_foreign_residual, "UNIT-DISPATCH-034", "Releasing a slot that carries another use's transport codes never hands back a foreign tail") {
+    Fixture f; f.begin();
+    // A received TRANSPORT_FLOOD leaves a region code in the slot, MeshCore's second code zero.
+    std::vector<uint8_t> flood(8, 0);
+    flood[0] = uint8_t((PAYLOAD_TYPE_TXT_MSG << 2) | ROUTE_TYPE_TRANSPORT_FLOOD);
+    flood[1] = 0x34; flood[2] = 0x12;
+    flood[6] = 0xAA; flood[7] = 0xBB;
+    std::vector<mesh::Packet*> held;
+    while (auto q = f.dispatcher.obtainNewPacket()) held.push_back(q);
+    CHECK(held.size() == 32);
+    auto p = held.front(); held.erase(held.begin());
+    CHECK(f.dispatcher.tryParsePacket(p, flood.data(), (int)flood.size()));
+    CHECK(p->transport_codes[0] == 0x1234 && p->transport_codes[1] == 0);
+    f.dispatcher.releasePacket(p);
+    CHECK(f.dispatcher.obtainNewPacket() == p);            // the pool hands the freed slot out again
+    for (auto q : held) f.dispatcher.releasePacket(q);
+    // A long foreign frame now owns the first tail slot.
+    std::vector<uint8_t> over(200, 7);
+    CHECK(f.dispatcher.sendForeign(over.data(), (int)over.size(), 1, 10000));
+    // The app sends a raw frame with the foreign header byte and it does not parse.
+    const uint8_t bad[] = {0xFD, 0x00};
+    CHECK(!f.dispatcher.tryParsePacket(p, bad, sizeof(bad)));
+    f.dispatcher.releasePacket(p);
+    // Only the tail slots nobody holds are takeable.
+    int taken = 0;
+    for (int i = 0; i < mesh::ForeignTail::SLOTS; i++) {
+        if (f.dispatcher.sendForeign(over.data(), (int)over.size(), 1, 10000)) taken++;
+    }
+    CHECK(taken == mesh::ForeignTail::SLOTS - 1);
+}
+
 TEST(dispatch_budget_long_idle, "UNIT-DISPATCH-033", "Budget refill survives a long silence and keeps the division remainder") {
     Fixture f; f.dispatcher.window = 3600000; f.begin(10);              // 360 s budget
     f.radio.airtime = 400000;                                          // one send drains it

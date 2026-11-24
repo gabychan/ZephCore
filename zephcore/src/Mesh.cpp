@@ -468,8 +468,9 @@ void Mesh::removeSelfFromPath(Packet* pkt) {
 
 DispatcherAction Mesh::routeRecvPacket(Packet* packet) {
   uint8_t n = packet->getPathHashCount();
+  // ZEPHCORE: the hop count is six bits; a 64th hop would spill into the hash-size bits.
   if (packet->isRouteFlood() && !packet->isMarkedDoNotRetransmit()
-    && (n + 1)*packet->getPathHashSize() <= MAX_PATH_SIZE && allowPacketForward(packet)) {
+    && n < 63 && (n + 1)*packet->getPathHashSize() <= MAX_PATH_SIZE && allowPacketForward(packet)) {
     // append this node's hash to 'path'
     self_id.copyHashTo(&packet->path[n * packet->getPathHashSize()], packet->getPathHashSize());
     packet->setPathHashCount(n + 1);
