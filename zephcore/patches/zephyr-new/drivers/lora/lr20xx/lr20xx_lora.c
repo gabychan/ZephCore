@@ -2256,8 +2256,16 @@ static int lr20xx_lora_send_async(const struct device *dev,
 			return -EBUSY;
 		}
 		if (cad_ret < 0 && cad_ret != -ENOSYS) {
-			LOG_WRN("LBT: CAD failed (%d), proceeding with TX",
-				cad_ret);
+			/* No verdict is not a clear channel: do not transmit. Re-arm
+			 * as after a busy verdict; the full RX start also recovers a
+			 * chip that did not answer. */
+			LOG_WRN("LBT: CAD failed (%d), restoring RX", cad_ret);
+			if (was_in_rx || data->rx_duty_cycle_enabled) {
+				k_mutex_lock(&data->spi_mutex, K_FOREVER);
+				lr20xx_start_rx(data, cfg);
+				k_mutex_unlock(&data->spi_mutex);
+			}
+			return cad_ret;
 		}
 	}
 

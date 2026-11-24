@@ -1038,8 +1038,16 @@ static int lr11xx_lora_send_async(const struct device *dev,
 			return -EBUSY;
 		}
 		if (cad_ret < 0 && cad_ret != -ENOSYS) {
-			LOG_WRN("LBT: CAD failed (%d), proceeding with TX",
-				cad_ret);
+			/* No verdict is not a clear channel: do not transmit. The
+			 * full RX start also recovers a chip that did not answer
+			 * (standby, or a hardware reset when that fails). */
+			LOG_WRN("LBT: CAD failed (%d), restoring RX", cad_ret);
+			if (was_in_rx && data->async_rx_cb != NULL) {
+				k_mutex_lock(&data->spi_mutex, K_FOREVER);
+				lr11xx_start_rx(data, cfg);
+				k_mutex_unlock(&data->spi_mutex);
+			}
+			return cad_ret;
 		}
 	}
 
@@ -1155,7 +1163,8 @@ static int lr11xx_lora_recv_async(const struct device *dev,
 	/* Already in continuous RX on the current sync word: refresh the callback
 	 * and stay on air. The usual callers come right after the driver itself
 	 * restarted RX: LoRaRadio::startSendRaw()'s failure path after the LBT
-	 * branch restored it on CAD-busy, and the TX wait thread after TX done. */
+	 * branch restored it (busy, or no CAD verdict), and the TX wait thread
+	 * after TX done. */
 	if (data->in_rx_mode && !data->rx_duty_cycle_enabled && !data->rx_params_stale) {
 		data->async_rx_cb = cb;
 		data->async_rx_user_data = user_data;
