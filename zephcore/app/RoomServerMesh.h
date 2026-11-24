@@ -217,7 +217,7 @@ public:
   void setTxPower(int8_t power_dbm) override;
   bool setRxBoostedGain(bool enable) override;
 
-  void formatNeighborsReply(char *reply) override;  // ZEPHCORE: defined in the .cpp
+  void formatNeighborsReply(char *reply, size_t cap) override;  // ZEPHCORE: defined in the .cpp
   void formatStatsReply(char *reply) override;
   void formatRadioStatsReply(char *reply) override;
   void formatPacketStatsReply(char *reply) override;

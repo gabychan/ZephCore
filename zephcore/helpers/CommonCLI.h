@@ -56,7 +56,7 @@ public:
 		(void)sfs; (void)num; return false;
 	}
 	/* Repeater only; other roles answer "not available". */
-	virtual void formatNeighborsReply(char* reply)      { strcpy(reply, "not available"); }
+	virtual void formatNeighborsReply(char* reply, size_t cap) { (void)cap; strcpy(reply, "not available"); }
 	virtual void removeNeighbor(const uint8_t* pubkey, int key_len) {
 		(void)pubkey; (void)key_len;
 	}
@@ -153,13 +153,6 @@ class CommonCLI {
 
 	uint8_t _reply_hdr_used;  /* see setReplyHeaderUsed() */
 
-	/* Bytes a handler may write at `reply`, terminator included: the whole
-	 * local buffer, or what is left of a remote one after the caller's header. */
-	size_t replyCap(uint32_t sender_timestamp) const {
-		return (sender_timestamp == 0) ? CLI_REPLY_SIZE
-					       : (CLI_REMOTE_REPLY_SIZE - _reply_hdr_used);
-	}
-
 	mesh::RTCClock* getRTCClock() { return _rtc; }
 	void savePrefs();
 	void scheduleReboot(uint8_t type);
@@ -186,6 +179,14 @@ public:
 	/* Bytes of the reply buffer the caller already used (a reflected "xx|"
 	 * prefix). Set on every dispatch, 0 when none. */
 	void setReplyHeaderUsed(uint8_t n) { _reply_hdr_used = n; }
+
+	/* Bytes a handler may write at `reply`, terminator included: the whole
+	 * local buffer, or what is left of a remote one after the caller's header.
+	 * Public for the role dispatchers' own reply writers. */
+	size_t replyCap(uint32_t sender_timestamp) const {
+		return (sender_timestamp == 0) ? CLI_REPLY_SIZE
+					       : (CLI_REMOTE_REPLY_SIZE - _reply_hdr_used);
+	}
 
 	void handleCommand(uint32_t sender_timestamp, const char* command, char* reply);
 	uint8_t buildAdvertData(uint8_t node_type, uint8_t* app_data);

@@ -2536,7 +2536,9 @@ bool CompanionMesh::handleCmdExportContact(const uint8_t *data, size_t len)
 		}
 		if (pkt) {
 			pkt->header |= ROUTE_TYPE_FLOOD;
-			uint8_t rsp[128];
+			/* The advert is up to MAX_ADVERT_PKT_LEN: size the frame for it
+			 * rather than for the 128-byte older envelope. */
+			uint8_t rsp[MAX_FRAME_SIZE + 1];
 			rsp[0] = PACKET_EXPORT_CONTACT;
 			uint8_t out_len = pkt->writeTo(&rsp[1]);
 			releasePacket(pkt);
@@ -2548,7 +2550,8 @@ bool CompanionMesh::handleCmdExportContact(const uint8_t *data, size_t len)
 		// Export specific contact by pubkey
 		ContactInfo *c = lookupContactByPubKey(&data[1], PUB_KEY_SIZE);
 		if (c) {
-			uint8_t rsp[128];
+			/* As above: a stored advert blob is up to MAX_ADVERT_PKT_LEN. */
+			uint8_t rsp[MAX_FRAME_SIZE + 1];
 			rsp[0] = PACKET_EXPORT_CONTACT;
 			uint8_t export_len = exportContact(*c, &rsp[1]);
 			if (export_len > 0) {

@@ -1146,7 +1146,8 @@ bool RoomServerMesh::configSideDetectors(const uint8_t* sfs, uint8_t num) {
 }
 
 /* A room server keeps no neighbour table (it is not a repeater). */
-void RoomServerMesh::formatNeighborsReply(char* reply) {
+void RoomServerMesh::formatNeighborsReply(char* reply, size_t cap) {
+  (void)cap;
   strcpy(reply, "not supported");
 }
 

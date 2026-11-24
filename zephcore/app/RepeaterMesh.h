@@ -268,7 +268,7 @@ protected:
 
 #if IS_ENABLED(CONFIG_ZEPHCORE_REPEATER_UPLINK)
   // ZEPHCORE: MQTT uplink (app/RepeaterUplink.cpp).
-  bool handleUplinkCommand(const char *command, char *reply);
+  bool handleUplinkCommand(const char *command, char *reply, size_t cap);
   void markUplinkRebootRequired() { _uplink_reboot_required = true; }
   bool isUplinkEnabled() const { return (_uplink_creds._reserved[0] & 0x01) != 0; }
   void setUplinkEnabled(bool en) {
@@ -316,7 +316,7 @@ public:
 
   void dumpLogFile() override;
   void setTxPower(int8_t power_dbm) override;
-  void formatNeighborsReply(char *reply) override;
+  void formatNeighborsReply(char *reply, size_t cap) override;
   void removeNeighbor(const uint8_t* pubkey, int key_len) override;
   void formatStatsReply(char *reply) override;
   void formatRadioStatsReply(char *reply) override;

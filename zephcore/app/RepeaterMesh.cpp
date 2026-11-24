@@ -1333,7 +1333,7 @@ bool RepeaterMesh::configSideDetectors(const uint8_t* sfs, uint8_t num) {
 #endif
 
 // ZEPHCORE: ours. No <algorithm>; insertion sort.
-void RepeaterMesh::formatNeighborsReply(char* reply) {
+void RepeaterMesh::formatNeighborsReply(char* reply, size_t cap) {
   char* dp = reply;
 
 #if MAX_NEIGHBOURS > 0
@@ -1353,20 +1353,30 @@ void RepeaterMesh::formatNeighborsReply(char* reply) {
   for (int i = 0; i < neighbours_count && dp - reply < 134; i++) {
     NeighbourInfo* neighbour = sorted_neighbours[i];
 
-    if (i > 0) *dp++ = '\n';
+    /* A remote reply buffer is not 134 long: bound the line by what is left. */
+    size_t room = cap - (size_t)(dp - reply);
+    size_t sep = (i > 0) ? 1 : 0;
+    if (room < sep + 2) break;  // separator, one char, terminator
+
+    if (sep) *dp++ = '\n';
 
     char hex[10];
     mesh::Utils::toHex(hex, neighbour->id.pub_key, 4);
 
     uint32_t secs_ago = getRTCClock()->getCurrentTime() - neighbour->heard_timestamp;
-    sprintf(dp, "%s:%u:%d", hex, secs_ago, neighbour->snr);
-    while (*dp) dp++;
+    int n = snprintf(dp, room - sep, "%s:%u:%d", hex, secs_ago, neighbour->snr);
+    if (n < 0) break;
+    if ((size_t)n >= room - sep) {  // truncated: stop on the terminator
+      dp += (room - sep) - 1;
+      break;
+    }
+    dp += n;
   }
 #endif
 
   if (dp == reply) {
-    strcpy(dp, "-none-");
-    dp += 6;
+    snprintf(dp, cap, "-none-");
+    dp += strlen(dp);
   }
   *dp = 0;
 }
@@ -1503,7 +1513,7 @@ void RepeaterMesh::handleCommand(uint32_t sender_timestamp, char* command, char*
   _cli.setReplyHeaderUsed(hdr_used);
 
 #if IS_ENABLED(CONFIG_ZEPHCORE_REPEATER_UPLINK) && IS_ENABLED(CONFIG_MQTT_LIB)
-  if (handleUplinkCommand(command, reply)) {
+  if (handleUplinkCommand(command, reply, _cli.replyCap(sender_timestamp))) {
     return;
   }
 #endif
