@@ -10,6 +10,8 @@
  * Event loop:
  *   LORA_RX  → ObserverMesh::loop() → enqueuePacket() → mqtt_publisher_commit()
  *   CLI_RX   → ObserverMesh::handleCLI() (set/get commands)
+ *   MAINTENANCE → ObserverMesh::maintenanceLoop(): noise floor, CAD probe,
+ *                 AGC unstick and temperature recalibration on their deadlines
  */
 
 #include <stdio.h>
@@ -56,7 +58,7 @@ static const struct gpio_dt_spec led0 = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 /* The shared bits are in mesh_events.h; these are the observer's own. */
 #define MESH_EVENT_STATUS       BIT(MESH_EVENT_ROLE_BASE)      /* 300 s status publish */
 #define MESH_EVENT_MQTT_CONNECT BIT(MESH_EVENT_ROLE_BASE + 1)  /* MQTT (re)connected — publish status+self-advert on main */
-#define MESH_EVENT_ALL       (MESH_EVENT_LORA_RX | MESH_EVENT_CLI_RX | MESH_EVENT_STATUS | MESH_EVENT_MQTT_CONNECT)
+#define MESH_EVENT_ALL       (MESH_EVENT_LORA_RX | MESH_EVENT_CLI_RX | MESH_EVENT_MAINTENANCE | MESH_EVENT_STATUS | MESH_EVENT_MQTT_CONNECT)
 
 static struct k_event mesh_events;
 
@@ -322,6 +324,31 @@ static mesh::LoRaRadio lora_radio(lora_dev, s_board);
 static mesh::ObserverMesh observer_mesh(lora_radio, s_ms_clock, s_rtc_clock);
 static RepeaterDataStore  data_store;
 
+/* ========== Radio maintenance wake ========== */
+
+static void maintenance_timer_fn(struct k_timer *timer)
+{
+	ARG_UNUSED(timer);
+	k_event_post(&mesh_events, MESH_EVENT_MAINTENANCE);
+}
+
+K_TIMER_DEFINE(maintenance_timer, maintenance_timer_fn, NULL);
+
+/* Arm one wake for the radio's soonest deadline after every pass: the noise
+ * floor sample (the AGC unstick counts frozen samples), the CAD probe and the
+ * temperature-drift recalibration. A silent observer has no other wake for
+ * them, and a stuck AGC stays deaf until the node is restarted. */
+static void arm_maintenance_wake(void)
+{
+	uint32_t next = observer_mesh.msUntilNextMaintenance();
+
+	if (next >= mesh::MAINTENANCE_IDLE) {
+		k_timer_stop(&maintenance_timer);
+		return;
+	}
+	k_timer_start(&maintenance_timer, K_MSEC(MAX(next, 1U)), K_NO_WAIT);
+}
+
 /* ========== reboot / erase ========== */
 
 /* Deferred so the reply reaches the console before the reset. */
@@ -493,6 +520,12 @@ int main(void)
 			observer_mesh.publishStatus("online");
 			observer_mesh.publishSelfAdvert();
 		}
+
+		/* Radio work runs on every pass, whatever woke us: each item is
+		 * deadline-gated, and it comes after the packet so an inbound frame is
+		 * handled first. */
+		observer_mesh.maintenanceLoop();
+		arm_maintenance_wake();
 	}
 
 	return 0;

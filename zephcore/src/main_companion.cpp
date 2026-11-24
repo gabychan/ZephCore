@@ -928,6 +928,10 @@ int main(void)
 {
 	zephyr_board.clearBootloaderMagic();
 
+	/* Before anything registers a callback that posts to it: k_event_init()
+	 * clears the pending bits, so a post in the boot window would be lost. */
+	k_event_init(&mesh_events);
+
 	/* USB up first so the host can enumerate; wait up to 1 s for the port to
 	 * open (DTR), else the banner is buffered for a later attach. */
 #if ZEPHCORE_USB_STACK && DT_HAS_COMPAT_STATUS_OKAY(zephyr_cdc_acm_uart) && \
@@ -1201,8 +1205,6 @@ int main(void)
 
 	/* ADC multiplier override (0 = devicetree default) */
 	zephyr_board.setAdcMultiplier(companion_mesh.prefs.adc_multiplier);
-
-	k_event_init(&mesh_events);
 
 	ui_mesh_actions_init(&mesh_events, MESH_EVENT_UI_ACTION,
 			     &companion_mesh, &data_store,

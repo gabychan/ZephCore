@@ -623,7 +623,7 @@ mesh::Mesh
 ### 6.2 CompanionMesh
 
 Handles the binary BLE protocol with ~50 command opcodes. Key features:
-- **Offline queue**: circular buffer with peek/confirm pattern (survives BLE drops); `CONFIG_ZEPHCORE_OFFLINE_QUEUE_SIZE`, default 256 frames (lowered on RAM-bound boards)
+- **Offline queue**: circular buffer with peek/confirm pattern (survives BLE drops); `CONFIG_ZEPHCORE_OFFLINE_QUEUE_SIZE`, default 256 frames (lowered on RAM-bound boards) When the queue is full the oldest channel message is dropped, as upstream does; with no channel message to drop the new frame is discarded and never one that has not been sent, so a full queue can cost the newcomer but not the head of a running sync.
 - **ACK tracking**: 8-slot table, computes expected ACK = SHA256(secret + hash)[0:4]
 - **Contact iteration**: Streaming protocol with `lastmod` filtering for incremental sync. The dump advances only
   while a client is connected and every connected transport has room; it is cancelled when the last client leaves
@@ -785,7 +785,7 @@ Headless store-and-forward shared message room (BBS). Clients log in with the ad
 
 ### 6.5 ObserverMesh
 
-Listen-only node (ESP32 only): receives LoRa packets and publishes them to an MQTT broker over WiFi STA (`adapters/mqtt/`, `adapters/wifi/`). Never transmits. Configured at runtime via serial CLI (credentials in `observer_creds.cpp`); build with `boards/common/observer.conf`.
+Listen-only node (ESP32 only): receives LoRa packets and publishes them to an MQTT broker over WiFi STA (`adapters/mqtt/`, `adapters/wifi/`). Never transmits. Configured at runtime via serial CLI (credentials in `observer_creds.cpp`); build with `boards/common/observer.conf`. Its loop runs `Dispatcher::maintenanceLoop()` on every pass and arms a one-shot wake with `msUntilNextMaintenance()`, like the server roles: without it a stuck AGC left the receiver deaf until a reboot.
 
 ### 6.5.1 KISS modem
 

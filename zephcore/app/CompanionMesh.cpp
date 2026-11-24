@@ -456,27 +456,34 @@ void CompanionMesh::addToOfflineQueue(const uint8_t *data, size_t len)
 {
 	LOG_DBG("addToOfflineQueue: len=%u type=0x%02x count_before=%d", (unsigned)len, data[0], _offline_queue_count);
 	if (_offline_queue_count >= OFFLINE_QUEUE_SIZE) {
-		// Queue full - try to drop oldest channel message first
-		int pos = _offline_queue_head;
+		/* Queue full: the oldest channel message makes room, as upstream. With
+		 * no channel message queued the new frame is dropped, never one the app
+		 * has not been sent yet. */
+		int victim = -1;
 		for (int i = 0; i < _offline_queue_count; i++) {
-			int idx = (pos + i) % OFFLINE_QUEUE_SIZE;
+			int idx = (_offline_queue_head + i) % OFFLINE_QUEUE_SIZE;
 			if (isChannelMessage(_offline_queue[idx].buf)) {
-				// Found a channel message, remove it
-				for (int j = i; j < _offline_queue_count - 1; j++) {
-					int from = (_offline_queue_head + j + 1) % OFFLINE_QUEUE_SIZE;
-					int to = (_offline_queue_head + j) % OFFLINE_QUEUE_SIZE;
-					_offline_queue[to] = _offline_queue[from];
-				}
-				_offline_queue_tail = (_offline_queue_tail - 1 + OFFLINE_QUEUE_SIZE) % OFFLINE_QUEUE_SIZE;
-				_offline_queue_count--;
+				victim = i;
 				break;
 			}
 		}
-		// If still full (no channel messages found), drop oldest
-		if (_offline_queue_count >= OFFLINE_QUEUE_SIZE) {
-			_offline_queue_head = (_offline_queue_head + 1) % OFFLINE_QUEUE_SIZE;
-			_offline_queue_count--;
+		if (victim < 0) {
+			LOG_WRN("offline queue full, dropped new frame type=0x%02x", data[0]);
+			return;
 		}
+		if (victim == 0) {
+			/* The victim is the head, which is the frame the app is already
+			 * receiving: it leaves the queue now, so the confirm the next sync
+			 * request would send has nothing left to advance. */
+			_sync_pending = false;
+		}
+		for (int j = victim; j < _offline_queue_count - 1; j++) {
+			int from = (_offline_queue_head + j + 1) % OFFLINE_QUEUE_SIZE;
+			int to = (_offline_queue_head + j) % OFFLINE_QUEUE_SIZE;
+			_offline_queue[to] = _offline_queue[from];
+		}
+		_offline_queue_tail = (_offline_queue_tail - 1 + OFFLINE_QUEUE_SIZE) % OFFLINE_QUEUE_SIZE;
+		_offline_queue_count--;
 	}
 	QueuedFrame *f = &_offline_queue[_offline_queue_tail];
 	f->len = (len > sizeof(f->buf)) ? sizeof(f->buf) : len;
@@ -1510,14 +1517,23 @@ void CompanionMesh::onContactResponse(const ContactInfo &contact, const uint8_t 
 	if (len > 4 && tag == _pending_telemetry) {
 		_pending_telemetry = 0;
 
-		uint8_t rsp[128];
+		/* The whole record or nothing: the app parses one LPP blob, so a
+		 * clipped one loses its tail. 8 header bytes plus the largest
+		 * response payload the mesh can carry (createDatagram caps a
+		 * PAYLOAD_TYPE_RESPONSE at MAX_PACKET_PAYLOAD - CIPHER_MAC_SIZE -
+		 * (CIPHER_BLOCK_SIZE - 1) = 167, less the 4-byte tag) fits a
+		 * MAX_FRAME_SIZE frame. */
+		uint8_t rsp[MAX_FRAME_SIZE];
 		int i = 0;
 		rsp[i++] = PUSH_CODE_TELEMETRY_RESPONSE;
 		rsp[i++] = 0;  // reserved
 		memcpy(&rsp[i], contact.id.pub_key, 6);
 		i += 6;
 		int data_len = len - 4;
-		if (data_len > (int)sizeof(rsp) - i) data_len = sizeof(rsp) - i;
+		if (data_len > (int)sizeof(rsp) - i) {
+			LOG_WRN("telemetry response too long: %d > %d", data_len, (int)sizeof(rsp) - i);
+			return;
+		}
 		memcpy(&rsp[i], &data[4], data_len);
 		i += data_len;
 		sendPush(rsp[0], &rsp[1], i - 1);
