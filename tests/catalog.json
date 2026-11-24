@@ -1548,6 +1548,16 @@
       "source": "tests/unit/dispatcher_tests.cpp"
     },
     {
+      "id": "UNIT-DISPATCH-035",
+      "name": "A transmit the driver gives up on before its expiry arms a wake for it, and a packet queued behind goes out then",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-036",
+      "name": "A chip that is not command-ready keeps a due packet's schedule; only a busy channel draws it again",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
       "id": "UNIT-RADIO-001",
       "name": "Only a busy channel relaxes the CAD, a driver error is re-queued without touching it",
       "source": "tests/unit/radio_tests.cpp"

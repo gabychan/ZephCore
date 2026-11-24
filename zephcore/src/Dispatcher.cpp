@@ -271,6 +271,14 @@ uint32_t Dispatcher::msUntilNextMaintenance() {
   if (!prev_isrecv_mode && !(_err_flags & ERR_EVENT_STARTRX_TIMEOUT)) {
     next = maintenanceSooner(next, maintenanceUntil(now, radio_nonrx_start + RADIO_STALL_THRESHOLD_MS));
   }
+
+  // A transmit's expiry is a deadline too: a driver that gives up on the TX
+  // before it leaves loop() held, with nothing else armed for it. Armed one
+  // millisecond past it, as the expiry test is a strict "has passed".
+  if (outbound) {
+    int32_t left = (int32_t)(outbound_expiry - now);
+    if (left >= 0) next = maintenanceSooner(next, (uint32_t)left + 1U);
+  }
   return next;
 }
 
@@ -484,7 +492,9 @@ void Dispatcher::checkSend() {
   bool is_receiving = _radio->isReceiving();
   bool is_radio_ready = _radio->isRadioReady();
   if (is_receiving || !is_radio_ready) {
-    tx_contended = true;
+    // Only a busy channel makes a due packet draw again: a chip in its RX
+    // duty-cycle sleep keeps its turn, and one already held stays held.
+    if (is_receiving) tx_contended = true;
     if (tx_hold && !millisHasNowPassed(next_tx_time)) {
       notifyTxQueued(next_tx_time - now + 1);
       return;

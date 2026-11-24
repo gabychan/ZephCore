@@ -461,3 +461,39 @@ TEST(dispatch_budget_long_idle, "UNIT-DISPATCH-033", "Budget refill survives a l
     CHECK(h.radio.attempts == 1 && h.dispatcher.getRemainingTxBudget() == 21);  // 10 + 11 % of 100 ms
     h.clock.now = 1000; h.dispatcher.loop(); h.complete(); CHECK(h.pool.getFreeCount() == 32);
 }
+
+TEST(dispatch_tx_abandoned, "UNIT-DISPATCH-035", "A transmit the driver gives up on before its expiry arms a wake for it, and a packet queued behind goes out then") {
+    Fixture f; f.begin();
+    f.dispatcher.sendPacket(f.packet(), 2, 0);
+    f.dispatcher.loop(); f.radio.active = false;                       // concluded with an error, no completion
+    f.clock.now = 150; f.dispatcher.loop();                            // the TX_DONE wake, expiry at 400
+    CHECK(f.radio.sent.size() == 1 && f.dispatcher.failures == 0);     // held: the expiry is still the bound
+    CHECK(f.pool.getFreeCount() == 31 && f.pool.getOutboundTotal() == 0);
+    CHECK(f.dispatcher.msUntilNextMaintenance() == 251);               // and the loop can sleep until it
+    f.dispatcher.sendPacket(f.packet(), 2, 0);                         // one waits behind the abandoned TX
+    f.clock.now = 400; f.dispatcher.loop();
+    CHECK(f.dispatcher.failures == 0 && f.radio.sent.size() == 1);     // at the expiry itself still held
+    f.clock.now = 401; f.dispatcher.loop();
+    CHECK(f.dispatcher.failures == 1 && f.radio.finished == 1 && f.radio.sent.size() == 2);
+    f.complete(); CHECK(f.pool.getFreeCount() == 32);
+}
+
+TEST(dispatch_sleep_no_redraw, "UNIT-DISPATCH-036", "A chip that is not command-ready keeps a due packet's schedule; only a busy channel draws it again") {
+    Fixture f; f.begin();
+    f.dispatcher.sendPacket(f.packet(), 2, 0);
+    f.radio.ready = false; f.dispatcher.loop();                        // RX duty-cycle sleep: BUSY, channel free
+    CHECK(f.radio.attempts == 0 && f.pool.getOutboundSchedule(0) == 100);
+    CHECK(f.dispatcher.wakes.back() == 101);
+    f.radio.ready = true; f.clock.now = 200; f.dispatcher.loop();
+    CHECK(f.radio.attempts == 1 && f.pool.getOutboundTotal() == 0);    // its turn stands: no second draw
+    f.complete(); CHECK(f.pool.getFreeCount() == 32);
+
+    Fixture g; g.begin();                                              // the busy channel still draws again
+    g.dispatcher.sendPacket(g.packet(), 2, 0);
+    g.radio.receiving = true; g.dispatcher.loop();
+    CHECK(g.radio.attempts == 0 && g.pool.getOutboundSchedule(0) == 100);
+    g.radio.receiving = false; g.clock.now = 200; g.dispatcher.loop();
+    CHECK(g.radio.attempts == 0 && g.pool.getOutboundSchedule(0) == 300);
+    g.clock.now = 300; g.dispatcher.loop(); CHECK(g.radio.attempts == 1);
+    g.complete();
+}

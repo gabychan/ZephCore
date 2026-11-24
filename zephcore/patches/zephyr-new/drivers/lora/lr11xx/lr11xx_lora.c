@@ -1521,9 +1521,10 @@ bool lr11xx_is_receiving(const struct device *dev)
 		return false;
 	}
 
-	/* Non-blocking — skip if SPI busy */
+	/* Non-blocking: a busy mutex means the DIO1 handler is mid-packet, so
+	 * answer busy and let the caller retry (SX126x parity). */
 	if (k_mutex_lock(&data->spi_mutex, K_NO_WAIT) != 0) {
-		return false;
+		return true;
 	}
 
 	lr11xx_system_irq_mask_t irq = 0;

@@ -2654,9 +2654,10 @@ bool lr20xx_is_receiving(const struct device *dev)
 	 * without racing the DIO1 work handler.  lr20xx_system_get_status()
 	 * goes through lr20xx_hal_direct_read and clears nothing — the poll
 	 * path MUST stay that way.  The only writes below are the two
-	 * deliberate releases. */
+	 * deliberate releases.  A busy mutex means the handler is mid-packet,
+	 * so answer busy (SX126x parity) and let the caller retry. */
 	if (k_mutex_lock(&data->spi_mutex, K_NO_WAIT) != 0) {
-		return false;
+		return true;
 	}
 
 	lr20xx_system_irq_mask_t irq = 0;

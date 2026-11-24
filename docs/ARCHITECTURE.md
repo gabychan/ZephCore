@@ -415,6 +415,10 @@ For SX126x, `hwIsReceiving()` → `sx126x_is_receiving()` reads in this order:
 
 The poll path is otherwise non-destructive — IRQ bits are cleared only by the work-handler bulk clear (on any DIO1 event), explicit `clear_irq_status(IRQ_ALL)` at every RX (re)start, the grace-expiry one-bit clear for foreign preambles, and the payload-deadline clear in step 1.
 
+`lr11xx_is_receiving()` and `lr20xx_is_receiving()` answer the same question and keep the same rule: a busy SPI mutex means the DIO1 handler is mid-packet, so they answer "receiving" and the caller retries on its next pass, instead of "idle" (which would let a transmit start under a packet being read).
+
+A pending transmit is also a deadline for `Dispatcher::msUntilNextMaintenance()`: when the driver gives up on a TX before `outbound_expiry`, `loop()` stays held with nothing else armed, so the expiry is announced as a maintenance deadline one millisecond past it.
+
 ### 5.2.2 CAD-Timeout Recovery
 
 `Dispatcher::checkSend()` tracks `cad_busy_start` while `isReceiving()` keeps the TX gate closed. If 4 s elapse (`getCADFailMaxDuration()`), the dispatcher calls `_radio->recoverRxState()` and returns. `LoRaRadio::recoverRxState()` does:
