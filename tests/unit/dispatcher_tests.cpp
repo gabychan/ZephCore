@@ -473,7 +473,9 @@ TEST(dispatch_tx_abandoned, "UNIT-DISPATCH-035", "A transmit the driver gives up
     f.dispatcher.sendPacket(f.packet(), 2, 0);                         // one waits behind the abandoned TX
     f.clock.now = 400; f.dispatcher.loop();
     CHECK(f.dispatcher.failures == 0 && f.radio.sent.size() == 1);     // at the expiry itself still held
-    f.clock.now = 401; f.dispatcher.loop();
+    f.clock.now = 401;
+    CHECK(f.dispatcher.msUntilNextMaintenance() == 0);                 // already past expiry: wake at once
+    f.dispatcher.loop();
     CHECK(f.dispatcher.failures == 1 && f.radio.finished == 1 && f.radio.sent.size() == 2);
     f.complete(); CHECK(f.pool.getFreeCount() == 32);
 }

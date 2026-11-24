@@ -269,6 +269,9 @@ def build(assets, url_base, version, digests=None):
             fmt_name = erase.rsplit("/", 1)[-1]
             if fmt_name in digests:
                 opt["erase_sha256"] = digests[fmt_name]
+            uf2_name = fmt_name[:-4] + ".uf2" if fmt_name.endswith(".zip") else ""
+            if uf2_name in digests:
+                opt["erase_uf2_sha256"] = digests[uf2_name]
         dev["firmware"].append(opt)
         used_roles.add(role)
 

@@ -923,7 +923,9 @@ bool CompanionMesh::mtSendDirectText(const ContactInfo &contact, uint32_t timest
 
 uint32_t CompanionMesh::mtDirectId(uint32_t node, uint32_t timestamp) const
 {
-	for (const MtDirect &d : _mt_direct) {
+	for (uint8_t i = 0; i < MT_DIRECT_KEEP; i++) {
+		const MtDirect &d = _mt_direct[(_mt_direct_next + MT_DIRECT_KEEP - 1 - i) % MT_DIRECT_KEEP];
+
 		if (d.id != 0 && d.node == node && d.timestamp == timestamp) {
 			return d.id;
 		}

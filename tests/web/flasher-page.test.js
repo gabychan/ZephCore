@@ -306,3 +306,52 @@ test("ESP32: an image that does not match the catalog's sha256 is not written; o
     espFiles().forEach((f) => { delete f.sha256; });
   }
 });
+
+test("nRF52 UF2 clean install checks erase_uf2_sha256, not the .zip digest", async () => {
+  const sha1234 = "9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a";
+  const fw = catalog.device[0].firmware[0];
+  fw.erase = CDN + "SoftDevice_v7_formatter.zip";
+  fw.erase_sha256 = "00".repeat(32);      // .zip digest differs from .uf2
+  fw.erase_uf2_sha256 = sha1234;
+  try {
+    let els = await loadPage({ install: "clean", serial: false });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.deepEqual(els.downloads, ["SoftDevice_v7_formatter.uf2"]);
+
+    fw.erase_uf2_sha256 = "ff".repeat(32);
+    els = await loadPage({ install: "clean", serial: false });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.deepEqual(els.downloads, []);
+    assert.match(els.flashStatusText.textContent, /SHA-256.*No se ha escrito nada/);
+  } finally {
+    delete fw.erase;
+    delete fw.erase_sha256;
+    delete fw.erase_uf2_sha256;
+  }
+});
+
+test("nRF52 DFU clean install checks erase_sha256, not erase_uf2_sha256", async () => {
+  const crypto = require("node:crypto");
+  const zipUrl = CDN + "SoftDevice_v7_formatter.zip";
+  const zipHash = crypto.createHash("sha256").update(zipUrl).digest("hex");
+  const fw = catalog.device[0].firmware[0];
+  fw.erase = zipUrl;
+  fw.erase_sha256 = zipHash;
+  fw.erase_uf2_sha256 = "00".repeat(32);      // .uf2 digest differs from .zip
+  try {
+    let nrf = fakeNrf();
+    await loadPage({ nrf: nrf.module, install: "clean" }).then((els) => els.btnUnifiedFlash.listeners.click());
+    assert.deepEqual(nrf.calls, ["touch", "port", "flash SoftDevice_v7_formatter.zip", "wait", "flash " + FIRMWARE_ZIP]);
+
+    fw.erase_sha256 = "ff".repeat(32);
+    nrf = fakeNrf();
+    const els = await loadPage({ nrf: nrf.module, install: "clean" });
+    await els.btnUnifiedFlash.listeners.click();
+    assert.deepEqual(nrf.calls, ["touch"]);
+    assert.match(els.flashStatusText.textContent, /SHA-256.*No se ha escrito nada/);
+  } finally {
+    delete fw.erase;
+    delete fw.erase_sha256;
+    delete fw.erase_uf2_sha256;
+  }
+});

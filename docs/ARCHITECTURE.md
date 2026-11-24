@@ -814,7 +814,8 @@ and xiao_esp32c3. Build with `boards/common/kiss_modem.conf`.
 ### 6.6 CommonCLI Commands
 
 System: `ver`, `board`, `reboot`, `start dfu`, `start ota`, `erase`
-Config: `set name/freq/radio/tx/flood.max/password/...`, corresponding getters. A companion answers `Error: not supported on companion` to the settings it neither applies nor stores (`password`, `set guest.password`, `set owner.info`, `set flood.max{,.unscoped,.advert}`, `set advert.interval`, `set flood.advert.interval`), and a `set` whose `prefs.json` write fails replaces its `OK` with the not-saved error of §7.2.System (power): `poweroff`/`shutdown`, `get pwrmgt.support/source/bootreason/bootmv`
+Config: `set name/freq/radio/tx/flood.max/password/...`, corresponding getters. A companion answers `Error: not supported on companion` to the settings it neither applies nor stores (`password`, `set guest.password`, `set owner.info`, `set flood.max{,.unscoped,.advert}`, `set advert.interval`, `set flood.advert.interval`), and a `set` whose `prefs.json` write fails replaces its `OK` with the not-saved error of §7.2.
+System (power): `poweroff`/`shutdown`, `get pwrmgt.support/source/bootreason/bootmv`
 GPS: `gps`, `gps on/off/sync/setloc/advert`, `get gps`, `set gps duty <sec>`
 Sensors: `sensor get/set/list` (upstream's `SensorManager` settings: `gps`)
 Companion extras: `get|set autoshutdown`, `get|set v.contact`, `get|set v.batteryalert`, `help`

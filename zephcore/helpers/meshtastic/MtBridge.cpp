@@ -276,7 +276,7 @@ RxResult Bridge::handleFrame(const uint8_t *raw, size_t len, int8_t snr_x4, Sink
 	 * channel whose hash is 0. */
 	if (_pki && h.channel == 0 && h.to == _self && plen > kPkiOverhead) {
 		if (h.from == _self || findSeen(h.from, h.id)) {
-			repeatAck(h, raw, plen, snr_x4, sink);
+			repeatAck(h, raw, plen, snr_x4, sink, buf, d);
 			return RX_DUPLICATE;
 		}
 		if (openPki(h, raw, plen, sink, buf, d)) {
@@ -394,16 +394,23 @@ bool Bridge::openPki(const Header &h, const uint8_t *raw, size_t plen, Sink &sin
 /* A copy of a frame we already took. A sender repeats a frame until it hears its ACK, so one
  * heard straight from it and asking for an ACK is answered again; a copy that does not open is
  * never confirmed, and nothing is delivered twice. */
-void Bridge::repeatAck(const Header &h, const uint8_t *raw, size_t plen, int8_t snr_x4, Sink &sink)
+void Bridge::repeatAck(const Header &h, const uint8_t *raw, size_t plen, int8_t snr_x4, Sink &sink,
+		       uint8_t *buf, Data &d)
 {
-	uint8_t buf[kMaxFrame];
-	Data d;
-
 	if (h.from == _self || !h.wantAck() || h.hopsAway() != 0) {
 		return;
 	}
-	if (openPki(h, raw, plen, sink, buf, d)) {
+	if (!openPki(h, raw, plen, sink, buf, d)) {
+		return;
+	}
+	if (d.portnum == PORT_TEXT && d.payload_len > 0) {
 		sink.onDirectRepeat(h.from, h.id, snr_x4, h.hopsAway());
+	} else if (d.portnum == PORT_ROUTING && d.request_id != 0) {
+		uint32_t reason;
+
+		if (decodeRouting(d.payload, d.payload_len, reason)) {
+			sink.onAckForAck(h.from, h.id, snr_x4);
+		}
 	}
 }
 
@@ -447,10 +454,11 @@ void Bridge::deliverData(const Header &h, const Data &d, uint8_t channel_id, int
 
 		if (decodeRouting(d.payload, d.payload_len, reason)) {
 			sink.onAck(h.from, d.request_id, reason);
-			/* A node repeats its ACK until it hears one: answer this one, with no hops in
+			/* A node repeats its ACK until it hears one: answer this one (its own
+			 * packet id, which the peer's ReliableRouter tracks), with no hops in
 			 * reserve that would make it flood. */
 			if (h.wantAck() && (h.hopsAway() == 0 || h.next_hop == relayByte(_self))) {
-				sink.onAckForAck(h.from, d.request_id, snr_x4);
+				sink.onAckForAck(h.from, h.id, snr_x4);
 			}
 		}
 	}

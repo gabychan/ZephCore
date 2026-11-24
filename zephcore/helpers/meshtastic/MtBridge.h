@@ -260,7 +260,8 @@ private:
 	void deliverPki(const Header &h, const Data &d, int8_t snr_x4, Sink &sink);
 	/* A copy of a frame we already took, heard straight from its sender and asking for an
 	 * ACK: ask the sink to answer it again. Only a copy that opens counts. */
-	void repeatAck(const Header &h, const uint8_t *raw, size_t plen, int8_t snr_x4, Sink &sink);
+	void repeatAck(const Header &h, const uint8_t *raw, size_t plen, int8_t snr_x4, Sink &sink,
+		       uint8_t *buf, Data &d);
 };
 
 } /* namespace mt */

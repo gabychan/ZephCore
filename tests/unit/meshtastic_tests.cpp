@@ -2038,31 +2038,34 @@ TEST(mt_ack_wants_ack, "UNIT-MT-076", "An ACK for us that asks for an ACK is ans
     uint8_t frame[kMaxFrame], relay[kMaxFrame];
     size_t relay_len;
     Header h;
-    // A node repeats its ACK until it hears one: a copy heard directly is answered.
+    // A node repeats its ACK until it hears one: a copy heard directly is answered with the ACK's own packet id.
     size_t n = t.b.buildAck(0xA1A1A1A1u, 0x1001u, t.qa, frame, sizeof(frame));
     CHECK(n > 0 && parseHeader(frame, n, h) && !h.wantAck());
     frame[12] |= 0x08;
     CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
     CHECK(t.ca.acks.size() == 1 && t.ca.acks[0].id == 0x1001u);
     CHECK(t.ca.acks_for_ack.size() == 1 && t.ca.acks_for_ack[0].first == 0xB2B2B2B2u &&
-          t.ca.acks_for_ack[0].second == 0x1001u);
+          t.ca.acks_for_ack[0].second == h.id);
+    // A retried copy of that ACK answers at 0 hops (onAckForAck), not as a 2-hop direct repeat.
+    CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_DUPLICATE);
+    CHECK(t.ca.repeats.empty() && t.ca.acks_for_ack.size() == 2 && t.ca.acks_for_ack[1].second == h.id);
     // Without want_ack there is nothing to answer.
     n = t.b.buildAck(0xA1A1A1A1u, 0x1002u, t.qa, frame, sizeof(frame));
     CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
-    CHECK(t.ca.acks.size() == 2 && t.ca.acks_for_ack.size() == 1);
+    CHECK(t.ca.acks.size() == 2 && t.ca.acks_for_ack.size() == 2);
     // A hop spent and no route: a repeat of some other node's ACK.
     n = t.b.buildAck(0xA1A1A1A1u, 0x1003u, t.qa, frame, sizeof(frame));
     CHECK(parseHeader(frame, n, h));
     frame[12] = (uint8_t)((h.flags & ~0x07) | (uint8_t)(h.hopLimit() - 1) | 0x08);
     CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
-    CHECK(t.ca.acks.size() == 3 && t.ca.acks_for_ack.size() == 1);
+    CHECK(t.ca.acks.size() == 3 && t.ca.acks_for_ack.size() == 2);
     // The same with our relay byte as next hop is routed to us and is answered.
     n = t.b.buildAck(0xA1A1A1A1u, 0x1004u, t.qa, frame, sizeof(frame));
     CHECK(parseHeader(frame, n, h));
     frame[12] = (uint8_t)((h.flags & ~0x07) | (uint8_t)(h.hopLimit() - 1) | 0x08);
     frame[14] = relayByte(0xA1A1A1A1u);
     CHECK(t.a.handleFrame(frame, n, 0, t.ca, relay, &relay_len) == RX_HANDLED);
-    CHECK(t.ca.acks_for_ack.size() == 2 && t.ca.acks_for_ack[1].second == 0x1004u);
+    CHECK(t.ca.acks_for_ack.size() == 3 && t.ca.acks_for_ack[2].second == h.id);
     // A NodeInfo request carries the hops it used, for the answer's hop limit.
     n = t.b.buildNodeInfoTo(3, 0xA1A1A1A1u, true, frame, sizeof(frame));
     CHECK(parseHeader(frame, n, h));

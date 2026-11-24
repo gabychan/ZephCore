@@ -273,11 +273,12 @@ uint32_t Dispatcher::msUntilNextMaintenance() {
   }
 
   // A transmit's expiry is a deadline too: a driver that gives up on the TX
-  // before it leaves loop() held, with nothing else armed for it. Armed one
-  // millisecond past it, as the expiry test is a strict "has passed".
-  if (outbound) {
+  // before it leaves loop() held, with nothing else armed for it. loop() only
+  // expires outbound once !tx_active, so wake one millisecond past expiry (or
+  // immediately if already overdue) only while the radio is no longer active.
+  if (outbound && !_radio->isTxActive()) {
     int32_t left = (int32_t)(outbound_expiry - now);
-    if (left >= 0) next = maintenanceSooner(next, (uint32_t)left + 1U);
+    next = maintenanceSooner(next, left >= 0 ? (uint32_t)left + 1U : 0U);
   }
   return next;
 }

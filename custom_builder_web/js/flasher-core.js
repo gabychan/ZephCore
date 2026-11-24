@@ -268,11 +268,6 @@ function initFlasherCore() {
     return formatterUrl(await findBuild(board, role));
   }
 
-  // The formatter's SHA-256 from the catalog, so a clean install is checked like a firmware download.
-  async function formatterSha256(board, role) {
-    return (await findBuild(board, role)).erase_sha256;
-  }
-
   // Tells whether the catalog has a Zephtacore build for the selected board and role.
   async function refreshBuildAvailability() {
     if (!previewBuildTag) return;
@@ -542,10 +537,11 @@ function initFlasherCore() {
   // and puts the board back in UF2 mode; the firmware is downloaded once the user says it is back.
   async function startCleanUf2(board, role) {
     setProgress(20, `Descargando el formateador para ${board.name}...`);
-    const url = await resolveFormatterUrl(board, role);
+    const file = await findBuild(board, role);
+    const url = formatterUrl(file, "uf2");
     if (!url) throw new Error(`El catálogo no tiene formateador para ${board.name}.`);
     const name = url.split("/").pop();
-    saveBytes(name, await fetchBytes(url, await formatterSha256(board, role)));
+    saveBytes(name, await fetchBytes(url, file.erase_uf2_sha256));
     setProgress(40, `Descargado "${name}". Pon la placa en modo UF2 (doble pulsación de reset) y cópialo al disco: se formatea y vuelve sola a modo UF2. Cuando el disco reaparezca, pulsa "Ya formateada: descargar firmware".`);
     offerNextStep("Ya formateada: descargar firmware", downloadAfterFormat);
   }

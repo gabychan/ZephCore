@@ -7,7 +7,7 @@
 #include <mesh/Maintenance.h>  // ZEPHCORE: deadline-driven maintenance
 #include <mesh/TxStall.h>  // ZEPHCORE: per-cause TX stalls
 #include <mesh/ForeignTail.h>  // ZEPHCORE: tail of a foreign frame longer than a Packet
-#include <errno.h>
+#include <errno.h>  // ZEPHCORE: txStartRefusal() returns negated errno
 #include <string.h>
 
 namespace mesh {

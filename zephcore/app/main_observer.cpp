@@ -494,6 +494,7 @@ int main(void)
 	k_timer_start(&status_timer, K_SECONDS(300), K_SECONDS(300));
 
 	LOG_INF("Observer event loop running");
+	arm_maintenance_wake();
 
 	/* ========== Event loop ========== */
 	for (;;) {

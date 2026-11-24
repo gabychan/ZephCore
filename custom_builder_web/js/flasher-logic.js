@@ -54,7 +54,7 @@
     for (const dev of catalog.device || []) {
       for (const fw of dev.firmware || []) {
         const ver = newestVersion(fw.version);
-        if (ver) out.push(...(fw.version[ver].files || []).map((f) => ({ ...f, erase: fw.erase, erase_sha256: fw.erase_sha256 })));
+        if (ver) out.push(...(fw.version[ver].files || []).map((f) => ({ ...f, erase: fw.erase, erase_sha256: fw.erase_sha256, erase_uf2_sha256: fw.erase_uf2_sha256 })));
       }
     }
     return out;

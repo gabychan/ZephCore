@@ -647,14 +647,16 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, const char* command, ch
 			 tm->tm_hour, tm->tm_min, tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900);
 	} else if (memcmp(command, "time ", 5) == 0) {
 		/* strtoul, not _atoi: _atoi wrapped silently past ten digits and set
-		 * the clock to the wrapped value. */
+		 * the clock to the wrapped value. Reject leading sign (strtoul negates
+		 * "-1" into 0xFFFFFFFF) and values >= UINT32_MAX (64-bit unsigned long
+		 * truncation, or 0xFFFFFFFF whose next unique timestamp wraps to 0). */
 		const char* arg = cliSkipSpace(&command[5]);
 		char* end = nullptr;
 		errno = 0;
-		unsigned long parsed = strtoul(arg, &end, 10);
+		unsigned long parsed = (*arg >= '0' && *arg <= '9') ? strtoul(arg, &end, 10) : 0;
 		uint32_t secs = (uint32_t)parsed;
 		uint32_t curr = getRTCClock()->getCurrentTime();
-		if (end == arg || *cliSkipSpace(end) != '\0' || errno == ERANGE) {
+		if (end == nullptr || end == arg || *cliSkipSpace(end) != '\0' || errno == ERANGE || parsed >= UINT32_MAX) {
 			strcpy(reply, "Error: expected a Unix timestamp");
 		} else if (secs > curr) {
 			getRTCClock()->setCurrentTime(secs);
