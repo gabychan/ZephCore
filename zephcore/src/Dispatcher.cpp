@@ -30,6 +30,7 @@ Dispatcher::Dispatcher(Radio& radio, MillisecondClock& ms, PacketManager& mgr)
   lbt_busy_start = 0;
   lbt_next_warn = 0;
   tx_budget_ms = 0;
+  tx_budget_frac = 0;
   last_budget_update = 0;
   duty_cycle_window_ms = 0;
   _err_flags = 0;
@@ -46,6 +47,7 @@ Dispatcher::Dispatcher(Radio& radio, MillisecondClock& ms, PacketManager& mgr)
   tx_wake_at = 0;
   tx_wake_armed = false;
   tx_contended = false;
+  tx_hold = false;
 }
 
 void Dispatcher::begin() {
@@ -57,8 +59,10 @@ void Dispatcher::begin() {
 
   duty_cycle_window_ms = getDutyCycleWindowMs();
   tx_budget_ms = getMaxTxBudgetMs();
+  tx_budget_frac = 0;
   last_budget_update = now;
   next_tx_time = now;
+  tx_hold = false;
 
   _radio->begin();
   prev_isrecv_mode = _radio->isInRecvMode();
@@ -89,14 +93,21 @@ void Dispatcher::updateTxBudget() {
     return;
   }
 
-  uint32_t refill = (elapsed * (uint32_t)duty_pct) / 100U;
-  if (refill > 0) {
-    uint32_t max_budget = getMaxTxBudgetMs();
-    tx_budget_ms += refill;
-    if (tx_budget_ms > max_budget) {
-      tx_budget_ms = max_budget;
-    }
-    last_budget_update = now;
+  last_budget_update = now;
+  uint32_t max_budget = getMaxTxBudgetMs();
+  if (elapsed >= duty_cycle_window_ms) {  // a whole window refills everything
+    tx_budget_ms = max_budget;
+    tx_budget_frac = 0;
+    return;
+  }
+
+  // Hundredths of a ms: the division's remainder carries to the next call.
+  uint64_t credit = (uint64_t)elapsed * duty_pct + tx_budget_frac;
+  tx_budget_ms += (uint32_t)(credit / 100U);
+  tx_budget_frac = (uint8_t)(credit % 100U);
+  if (tx_budget_ms >= max_budget) {
+    tx_budget_ms = max_budget;
+    tx_budget_frac = 0;
   }
 }
 
@@ -439,6 +450,11 @@ void Dispatcher::onLbtRefused(uint32_t now, int len) {
 
 void Dispatcher::checkSend() {
   uint32_t now = (uint32_t)_ms->getMillis();
+
+  // ZEPHCORE: a hold ends when its time is reached, on any pass, so a stamp
+  // never ages into the wrong half of the 32-bit clock.
+  if (tx_hold && (int32_t)(next_tx_time - now) <= 0) tx_hold = false;
+
   if (_mgr->getOutboundCount(now) == 0) {
     cad_busy_start = 0;
     // ZEPHCORE: only a genuinely EMPTY queue ends an LBT streak — a refusal
@@ -457,7 +473,7 @@ void Dispatcher::checkSend() {
   bool is_radio_ready = _radio->isRadioReady();
   if (is_receiving || !is_radio_ready) {
     tx_contended = true;
-    if (!millisHasNowPassed(next_tx_time)) {
+    if (tx_hold && !millisHasNowPassed(next_tx_time)) {
       notifyTxQueued(next_tx_time - now + 1);
       return;
     }
@@ -479,7 +495,7 @@ void Dispatcher::checkSend() {
       tx_contended = false;
     } else {
       uint32_t retry = getCADFailRetryDelay();
-      next_tx_time = futureMillis(retry);
+      holdTxUntil(futureMillis(retry));
       notifyTxQueued(retry + 1);  // ZEPHCORE: schedule the wake
       return;
     }

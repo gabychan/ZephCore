@@ -213,6 +213,7 @@ class Dispatcher {
   uint32_t n_sent_flood, n_sent_direct;
   uint32_t n_recv_flood, n_recv_direct;
   uint32_t tx_budget_ms;
+  uint8_t tx_budget_frac;  // ZEPHCORE: refill remainder, hundredths of a ms
   uint32_t last_budget_update;
   uint32_t duty_cycle_window_ms;
 
@@ -231,6 +232,7 @@ class Dispatcher {
   uint32_t tx_wake_at;  // ZEPHCORE: when the armed TX wake fires
   bool tx_wake_armed;
   bool tx_contended;    // ZEPHCORE: a due packet found the channel busy
+  bool tx_hold;         // ZEPHCORE: next_tx_time is a live hold (a stale stamp must not hold)
   ForeignTail _foreign_tail;  // ZEPHCORE: bytes of a foreign frame past MAX_PACKET_PAYLOAD
 
   void processRecvPacket(Packet* pkt);
@@ -347,6 +349,8 @@ private:
   void onLbtRefused(uint32_t now, int len);
   void armNextScheduledTx(uint32_t now);
   void recontend(uint32_t now, bool frame_ended);
+  // ZEPHCORE: hold every transmit until t. The only writer of next_tx_time after begin().
+  void holdTxUntil(uint32_t t) { next_tx_time = t; tx_hold = true; }
   bool checkRecv();  // ZEPHCORE: true when a frame was heard
   void checkSend();
 };

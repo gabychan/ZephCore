@@ -78,6 +78,11 @@
       "source": "tests/unit/contention_tests.cpp"
     },
     {
+      "id": "UNIT-CONTENTION-005",
+      "name": "Stale decay reaches zero and the tracker goes idle",
+      "source": "tests/unit/contention_tests.cpp"
+    },
+    {
       "id": "UNIT-DISPATCH-001",
       "name": "Immediate wake delayed dispatch and exactly-once completion",
       "source": "tests/unit/dispatcher_tests.cpp"
@@ -205,6 +210,11 @@
     {
       "id": "UNIT-LORATIME-004",
       "name": "LR11xx detPeak base table cells symbol adjustment and clamp headroom",
+      "source": "tests/unit/lora_timing_tests.cpp"
+    },
+    {
+      "id": "UNIT-LORATIME-005",
+      "name": "Duty-cycle percent from the airtime factor is never 0",
       "source": "tests/unit/lora_timing_tests.cpp"
     },
     {
@@ -395,6 +405,11 @@
     {
       "id": "UNIT-CHAT-002",
       "name": "sendGroupMessage refuses a negative text length",
+      "source": "tests/unit/chat_contacts_tests.cpp"
+    },
+    {
+      "id": "UNIT-CHAT-003",
+      "name": "A TRACE ending in a partial hash entry is not forwarded",
       "source": "tests/unit/chat_contacts_tests.cpp"
     },
     {
@@ -1486,6 +1501,16 @@
       "id": "UNIT-NEIGH-020",
       "name": "A row takes the name the node announced, else its number in hex",
       "source": "tests/unit/neighbour_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-032",
+      "name": "A live transmit hold ends at its time and a stamp left by begin() never suppresses the CAD recovery",
+      "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-DISPATCH-033",
+      "name": "Budget refill survives a long silence and keeps the division remainder",
+      "source": "tests/unit/dispatcher_tests.cpp"
     }
   ]
 }

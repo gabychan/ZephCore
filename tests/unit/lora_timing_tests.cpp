@@ -1,4 +1,6 @@
 #include "test.h"
+#include <NodePrefs.h>
+#include <cmath>
 #include <zephyr/drivers/lora/zc_lora_timing.h>
 #include <lr11xx_cad_peak.h>
 
@@ -42,4 +44,10 @@ TEST(lr11xx_cad_peak, "UNIT-LORATIME-004", "LR11xx detPeak base table cells symb
                 uint8_t p = lr11xx_cad_detect_peak(sf, bw, symb);
                 CHECK(p >= LR11XX_CAD_PEAK_MIN && p <= LR11XX_CAD_PEAK_MAX);
             }
+}
+
+TEST(duty_percent, "UNIT-LORATIME-005", "Duty-cycle percent from the airtime factor is never 0") {
+    CHECK(zcDutyCyclePercent(0.0f) == 100 && zcDutyCyclePercent(1.0f) == 50 && zcDutyCyclePercent(9.0f) == 10);
+    CHECK(zcDutyCyclePercent(199.0f) == 1 && zcDutyCyclePercent(200.0f) == 1);
+    CHECK(zcDutyCyclePercent(4294967.0f) == 1 && zcDutyCyclePercent(-5.0f) == 1 && zcDutyCyclePercent(NAN) == 1);
 }
