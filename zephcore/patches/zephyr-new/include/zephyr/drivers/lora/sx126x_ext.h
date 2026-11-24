@@ -156,6 +156,19 @@ void sx126x_reset_agc(const struct device *dev);
 uint32_t sx126x_get_wakeup_time_us(const struct device *dev);
 
 /**
+ * @brief Abort a transmit the driver still owns.
+ *
+ * The transmit state is entered with a CAS and nothing else clears it, so a
+ * lost TX_DONE leaves every later entry answering -EBUSY. This puts the chip
+ * back in its rest state (SetStandby, then the usual SetSleep) and reports 0
+ * when there was nothing to abort.
+ *
+ * @param dev LoRa device
+ * @return 0 when the abort ran or was not needed, the driver error otherwise
+ */
+int sx126x_abort_tx(const struct device *dev);
+
+/**
  * @brief Get duty-cycle preamble false-positive counter
  *
  * Returns the number of times duty-cycle RX tripped IRQ_RX_TX_TIMEOUT

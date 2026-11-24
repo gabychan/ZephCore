@@ -219,6 +219,18 @@ void LoRaRadio::txWaitThreadFn(void *p1, void *p2, void *p3)
 		if (ret == -EAGAIN) {
 			LOG_ERR("TX wait: TIMEOUT after %u ms (len=%u) — packet lost",
 				budget_ms, (unsigned)self->_tx_len);
+			/* The chip may still be in TX with the driver owning that
+			 * state: without this, startReceive() below fails its own
+			 * transition and every later transmit answers -EBUSY until
+			 * a reboot. The families that leave TX by themselves
+			 * declare no abort_tx and skip it. */
+			if (kLoRaRadioOps.abort_tx != nullptr) {
+				int abort_ret = kLoRaRadioOps.abort_tx(self->_dev);
+
+				if (abort_ret < 0) {
+					LOG_ERR("TX wait: abort failed (%d)", abort_ret);
+				}
+			}
 			self->_board->onAfterTransmit();
 			atomic_set(&self->_rx_word_pending, 0);
 			self->startReceive();

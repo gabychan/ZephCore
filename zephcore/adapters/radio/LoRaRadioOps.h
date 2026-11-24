@@ -62,6 +62,10 @@ struct LoRaRadioOps {
 	uint8_t (*cad_peak_min)(void);
 	uint8_t (*cad_peak_max)(void);
 
+	/* Abort a transmit the driver still owns and return the chip to rest.
+	 * NULL: the family leaves no transmit state behind, so nothing to abort. */
+	int (*abort_tx)(const struct device *dev);
+
 	/* Family extras. */
 	void (*post_begin)(const struct device *dev);
 	int (*side_detectors)(const struct device *dev, const uint8_t *sfs,

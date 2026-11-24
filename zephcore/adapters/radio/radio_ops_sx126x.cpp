@@ -66,6 +66,7 @@ const LoRaRadioOps kLoRaRadioOps = {
 	.cad_base_peak = sx126x_cad_base_peak,
 	.cad_peak_min = sx126x_cad_peak_min,
 	.cad_peak_max = sx126x_cad_peak_max,
+	.abort_tx = sx126x_abort_tx,
 #if IS_ENABLED(CONFIG_ZEPHCORE_SX126X_HELTEC_REG_PATCH)
 	.post_begin = sx126x_post_begin,
 #else
