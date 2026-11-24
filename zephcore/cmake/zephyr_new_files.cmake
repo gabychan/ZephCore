@@ -30,6 +30,19 @@ if(EXISTS ${ZEPHCORE_SOURCE_DIR}/patches/zephyr-new)
          RELATIVE ${ZEPHCORE_SOURCE_DIR}/patches/zephyr-new
          ${ZEPHCORE_SOURCE_DIR}/patches/zephyr-new/*)
     foreach(REL_PATH ${ZEPHCORE_NEW_FILES})
+        # zephyr-new/ is for files Zephyr does not have. Copying over one that it
+        # does have would replace it silently: a Zephyr file belongs to a patch
+        # in patches/zephyr/, so that a bump fails in git apply --check instead.
+        execute_process(
+            COMMAND git ls-files --error-unmatch -- "${REL_PATH}"
+            WORKING_DIRECTORY "${ZEPHCORE_ZEPHYR_DIR}"
+            RESULT_VARIABLE _zn_tracked
+            OUTPUT_QUIET ERROR_QUIET)
+        if(_zn_tracked EQUAL 0)
+            message(FATAL_ERROR
+                "patches/zephyr-new/${REL_PATH} replaces a file Zephyr already has. "
+                "Turn it into a patch in patches/zephyr/ and remove it from zephyr-new/.")
+        endif()
         configure_file(${ZEPHCORE_SOURCE_DIR}/patches/zephyr-new/${REL_PATH}
                        ${ZEPHCORE_ZEPHYR_DIR}/${REL_PATH} COPYONLY)
         message(STATUS "  [zephyr-new] ${REL_PATH}")

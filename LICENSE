@@ -32,9 +32,10 @@ file keeps its header.
   carry its header.
 - **Zephyr RTOS** (Apache-2.0). Per-file notices stay in the Zephyr tree.
   Covers `zephcore/patches/zephyr/*.patch`, which modify Zephyr files and are
-  applied to the Zephyr tree fetched by `west update`, and
-  `zephcore/patches/zephyr-new/drivers/entropy/fake_entropy_native_sim.c`, which
-  replaces a Zephyr file and keeps its Oticon A/S notice, and
+  applied to the Zephyr tree fetched by `west update`, including
+  `0002-entropy-native-sim-urandom.patch` for
+  `drivers/entropy/fake_entropy_native_sim.c`, which keeps that file's Oticon
+  A/S notice, and
   `zephcore/boards/nrf54l/seeed_lr2021_evk/support/openocd.cfg`, taken from
   Zephyr main. The Apache-2.0 text is
   in [LICENSE-Apache-2.0.txt](LICENSE-Apache-2.0.txt).

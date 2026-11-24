@@ -1350,8 +1350,9 @@ config ZEPHCORE_EASTER_EGG_DOOM
 
 config ZEPHCORE_UI_JOYSTICK
 	bool
-	# In-tree Zephyr board (no board Kconfig of ours to select from)
-	default y if BOARD_WIO_TRACKER_L1
+	# Gated on the devicetree node, as ZEPHCORE_UI_BUZZER is: a board with a
+	# 5-way joystick declares `joystick_up`, and nothing else is needed.
+	default y if $(dt_nodelabel_enabled,joystick_up)
 	help
 	  Set by board-level Kconfig when the hardware has a 5-way joystick or
 	  D-pad. Not user-selectable; set by the board configuration.

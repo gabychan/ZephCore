@@ -27,25 +27,27 @@ if [[ $GROUP == "esp32" && -z $ROLE_FILTER ]]; then
 fi
 
 # Move the finished image(s) of one build into firmware/ under the published name.
+# Every command ends with `|| return 1`: this runs from build_row, which sits on
+# the left of `||`, and bash turns set -e off in the whole body of such a call.
 package() {
     local platform=$1 target=$2 stem=$3 tag=$4
     local out="firmware/$stem-$tag-$COMMIT_HASH"
     case $platform in
         nrf)
             # UF2 for drag-and-drop, DFU .zip for the configurator.
-            mv build/zephyr/zephyr.uf2 "$out.uf2"
-            mv build/zephyr/zephyr.zip "$out.zip"
+            mv build/zephyr/zephyr.uf2 "$out.uf2" || return 1
+            mv build/zephyr/zephyr.zip "$out.zip" || return 1
             ;;
         nrf54l | mg24 | stm32wl)
             # No USB bootloader on these SoCs (nRF54L15, EFR32MG24 and STM32WL
             # have no USB device peripheral): zephyr.hex links at the flash origin,
             # IS the whole image, and is flashed over SWD. Download-only in the
             # Mesh America catalog.
-            mv build/zephyr/zephyr.hex "$out.hex"
+            mv build/zephyr/zephyr.hex "$out.hex" || return 1
             ;;
         linux)
             # native_sim emits zephcore_native_linux.exe; ship it extension-less.
-            mv build/zephyr/zephcore_native_linux.exe "$out"
+            mv build/zephyr/zephcore_native_linux.exe "$out" || return 1
             ;;
         esp32)
             [[ $target =~ (esp32[^/]*) ]] || { echo "Unknown chip for: $target" >&2; exit 1; }
@@ -59,8 +61,8 @@ package() {
                 python -m esptool --chip "$chip" merge-bin \
                     --output "$out-merged.bin" \
                     --flash-mode dio --flash-freq 40m --flash-size 4MB \
-                    0x1000 build/zephyr/zephyr.bin
-                cp build/zephyr/zephyr.bin "$out.bin"
+                    0x1000 build/zephyr/zephyr.bin || return 1
+                cp build/zephyr/zephyr.bin "$out.bin" || return 1
             else
                 # S3/C-series: sysbuild + MCUboot. Only the merged image (MCUboot @
                 # 0x0 + signed app @ 0x10000) is bootable on a bare chip. The signed
@@ -70,13 +72,15 @@ package() {
                 # flashed like classic-ESP32's image, GH #42).
                 local flash_size
                 flash_size=$(python3 zephcore/scripts/dts_flash_size.py \
-                    "${ZEPHYR_DTS:-build/zephcore/zephyr/zephyr.dts}")
+                    "${ZEPHYR_DTS:-build/zephcore/zephyr/zephyr.dts}") || return 1
+                # An empty flash size would produce a merged image esptool writes wrong.
+                [[ -n $flash_size ]] || { echo "No flash size for $target" >&2; return 1; }
                 python -m esptool --chip "$chip" merge-bin \
                     --output "$out-merged.bin" \
                     --flash-mode dio --flash-freq 40m --flash-size "$flash_size" \
                     0x00000 build/mcuboot/zephyr/zephyr.bin \
-                    0x10000 build/zephcore/zephyr/zephyr.signed.bin
-                cp build/zephcore/zephyr/zephyr.signed.bin "$out-update.bin"
+                    0x10000 build/zephcore/zephyr/zephyr.signed.bin || return 1
+                cp build/zephcore/zephyr/zephyr.signed.bin "$out-update.bin" || return 1
             fi
             ;;
     esac
@@ -99,7 +103,7 @@ build_row() {
 
     echo "Now building $target $tag"
     "${cmd[@]}" || return 1
-    package "$GROUP" "$target" "$stem" "$tag"
+    package "$GROUP" "$target" "$stem" "$tag" || return 1
 }
 
 # Every row is built even if one fails, and the failures are listed at the end,
