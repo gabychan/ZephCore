@@ -30,6 +30,7 @@ add_executable(zephcore_unit
   unit/rxstats_tests.cpp
   unit/zcommand_tests.cpp
   unit/zinfo_tests.cpp
+  unit/cli_parse_tests.cpp
   unit/uidash_tests.cpp
   support/hash_capture.cpp
   support/identity_utils_boundary.cpp
@@ -48,6 +49,7 @@ add_executable(zephcore_unit
   ${PRODUCTION}/adapters/radio/CadController.cpp
   ${PRODUCTION}/helpers/PrefsCodec.cpp
   ${PRODUCTION}/helpers/PrefsJson.cpp
+  ${PRODUCTION}/helpers/cli_parse.cpp
   ${PRODUCTION}/helpers/ConfigSerializer.cpp
   ${PRODUCTION}/helpers/ui/telemetry_text.cpp
   ${PRODUCTION}/app/KissModem.cpp

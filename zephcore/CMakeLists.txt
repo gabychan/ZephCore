@@ -598,6 +598,7 @@ if(CONFIG_ZEPHCORE_ROLE_REPEATER OR CONFIG_ZEPHCORE_ROLE_ROOM_SERVER)
     helpers/compat/SHA256.cpp
     helpers/compat/ZephyrFS.cpp
     helpers/CommonCLI.cpp
+    helpers/cli_parse.cpp
   )
   # Low-battery auto-shutdown, where the board wakes itself again.
   if(CONFIG_ZEPHCORE_BATTERY_WAKE)
@@ -693,6 +694,7 @@ else()
     # must be compiled unconditionally. Builds without CONFIG_LOG/COMPANION_USB/
     # COMPANION_SERIAL (e.g. plain ESP32/S3 companions) failed to link otherwise.
     helpers/CommonCLI.cpp
+    helpers/cli_parse.cpp
   )
   if(CONFIG_ZEPHTACORE_MESHTASTIC)
     message(STATUS "Zephtacore: Meshtastic bridge")

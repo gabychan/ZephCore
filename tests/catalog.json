@@ -1581,6 +1581,26 @@
       "id": "UNIT-MT-077",
       "name": "An answer to a request carries the hops it used plus two, never more than our own hop limit, and a frame we start keeps ours",
       "source": "tests/unit/meshtastic_tests.cpp"
+    },
+    {
+      "id": "UNIT-CLIPARSE-001",
+      "name": "A plain decimal timestamp is accepted",
+      "source": "tests/unit/cli_parse_tests.cpp"
+    },
+    {
+      "id": "UNIT-CLIPARSE-002",
+      "name": "A leading sign is refused, because strtoul negates it",
+      "source": "tests/unit/cli_parse_tests.cpp"
+    },
+    {
+      "id": "UNIT-CLIPARSE-003",
+      "name": "UINT32_MAX and anything above it is refused",
+      "source": "tests/unit/cli_parse_tests.cpp"
+    },
+    {
+      "id": "UNIT-CLIPARSE-004",
+      "name": "Empty input, trailing junk and embedded signs are refused",
+      "source": "tests/unit/cli_parse_tests.cpp"
     }
   ]
 }
