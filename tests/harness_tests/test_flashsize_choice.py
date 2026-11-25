@@ -20,7 +20,8 @@ ZEPHCORE = ROOT / "zephcore"
 HAL = ROOT / "modules" / "hal" / "espressif" / "components" / "soc"
 
 FLASH_CHOICE = re.compile(r"^CONFIG_ESPTOOLPY_FLASHSIZE_(\w+)=y", re.MULTILINE)
-MMU_DEPENDENCY = re.compile(r"^Kconfig\.mmu$", re.MULTILINE)
+# Fallback list for clean checkouts (such as GitHub Actions) that do not fetch west modules/.
+KNOWN_MMU_SOCS = ("esp32c2", "esp32c6", "esp32c61", "esp32h2", "esp32h21", "esp32h4", "esp32s31")
 
 
 def mmu_socs():
@@ -59,6 +60,8 @@ def states_flash_size(conf):
 class FlashSizeChoiceTests(unittest.TestCase):
     def test_the_mmu_dependency_is_where_we_think_it_is(self):
         """If upstream moves the dependency, the rule below stops meaning anything."""
+        if not HAL.is_dir():
+            return  # CI checkout without west modules/; board scan below enforces KNOWN_MMU_SOCS.
         socs = mmu_socs()
         self.assertTrue(socs, "no Kconfig.mmu found under modules/hal/espressif")
         # The scan is only useful if the MMU really reads the choice.
@@ -68,11 +71,19 @@ class FlashSizeChoiceTests(unittest.TestCase):
             r"MMU_PAGE_SIZE|ESPTOOLPY_FLASHSIZE",
             f"{socs[0]}/Kconfig.mmu no longer relates the page size to the flash size",
         )
+        dependent = [s for s in socs if self._keys_off_flash_size(s)]
+        self.assertEqual(
+            dependent,
+            list(KNOWN_MMU_SOCS),
+            "HAL MMU-dependent SoC list drifted; update KNOWN_MMU_SOCS",
+        )
 
     def test_every_board_on_an_mmu_dependent_soc_states_its_flash_size(self):
-        dependent = [s for s in mmu_socs() if self._keys_off_flash_size(s)]
-        if not dependent:
-            self.skipTest("no SoC derives MMU_PAGE_SIZE from the flash-size choice")
+        if HAL.is_dir():
+            dependent = [s for s in mmu_socs() if self._keys_off_flash_size(s)]
+            self.assertTrue(dependent, "no SoC derives MMU_PAGE_SIZE from the flash-size choice")
+        else:
+            dependent = list(KNOWN_MMU_SOCS)
         unsized = []
         scanned = 0
         for board in esp32_boards():

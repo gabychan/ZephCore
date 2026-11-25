@@ -2552,8 +2552,8 @@ bool CompanionMesh::handleCmdExportContact(const uint8_t *data, size_t len)
 		}
 		if (pkt) {
 			pkt->header |= ROUTE_TYPE_FLOOD;
-			/* The advert is up to MAX_ADVERT_PKT_LEN: size the frame for it
-			 * rather than for the 128-byte older envelope. */
+			/* Self advert has 0 path bytes: header(1) + path_len(1) + pub(32) + ts(4) +
+			 * sig(64) + app_data(<=32) <= 134 B, so +1 frame byte <= 135 B <= MAX_FRAME_SIZE (176). */
 			uint8_t rsp[MAX_FRAME_SIZE + 1];
 			rsp[0] = PACKET_EXPORT_CONTACT;
 			uint8_t out_len = pkt->writeTo(&rsp[1]);
@@ -2566,7 +2566,8 @@ bool CompanionMesh::handleCmdExportContact(const uint8_t *data, size_t len)
 		// Export specific contact by pubkey
 		ContactInfo *c = lookupContactByPubKey(&data[1], PUB_KEY_SIZE);
 		if (c) {
-			/* As above: a stored advert blob is up to MAX_ADVERT_PKT_LEN. */
+			/* getBlobByKey() caps stored adverts at MAX_ADVERT_PKT_LEN (166 B in
+			 * ZephyrDataStore.cpp), so +1 frame byte <= 167 B <= MAX_FRAME_SIZE (176). */
 			uint8_t rsp[MAX_FRAME_SIZE + 1];
 			rsp[0] = PACKET_EXPORT_CONTACT;
 			uint8_t export_len = exportContact(*c, &rsp[1]);
