@@ -216,7 +216,8 @@ typedef uint32_t  DispatcherAction;
 class Dispatcher {
   Packet* outbound;  // current outbound packet
   uint32_t outbound_expiry, outbound_start, total_air_time, rx_air_time;
-  uint32_t next_tx_time;
+  uint32_t next_tx_time;  // ZEPHCORE: only holdTxUntil() writes this after begin();
+                          // a direct write skips tx_hold and the hold silently does nothing
   uint32_t cad_busy_start;
   uint32_t radio_nonrx_start;
   bool  prev_isrecv_mode;

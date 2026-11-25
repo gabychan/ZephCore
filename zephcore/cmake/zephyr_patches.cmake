@@ -34,6 +34,19 @@ function(zephcore_apply_patches PATCH_DIR TARGET_DIR LABEL)
     if(NOT PATCH_FILES)
         return()
     endif()
+    # Two builds configured at once share one west tree, and the steps below
+    # rewrite its files. Without exclusion the loser of the race reads a
+    # half-applied tree or a stale stamp and fails with a git apply error that
+    # names the patch, not the concurrent configure that caused it. Held until
+    # the function returns, so a FATAL_ERROR releases it.
+    set(_lock "${TARGET_DIR}/.zephcore_${LABEL}.lock")
+    file(LOCK "${_lock}" GUARD FUNCTION TIMEOUT 600 RESULT_VARIABLE _lock_result)
+    if(NOT _lock_result EQUAL 0)
+        message(FATAL_ERROR
+            "ZephCore: could not obtain ${_lock} within 600 s. Another configure "
+            "is patching ${TARGET_DIR} right now; wait for it to finish or, if "
+            "none is running, delete that file.")
+    endif()
     # Stamp = hash(patch contents + target HEAD). Skip if unchanged.
     execute_process(
         COMMAND git rev-parse HEAD
