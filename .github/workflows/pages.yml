@@ -26,6 +26,14 @@ concurrency:
 
 jobs:
   deploy-pages:
+    # A cancelled or failed firmware build must never publish. `workflow_run`
+    # fires on every completion, so without this a build cancelled by a newer
+    # push deployed the previous release: on 2026-11-23 that put a catalog on
+    # Pages one commit behind the release, under the same version label, with no
+    # way to notice from the page.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
