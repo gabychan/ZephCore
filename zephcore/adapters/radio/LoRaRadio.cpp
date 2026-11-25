@@ -7,6 +7,7 @@
 #include "radio_common.h"
 #include "pm_sleep_guard.h"
 #include <mesh/MeshCore.h>   /* MAX_TRANS_UNIT */
+#include <zephyr/drivers/lora/zc_lora_timing.h>
 #include <zephyr/kernel.h>
 #include <zephyr/random/random.h>
 #include <string.h>
@@ -629,11 +630,9 @@ void LoRaRadio::startReceive()
 	int ret;
 
 	if (_rx_duty_cycle_enabled) {
-		/* Duty-cycle window sizing (SX1261/2 DS §13.1.7, AN1200.36; LLD 03 §13):
-		 *   catch:    sleep + wake <= (P - 2D - 1) * Tsym
-		 *   complete: 2R + S >= (P + 14) * Tsym
-		 *   floor:    R >= (D + 1) * Tsym
-		 * No viable sleep budget -> continuous RX. */
+		/* The window arithmetic is zc_lora_rx_duty_window() (SX1261/2 DS
+		 * §13.1.7, AN1200.36; LLD 03 §13). No viable budget -> continuous
+		 * RX. */
 		struct lora_modem_config cfg;
 		buildModemConfig(cfg, false);
 
@@ -643,65 +642,47 @@ void LoRaRadio::startReceive()
 		const uint16_t P = atomic_get(&_mt_listen) && cfg.preamble_len > kMeshtasticPreambleLen
 					   ? kMeshtasticPreambleLen : cfg.preamble_len;
 		const uint16_t D = rxDutyDetectSymbols(sf);
+		const uint32_t trans_us = hwWakeupTimeUs();
+		const struct zc_lora_rx_duty w =
+			zc_lora_rx_duty_window(sf, bw_hz, P, D,
+					       CONFIG_ZEPHCORE_LORA_DC_MARGIN_PCT, trans_us);
 
-		if (bw_hz > 0 && P > 2 * D + 1) {
-			const uint32_t sym_us = (uint32_t)
-				(((uint64_t)(1U << sf) * 1000000ULL) / bw_hz);
-			const uint32_t trans_us = hwWakeupTimeUs();
+		if (w.reason == ZC_LORA_RX_DUTY_OK) {
+			const uint32_t rx_us = w.rx_us;
+			const uint32_t sleep_us = w.sleep_us;
 
-			/* Derate the budget by DC_MARGIN_PCT: the RC sleep timer
-			 * drifts and the wake time "may vary"; an overshoot drops
-			 * phase-edge packets. */
-			const uint32_t deaf_budget_us =
-				(uint32_t)(P - 2 * D - 1) * sym_us;
-			const uint32_t deaf_us = deaf_budget_us -
-				(uint32_t)(((uint64_t)deaf_budget_us *
-					    CONFIG_ZEPHCORE_LORA_DC_MARGIN_PCT) /
-					   100U);
+			if (rx_us != _dc_last_rx_us || sleep_us != _dc_last_sleep_us) {
+				_dc_last_rx_us = rx_us;
+				_dc_last_sleep_us = sleep_us;
+				LOG_INF("rxduty: rx=%ums sleep=%ums trans=%ums (P=%u D=%u, off=%u%%)",
+					rx_us / 1000, sleep_us / 1000,
+					trans_us / 1000, P, D,
+					(uint32_t)(((uint64_t)sleep_us * 100) /
+						   (rx_us + sleep_us + trans_us)));
+			}
 
-			if (deaf_us > trans_us + 2000) {
-				const uint32_t sleep_us = deaf_us - trans_us;
-				const uint32_t complete_us =
-					(uint32_t)(P + 14) * sym_us;
-				uint32_t rx_us = (uint32_t)(D + 1) * sym_us;
-
-				if (complete_us > sleep_us &&
-				    rx_us < (complete_us - sleep_us + 1) / 2) {
-					rx_us = (complete_us - sleep_us + 1) / 2;
-				}
-
-				if (rx_us != _dc_last_rx_us ||
-				    sleep_us != _dc_last_sleep_us) {
-					_dc_last_rx_us = rx_us;
-					_dc_last_sleep_us = sleep_us;
-					LOG_INF("rxduty: rx=%ums sleep=%ums trans=%ums (P=%u D=%u, off=%u%%)",
-						rx_us / 1000, sleep_us / 1000,
-						trans_us / 1000, P, D,
-						(uint32_t)(((uint64_t)sleep_us * 100) /
-							   (rx_us + sleep_us + trans_us)));
-				}
-
-				ret = lora_recv_duty_cycle_async(_dev,
-							   K_USEC(rx_us),
-							   K_USEC(sleep_us),
-							   rxCallbackStatic, this);
-				if (ret == 0) {
-					_rx_entry_cyc = k_cycle_get_32();
-					atomic_set(&_in_recv_mode, 1);
-					return;
-				}
-				if (ret == -EBUSY) {
-					/* A live TX owns the chip (CAD-busy leaves it in
-					 * RX, which the driver's fast path re-arms). */
-					LOG_DBG("rxduty: busy (TX in progress) — continuous RX");
-				} else if (ret != -ENOSYS) {
-					LOG_ERR("lora_recv_duty_cycle_async failed: %d", ret);
-				}
-				/* Fall through to continuous RX */
-			} else if (_dc_last_rx_us != UINT32_MAX) {
+			ret = lora_recv_duty_cycle_async(_dev,
+						   K_USEC(rx_us),
+						   K_USEC(sleep_us),
+						   rxCallbackStatic, this);
+			if (ret == 0) {
+				_rx_entry_cyc = k_cycle_get_32();
+				atomic_set(&_in_recv_mode, 1);
+				return;
+			}
+			if (ret == -EBUSY) {
+				/* A live TX owns the chip (CAD-busy leaves it in
+				 * RX, which the driver's fast path re-arms). */
+				LOG_DBG("rxduty: busy (TX in progress) — continuous RX");
+			} else if (ret != -ENOSYS) {
+				LOG_ERR("lora_recv_duty_cycle_async failed: %d", ret);
+			}
+			/* Fall through to continuous RX */
+		} else if (w.reason == ZC_LORA_RX_DUTY_WAKE_TOO_LONG) {
+			if (_dc_last_rx_us != UINT32_MAX) {
 				_dc_last_rx_us = UINT32_MAX;
 				LOG_INF("rxduty: wake transition %uus exceeds deaf budget %uus — continuous RX",
-					trans_us, deaf_us);
+					trans_us, w.deaf_us);
 			}
 		} else if (_dc_last_rx_us != UINT32_MAX) {
 			_dc_last_rx_us = UINT32_MAX;

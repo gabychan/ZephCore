@@ -218,6 +218,26 @@
       "source": "tests/unit/lora_timing_tests.cpp"
     },
     {
+      "id": "UNIT-LORATIME-006",
+      "name": "RX duty window at SF7 and SF8 on 62.5 kHz sleeps 44 and 46 percent",
+      "source": "tests/unit/lora_timing_tests.cpp"
+    },
+    {
+      "id": "UNIT-LORATIME-007",
+      "name": "SF6 needs 12 detect symbols, engages on 62.5 kHz and falls back on 125 kHz",
+      "source": "tests/unit/lora_timing_tests.cpp"
+    },
+    {
+      "id": "UNIT-LORATIME-008",
+      "name": "A short preamble or an unconfigured bandwidth rejects instead of dividing",
+      "source": "tests/unit/lora_timing_tests.cpp"
+    },
+    {
+      "id": "UNIT-LORATIME-009",
+      "name": "Every viable window meets 2R + S >= (P+14) symbols, the DS 13.1.7 completion rule",
+      "source": "tests/unit/lora_timing_tests.cpp"
+    },
+    {
       "id": "UNIT-NOISE-001",
       "name": "Noise floor seeds from the first sample within the clamp window",
       "source": "tests/unit/radio_tests.cpp"

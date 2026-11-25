@@ -67,6 +67,63 @@ static inline uint32_t zc_lora_ms_to_steps24(uint32_t ms, uint32_t step_hz)
 	return steps > 0x00FFFFFFU ? 0x00FFFFFFU : (uint32_t)steps;
 }
 
+/* RX duty-cycle window arithmetic (SX1261/2 DS Rev 2.2 §13.1.7, AN1200.36):
+ *   catch:    sleep + wake <= (P - 2D - 1) * Tsym
+ *   complete: 2R + S >= (P + 14) * Tsym
+ *   floor:    R >= (D + 1) * Tsym
+ * The catch budget is derated by margin_pct: the RC sleep timer drifts and
+ * the wake time "may vary", so an overshoot drops phase-edge packets. The
+ * caller owns the preamble in force (a Meshtastic peer forces 16 symbols) and
+ * the wake estimate, and the two rejections, so its log strings stay put. */
+enum zc_lora_rx_duty_reason {
+	ZC_LORA_RX_DUTY_OK = 0,
+	ZC_LORA_RX_DUTY_PREAMBLE_SHORT, /* bw_hz == 0, or P <= 2D + 1 */
+	ZC_LORA_RX_DUTY_WAKE_TOO_LONG,  /* budget <= wake + 2000 us */
+};
+
+struct zc_lora_rx_duty {
+	uint32_t rx_us;
+	uint32_t sleep_us;
+	uint32_t trans_us;
+	uint32_t deaf_us;  /* the derated catch budget, for the report */
+	enum zc_lora_rx_duty_reason reason;
+};
+
+static inline struct zc_lora_rx_duty
+zc_lora_rx_duty_window(uint8_t sf, uint32_t bw_hz, uint16_t preamble,
+		       uint16_t detect_syms, uint32_t margin_pct,
+		       uint32_t trans_us)
+{
+	struct zc_lora_rx_duty w = {0U, 0U, trans_us, 0U,
+				    ZC_LORA_RX_DUTY_PREAMBLE_SHORT};
+
+	if (bw_hz == 0U || preamble <= 2 * detect_syms + 1) {
+		return w;
+	}
+
+	const uint32_t sym_us = (uint32_t)(((uint64_t)(1U << sf) * 1000000ULL) / bw_hz);
+	const uint32_t deaf_budget_us =
+		(uint32_t)(preamble - 2 * detect_syms - 1) * sym_us;
+
+	w.deaf_us = deaf_budget_us -
+		(uint32_t)(((uint64_t)deaf_budget_us * margin_pct) / 100U);
+	if (w.deaf_us <= trans_us + 2000U) {
+		w.reason = ZC_LORA_RX_DUTY_WAKE_TOO_LONG;
+		return w;
+	}
+
+	w.sleep_us = w.deaf_us - trans_us;
+
+	const uint32_t complete_us = (uint32_t)(preamble + 14) * sym_us;
+	const uint32_t floor_us = (uint32_t)(detect_syms + 1) * sym_us;
+	const uint32_t need_us = complete_us > w.sleep_us
+					 ? (complete_us - w.sleep_us + 1) / 2 : 0U;
+
+	w.rx_us = need_us > floor_us ? need_us : floor_us;
+	w.reason = ZC_LORA_RX_DUTY_OK;
+	return w;
+}
+
 #ifdef __cplusplus
 }
 #endif
