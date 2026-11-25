@@ -31,6 +31,7 @@ add_executable(zephcore_unit
   unit/zcommand_tests.cpp
   unit/zinfo_tests.cpp
   unit/cli_parse_tests.cpp
+  unit/cli_reply_tests.cpp
   unit/uidash_tests.cpp
   support/hash_capture.cpp
   support/identity_utils_boundary.cpp

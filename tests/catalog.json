@@ -1601,6 +1601,26 @@
       "id": "UNIT-CLIPARSE-004",
       "name": "Empty input, trailing junk and embedded signs are refused",
       "source": "tests/unit/cli_parse_tests.cpp"
+    },
+    {
+      "id": "UNIT-CLIREPLY-001",
+      "name": "A local caller gets the whole reply buffer",
+      "source": "tests/unit/cli_reply_tests.cpp"
+    },
+    {
+      "id": "UNIT-CLIREPLY-002",
+      "name": "A remote caller gets the smaller buffer, minus its header",
+      "source": "tests/unit/cli_reply_tests.cpp"
+    },
+    {
+      "id": "UNIT-CLIREPLY-003",
+      "name": "The remote buffer is smaller than the local one, on purpose",
+      "source": "tests/unit/cli_reply_tests.cpp"
+    },
+    {
+      "id": "UNIT-CLIREPLY-004",
+      "name": "A header larger than the buffer yields 0, never an underflow",
+      "source": "tests/unit/cli_reply_tests.cpp"
     }
   ]
 }

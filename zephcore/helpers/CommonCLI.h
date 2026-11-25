@@ -15,15 +15,16 @@
 #include <helpers/ZInfo.h>
 #include <helpers/RxStats.h>
 #include "NodePrefs.h"
+#include "cli_reply.h"
 
 class MeshTimeSync;
 
 /* A local caller's reply buffer (sender_timestamp 0) */
-#define CLI_REPLY_SIZE 256
+#define CLI_REPLY_SIZE cli_reply::LOCAL_REPLY_SIZE
 
 /* A remote reply rides in the caller's packet buffer, temp[5 + this] with the
  * text at offset 5; see replyCap(). */
-#define CLI_REMOTE_REPLY_SIZE 161
+#define CLI_REMOTE_REPLY_SIZE cli_reply::REMOTE_REPLY_SIZE
 
 /* Deferred reboot types */
 #define REBOOT_NONE       0
@@ -192,8 +193,7 @@ public:
 	 * local buffer, or what is left of a remote one after the caller's header.
 	 * Public for the role dispatchers' own reply writers. */
 	size_t replyCap(uint32_t sender_timestamp) const {
-		return (sender_timestamp == 0) ? CLI_REPLY_SIZE
-					       : (CLI_REMOTE_REPLY_SIZE - _reply_hdr_used);
+		return cli_reply::capFor(sender_timestamp, _reply_hdr_used);
 	}
 
 	void handleCommand(uint32_t sender_timestamp, const char* command, char* reply);
