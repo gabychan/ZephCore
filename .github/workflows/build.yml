@@ -357,9 +357,21 @@ jobs:
     - name: build firmwares
       run: bash build.sh esp32 companions
 
-    # Roles no manifest publishes still have to compile (see build-nrf).
+    # Roles no manifest publishes still have to compile. Built, not packaged:
+    # nothing here reaches firmware/.
     - name: compile-only roles
-      run: west build -b xiao_esp32c3 zephcore --pristine -- -DEXTRA_CONF_FILE="boards/common/kiss_modem.conf"
+      run: |
+        set -e
+        # kiss_modem on the RISC-V board: it is the smallest ESP32 target and the
+        # one the role must keep fitting.
+        west build -b xiao_esp32c3 zephcore --pristine \
+          -- -DEXTRA_CONF_FILE="boards/common/kiss_modem.conf"
+        # The observer needs WiFi for its MQTT forwarding, so it belongs on a
+        # WiFi-capable board -- an nRF52 does not link it (no USBD stack for the
+        # reboot detach). S3 rather than the C3 the conf documents: this job
+        # already builds the S3, and the role is verified on it.
+        west build -b xiao_esp32s3/esp32s3/procpu zephcore --pristine \
+          -- -DEXTRA_CONF_FILE="boards/common/observer.conf"
 
     - name: ccache stats
       if: always()
