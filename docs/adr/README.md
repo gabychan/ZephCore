@@ -23,3 +23,4 @@ restructure; most describe decisions taken earlier. The system view is in [../DE
 | [0017](0017-low-battery-auto-shutdown-with-battery-wake.md) | Zephtacore: low-battery auto-shutdown with an LPCOMP battery wake; off by default on repeaters and room servers, companion default kept |
 | [0018](0018-lora-headers-without-a-valid-crc.md) | A LoRa header whose CRC fails is not received; the check lives in the SX126x, LR1110 and LR2021 drivers, not in SX127x |
 | [0019](0019-recontention-after-a-busy-channel.md) | A packet held by a busy channel draws its wait again; MeshCore and Meshtastic keep their own windows |
+| [0020](0020-fork-version-scheme.md) | Fork version scheme (`<upstream-base>-ztc.<n>`, starting at `1.18.2-ztc.1`) within the 20-byte `PACKET_DEVICE_INFO` wire field |
