@@ -177,6 +177,12 @@ jobs:
     - name: compile-only roles and fragments
       run: |
         set -e
+        # The bare build: no EXTRA_CONF_FILE at all. It is the one README and
+        # docs/ tell people to run, and the only one that compiles the
+        # CONFIG_ZEPHTACORE_MESHTASTIC=n side of the shared guards.
+        echo "::group::compile-only plain companion"
+        west build -b rak4631 zephcore --pristine
+        echo "::endgroup::"
         for conf in \
           kiss_modem \
           room_server \
@@ -372,6 +378,10 @@ jobs:
         # already builds the S3, and the role is verified on it.
         west build -b xiao_esp32s3/esp32s3/procpu zephcore --pristine \
           -- -DEXTRA_CONF_FILE="boards/common/observer.conf"
+        # The repeater uplink is WiFi+MQTT too, and its conf documents this board.
+        # Role conf first, then the fragment, as build.sh orders them.
+        west build -b heltec_wifi_lora32_v3/esp32s3/procpu zephcore --pristine \
+          -- -DEXTRA_CONF_FILE="boards/common/repeater.conf;boards/common/repeater_uplink.conf"
 
     - name: ccache stats
       if: always()
