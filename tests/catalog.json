@@ -1351,6 +1351,11 @@
       "id": "UNIT-DISPATCH-030",
       "name": "After a frame heard or sent, a due packet waits; one still ahead keeps its slot",
       "source": "tests/unit/dispatcher_tests.cpp"
+    },
+    {
+      "id": "UNIT-FOREIGN-007",
+      "name": "When the channel comes free a relayed flood draws from the flood window; our own flood and a direct packet from the short one",
+      "source": "tests/unit/foreign_relay_tests.cpp"
     }
   ]
 }
